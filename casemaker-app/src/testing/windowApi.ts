@@ -78,6 +78,8 @@ export interface CaseMakerTestApi {
     patch: { enabled?: boolean; liftOverride?: number },
   ): Promise<void>;
   getHats(): import('@/types').HatPlacement[];
+  getLidVisible(): boolean;
+  setLidVisible(v: boolean): void;
 }
 
 export function installCaseMakerTestApi(): void {
@@ -189,6 +191,10 @@ export function installCaseMakerTestApi(): void {
       useViewportStore.getState().selectPort(portId);
     },
     getSelectedPortId: () => useViewportStore.getState().selectedPortId,
+    getLidVisible: () => useViewportStore.getState().showLid,
+    setLidVisible: (v) => {
+      useViewportStore.getState().setShowLid(v);
+    },
     async patchPort(portId, patch) {
       useProjectStore.getState().patchPort(portId, patch);
       await waitForIdle();

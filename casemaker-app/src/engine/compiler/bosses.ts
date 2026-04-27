@@ -1,6 +1,5 @@
 import type { CaseParameters, BoardProfile, InsertType } from '@/types';
 import { cylinder, difference, translate, type BuildOp } from './buildPlan';
-import { computeShellDims } from './caseShell';
 
 export interface BossPlacement {
   id: string;
@@ -41,11 +40,9 @@ export function computeBossPlacements(
   if (!params.bosses.enabled) return [];
   const { wallThickness: wall, internalClearance: cl, floorThickness: floor } = params;
   const standoff = board.defaultStandoffHeight;
-  // Screw-down extends bosses to the top of the cavity so the lid screws into them.
-  const totalHeight =
-    params.joint === 'screw-down'
-      ? floor + computeShellDims(board, params).cavityZ
-      : floor + standoff;
+  // All joint types use floor + standoff. For screw-down, the lid carries
+  // matching posts that descend from above to clamp the board (issue #21).
+  const totalHeight = floor + standoff;
   const { outerDiameter, holeDiameter } = resolveInsertSpec(
     params.bosses.insertType,
     params.bosses.outerDiameter,

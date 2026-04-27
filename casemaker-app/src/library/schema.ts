@@ -61,6 +61,9 @@ export const boardProfileSchema = z.object({
   defaultStandoffHeight: z.number().nonnegative(),
   recommendedZClearance: z.number().nonnegative(),
   source: z.string().url().optional(),
+  crossReference: z.string().url().optional(),
+  datasheetRevision: z.string().optional(),
+  measurementMethod: z.enum(['datasheet', 'open-source-cad', 'physical-measurement']).optional(),
   builtin: z.boolean(),
 });
 

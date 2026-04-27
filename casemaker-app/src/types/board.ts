@@ -38,6 +38,11 @@ export interface BoardComponent {
   cutoutShape?: CutoutShape;
 }
 
+export type MeasurementMethod =
+  | 'datasheet'
+  | 'open-source-cad'
+  | 'physical-measurement';
+
 export interface BoardProfile {
   id: string;
   name: string;
@@ -48,5 +53,10 @@ export interface BoardProfile {
   defaultStandoffHeight: Mm;
   recommendedZClearance: Mm;
   source?: string;
+  /** Independent confirmation of dimensions (e.g., open-source CAD repo). */
+  crossReference?: string;
+  /** Datasheet revision string, e.g. "Rev 1.4 — 2023-08". */
+  datasheetRevision?: string;
+  measurementMethod?: MeasurementMethod;
   builtin: boolean;
 }

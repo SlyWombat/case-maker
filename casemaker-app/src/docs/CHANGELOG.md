@@ -8,9 +8,12 @@ All notable changes to Case Maker. The project follows the [Keep a Changelog](ht
 
 ### Added
 
+- **Lid visibility toggle** ([#20](https://github.com/SlyWombat/case-maker/issues/20)): toolbar button + `L` keyboard shortcut hide/show the lid in the viewport without recompiling. Preference persists in `localStorage`. Test API: `getLidVisible()` / `setLidVisible(v)`.
+- **Screw-down lid posts** ([#21](https://github.com/SlyWombat/case-maker/issues/21)): the screw-down lid now carries downward posts at every mounting-hole position that descend to within 0.3 mm of the board top. The post is hollow with a continuous screw-clearance hole through plate + post. Floor bosses are no longer over-extended; they stop at `floor + standoff` like other joints. New `engine/compiler/validation.ts::validateScrewDownAlignment` reports `lid-post-collides-component` warnings when a post would intersect a +z component, plus `board-overlap-boss` errors when a boss sits outside the PCB outline.
 - **Round cutouts for circular connectors** ([#18](https://github.com/SlyWombat/case-maker/issues/18)): new optional `cutoutShape: 'rect' | 'round'` on `BoardComponent` / `PortPlacement`. The compiler emits a wall-aligned cylindrical cutout (rotated about X or Y) when `round` is selected. CQRobot DMX shield XLR connectors now produce round 24 mm-dia cutouts instead of square slots.
 - **HAT lift over host components** ([#18](https://github.com/SlyWombat/case-maker/issues/18)): the bottom-most enabled HAT's lift is now `max(headerHeight, host.tallest+z + 0.5 mm)` so a HAT no longer collides with the host board's tallest +z component (e.g., GIGA R1 GPIO header columns under the DMX shield).
 - **Antenna feature** ([#19](https://github.com/SlyWombat/case-maker/issues/19)): new `AntennaPlacement` data model with three types — `internal`, `rpi-external` (9 mm panel mount), and `external-mount` (6.4 mm SMA). `BoardComponent.kind` gains `antenna-connector`; the compiler picks the closest side wall to the connector and emits a cylindrical hole (plus inside counterbore for `rpi-external`). Pi 5, Arduino GIGA R1 WiFi, and ESP32 DevKit V1 board profiles ship antenna connectors.
+- **Library-audit fields** ([#22](https://github.com/SlyWombat/case-maker/issues/22)): optional `crossReference`, `datasheetRevision`, and `measurementMethod` fields on `BoardProfile`. `docs/board-library-audit.md` lists each built-in board's audit status (all 12 entries currently `_pending_` — manual datasheet verification in flight). New unit test `tests/unit/boardLibraryAudit.spec.ts` enforces the source-URL gate on all built-ins and the cross-reference / measurement-method gate on `AUDITED_IDS` once entries are moved into the audited set.
 - **Schema bumped to 5** to carry `project.antennas`. v1→v2→v3→v4→v5 chained migration backfills `antennas: []`.
 
 ### Fixed
@@ -20,9 +23,9 @@ All notable changes to Case Maker. The project follows the [Keep a Changelog](ht
 Open issues:
 
 - [#2](https://github.com/SlyWombat/case-maker/issues/2) Snap-fit physical print validation loop (blocked on hardware).
-- [#20](https://github.com/SlyWombat/case-maker/issues/20) Viewport: lid visibility toggle.
-- [#21](https://github.com/SlyWombat/case-maker/issues/21) Validate screw-down lid alignment.
-- [#22](https://github.com/SlyWombat/case-maker/issues/22) Library audit: per-board datasheet research.
+- [#22](https://github.com/SlyWombat/case-maker/issues/22) Library audit: per-board datasheet research (schema lands now; manual audit follows).
+- [#23](https://github.com/SlyWombat/case-maker/issues/23) HAT orientation: drag-and-snap to declared mounting positions.
+- [#24](https://github.com/SlyWombat/case-maker/issues/24) Board visualization: bundle manufacturer 3D models / images per board.
 
 ## [0.9.0] — Marketing-gap sweep — 2026-04-27
 

@@ -1,19 +1,35 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   useProjectStore,
   undoProject,
   redoProject,
   clearHistory,
 } from '@/store/projectStore';
+import { useViewportStore } from '@/store/viewportStore';
 import { downloadProjectJson, readProjectFromFile } from '@/store/persistence';
 import { DocsModal } from '@/components/docs/DocsModal';
 
 export function Toolbar() {
   const project = useProjectStore((s) => s.project);
   const setProject = useProjectStore((s) => s.setProject);
+  const showLid = useViewportStore((s) => s.showLid);
+  const toggleShowLid = useViewportStore((s) => s.toggleShowLid);
   const fileInput = useRef<HTMLInputElement | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [docsOpen, setDocsOpen] = useState(false);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== 'l' && e.key !== 'L') return;
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+        return;
+      }
+      toggleShowLid();
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [toggleShowLid]);
 
   const onSave = useCallback(() => {
     downloadProjectJson(project);
@@ -62,6 +78,14 @@ export function Toolbar() {
         onChange={onFileChange}
         data-testid="load-project-input"
       />
+      <button
+        onClick={toggleShowLid}
+        data-testid="toggle-lid-btn"
+        title="Show/hide lid (L)"
+        aria-pressed={showLid}
+      >
+        {showLid ? '👁 Lid' : '🚫 Lid'}
+      </button>
       <button onClick={() => setDocsOpen(true)} data-testid="docs-open">
         📖 Docs
       </button>
