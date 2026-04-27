@@ -6,11 +6,21 @@ All notable changes to Case Maker. The project follows the [Keep a Changelog](ht
 
 ## [Unreleased]
 
-Phase 7 continued. Open issues:
+Open issues:
 
 - [#2](https://github.com/SlyWombat/case-maker/issues/2) Snap-fit physical print validation loop (blocked on hardware).
-- [#3](https://github.com/SlyWombat/case-maker/issues/3) NSIS installer custom port page.
-- [#4](https://github.com/SlyWombat/case-maker/issues/4) Advanced drag-handle UX (axis-lock, snap-grid, delta readout).
+
+## [0.7.1] — Phase 7 follow-up — 2026-04-27
+
+### Added
+
+- **Drag-handle axis-lock + grid snap** (closes [#4](https://github.com/SlyWombat/case-maker/issues/4)). The PivotControls translate gizmo on a selected port now disables the wall-perpendicular axis (e.g. `-y` ports lock Y) so the cutout stays attached to its wall. Drag motion snaps to a 0.5 mm grid and clamps to PCB-relative bounds. A live Δx/Δy/Δz readout floats over the gizmo while dragging.
+- **Keyboard nudge** for the selected port. Arrow keys nudge by 0.1 mm; `Shift+Arrow` by 1 mm. Direction is wall-aware (a `-y` port's left/right nudges X; a `+x` port's left/right nudges Y). Suppressed inside form inputs.
+- **NSIS installer `/PORT=N` argument** (closes [#3](https://github.com/SlyWombat/case-maker/issues/3) — silent install path). The packaged `.exe` accepts `casemaker_setup.exe /PORT=9000` (works alongside `/S` for unattended deployment) and writes the chosen port to `%APPDATA%\casemaker\config.json` before first launch. Hook implemented at `src-tauri/installer-hooks.nsh`. The interactive GUI port-prompt page is filed as a new issue for follow-up.
+
+### Tests
+
+- 83 Vitest unit tests, 31 Playwright E2E tests (114 total).
 
 ## [0.7.0] — Phase 7 partial — 2026-04-27
 

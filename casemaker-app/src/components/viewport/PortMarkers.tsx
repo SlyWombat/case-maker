@@ -1,9 +1,17 @@
-import { useMemo, useCallback } from 'react';
-import { PivotControls } from '@react-three/drei';
+import { useMemo, useCallback, useEffect, useState, useRef } from 'react';
+import { PivotControls, Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { useProjectStore } from '@/store/projectStore';
 import { useViewportStore } from '@/store/viewportStore';
 import type { PortPlacement } from '@/types';
+import {
+  axisLockForFacing,
+  snapToGrid,
+  defaultGridStep,
+  nudgeVectorsForFacing,
+  portBounds,
+  clampPortPosition,
+} from '@/engine/portConstraints';
 
 interface MarkerInfo {
   port: PortPlacement;
@@ -14,6 +22,7 @@ interface MarkerInfo {
 
 export function PortMarkers() {
   const ports = useProjectStore((s) => s.project.ports);
+  const board = useProjectStore((s) => s.project.board);
   const caseParams = useProjectStore((s) => s.project.case);
   const selectedId = useViewportStore((s) => s.selectedPortId);
   const select = useViewportStore((s) => s.selectPort);
@@ -29,23 +38,68 @@ export function PortMarkers() {
     }));
   }, [ports, caseParams]);
 
+  const dragStart = useRef<{ x: number; y: number; z: number } | null>(null);
+  const [delta, setDelta] = useState<{ x: number; y: number; z: number } | null>(null);
+
+  const selectedMarker = markers.find((m) => m.port.id === selectedId);
+  const lock = axisLockForFacing(selectedMarker?.port.facing);
+  const grid = defaultGridStep();
+
+  const onDragStart = useCallback(() => {
+    if (!selectedMarker) return;
+    dragStart.current = { ...selectedMarker.port.position };
+    setDelta({ x: 0, y: 0, z: 0 });
+  }, [selectedMarker]);
+
+  const onDragEnd = useCallback(() => {
+    dragStart.current = null;
+    setDelta(null);
+  }, []);
+
   const onDrag = useCallback(
-    (id: string, m: THREE.Matrix4, port: PortPlacement, baseX: number, baseY: number, baseZ: number) => {
+    (m4: THREE.Matrix4) => {
+      if (!selectedMarker || !dragStart.current) return;
       const t = new THREE.Vector3();
-      t.setFromMatrixPosition(m);
-      const dx = t.x;
-      const dy = t.y;
-      const dz = t.z;
-      patchPort(id, {
-        position: {
-          x: port.position.x + dx - (baseX - (caseParams.wallThickness + caseParams.internalClearance) - port.size.x / 2),
-          y: port.position.y + dy - (baseY - (caseParams.wallThickness + caseParams.internalClearance) - port.size.y / 2),
-          z: port.position.z + dz - (baseZ - caseParams.floorThickness - port.size.z / 2),
-        },
+      t.setFromMatrixPosition(m4);
+      const start = dragStart.current;
+      const raw = {
+        x: lock.lockX ? start.x : snapToGrid(start.x + t.x, grid),
+        y: lock.lockY ? start.y : snapToGrid(start.y + t.y, grid),
+        z: lock.lockZ ? start.z : snapToGrid(start.z + t.z, grid),
+      };
+      const clamped = clampPortPosition(raw, portBounds(board, selectedMarker.port));
+      patchPort(selectedMarker.port.id, { position: clamped });
+      setDelta({
+        x: clamped.x - start.x,
+        y: clamped.y - start.y,
+        z: clamped.z - start.z,
       });
     },
-    [patchPort, caseParams],
+    [selectedMarker, board, lock, grid, patchPort],
   );
+
+  useEffect(() => {
+    if (!selectedMarker) return;
+    const nudge = nudgeVectorsForFacing(selectedMarker.port.facing);
+    function onKey(e: KeyboardEvent): void {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return;
+      const vec = nudge[e.key as keyof typeof nudge];
+      if (!vec || !selectedMarker) return;
+      e.preventDefault();
+      const step = e.shiftKey ? 1 : 0.1;
+      const port = selectedMarker.port;
+      const next = {
+        x: port.position.x + vec[0] * step,
+        y: port.position.y + vec[1] * step,
+        z: port.position.z + vec[2] * step,
+      };
+      const clamped = clampPortPosition(next, portBounds(board, port));
+      patchPort(port.id, { position: clamped });
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selectedMarker, board, patchPort]);
 
   return (
     <group>
@@ -69,24 +123,27 @@ export function PortMarkers() {
               />
             </mesh>
             {isSelected && (
-              <PivotControls
-                anchor={[0, 0, 0]}
-                depthTest={false}
-                lineWidth={2}
-                scale={20}
-                fixed
-                disableRotations
-                onDrag={(m4) =>
-                  onDrag(
-                    selectedId!,
-                    m4,
-                    m.port,
-                    markers.find((x) => x.port.id === selectedId)?.worldX ?? m.worldX,
-                    markers.find((x) => x.port.id === selectedId)?.worldY ?? m.worldY,
-                    markers.find((x) => x.port.id === selectedId)?.worldZ ?? m.worldZ,
-                  )
-                }
-              />
+              <>
+                <PivotControls
+                  anchor={[0, 0, 0]}
+                  depthTest={false}
+                  lineWidth={2}
+                  scale={20}
+                  fixed
+                  disableRotations
+                  activeAxes={[!lock.lockX, !lock.lockY, !lock.lockZ]}
+                  onDragStart={onDragStart}
+                  onDrag={onDrag}
+                  onDragEnd={onDragEnd}
+                />
+                {delta && (
+                  <Html position={[0, 0, 8]} center distanceFactor={120} zIndexRange={[100, 0]}>
+                    <div className="port-delta-readout" data-testid="port-delta-readout">
+                      Δx {fmt(delta.x)}  Δy {fmt(delta.y)}  Δz {fmt(delta.z)}
+                    </div>
+                  </Html>
+                )}
+              </>
             )}
           </group>
         );
@@ -95,3 +152,6 @@ export function PortMarkers() {
   );
 }
 
+function fmt(v: number): string {
+  return (v >= 0 ? '+' : '') + v.toFixed(2);
+}

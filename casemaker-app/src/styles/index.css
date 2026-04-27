@@ -380,6 +380,20 @@ body, html, #root {
   color: #67c0ff;
 }
 
+.port-delta-readout {
+  background: rgba(20, 24, 28, 0.92);
+  border: 1px solid #ffd267;
+  color: #ffd267;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  padding: 4px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
+}
+
 select, button {
   background: #14181c;
   color: #e6e8eb;
