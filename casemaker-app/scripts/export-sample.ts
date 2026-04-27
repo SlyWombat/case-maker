@@ -17,7 +17,8 @@ import type { BuildOp } from '../src/engine/compiler/buildPlan';
 import { createDefaultProject } from '../src/store/projectStore';
 import { buildBinaryStl } from '../src/workers/export/stlBinary';
 import { autoPortsForBoard } from '../src/engine/compiler/portFactory';
-import type { Project, BoardProfile } from '../src/types';
+import { applyLayoutToMeshes } from '../src/engine/exportLayout';
+import type { Project, BoardProfile, MeshNode } from '../src/types';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, '..', '..');
@@ -109,6 +110,7 @@ function exec(op: BuildOp): ManifoldInstance {
 }
 
 interface NodeOutput {
+  id: string;
   positions: Float32Array;
   indices: Uint32Array;
   triCount: number;
@@ -136,7 +138,7 @@ function buildNodeMeshes(project: Project): NodeOutput[] {
           positions[i * 3 + 2] = verts[i * numProp + 2]!;
         }
       }
-      out.push({ positions, indices, triCount: indices.length / 3 });
+      out.push({ id: node.id, positions, indices, triCount: indices.length / 3 });
     } finally {
       m.delete();
     }
@@ -218,11 +220,23 @@ const SAMPLES: SampleSpec[] = [
 let totalTris = 0;
 for (const sample of SAMPLES) {
   const project = sample.build();
-  const meshes = buildNodeMeshes(project);
-  const buf = buildBinaryStl(meshes);
+  const rawMeshes = buildNodeMeshes(project);
+  // Apply the print-ready layout (issue #10): flip the lid 180° on X, drop
+  // every part to Z=0, pack side-by-side along +X with a 5 mm gap.
+  const meshNodes: MeshNode[] = rawMeshes.map((m) => ({
+    id: m.id,
+    buffer: { positions: m.positions, indices: m.indices },
+    stats: {
+      vertexCount: m.positions.length / 3,
+      triangleCount: m.triCount,
+      bbox: { min: [0, 0, 0], max: [0, 0, 0] },
+    },
+  }));
+  const laid = applyLayoutToMeshes(meshNodes, { gap: 5, bedWidth: 220, flipNodeIds: ['lid'] });
+  const buf = buildBinaryStl(laid.map((m) => ({ positions: m.positions, indices: m.indices })));
   const path = join(samplesDir, sample.filename);
   writeFileSync(path, Buffer.from(buf));
-  const tris = meshes.reduce((s, m) => s + m.triCount, 0);
+  const tris = rawMeshes.reduce((s, m) => s + m.triCount, 0);
   totalTris += tris;
   console.log(`${sample.filename}  ${tris} triangles  ${(buf.byteLength / 1024).toFixed(1)} KB`);
 }
