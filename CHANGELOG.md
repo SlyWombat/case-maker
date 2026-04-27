@@ -6,12 +6,31 @@ All notable changes to Case Maker. The project follows the [Keep a Changelog](ht
 
 ## [Unreleased]
 
-Phase 7 work-in-progress. See open issues:
+Phase 7 continued. Open issues:
 
-- [#1](https://github.com/SlyWombat/case-maker/issues/1) Embed HTTP server in Tauri (lands as part of Phase 7 — gives the port setting end-to-end meaning).
-- [#2](https://github.com/SlyWombat/case-maker/issues/2) Snap-fit physical print validation loop.
+- [#2](https://github.com/SlyWombat/case-maker/issues/2) Snap-fit physical print validation loop (blocked on hardware).
 - [#3](https://github.com/SlyWombat/case-maker/issues/3) NSIS installer custom port page.
 - [#4](https://github.com/SlyWombat/case-maker/issues/4) Advanced drag-handle UX (axis-lock, snap-grid, delta readout).
+
+## [0.7.0] — Phase 7 partial — 2026-04-27
+
+### Added
+
+- **Embedded HTTP server in Tauri** (closes [#1](https://github.com/SlyWombat/case-maker/issues/1)). The desktop app now spawns an `axum` + `rust-embed` HTTP server on the configured port (default 8000); the Tauri window navigates to `http://127.0.0.1:PORT`. Falls back to an OS-ephemeral port if the configured one is taken. New CLI flags (`--bind-all`, `--port N`, `--print-config`).
+- **LAN access** via `--bind-all` rebinds the embedded server to `0.0.0.0`. Off by default; only enable on trusted networks.
+- **Documentation suite** (closes [#5](https://github.com/SlyWombat/case-maker/issues/5)) — Getting Started, User Manual, Technical Reference, CHANGELOG, CONTRIBUTING.
+- **In-app docs viewer** — toolbar `📖 Docs` button opens a modal with sidebar navigation between docs; markdown rendered with `marked`. Works offline in both web and desktop builds.
+- New Rust modules `src-tauri/src/{config,server}.rs` with inline unit tests.
+
+### Changed
+
+- CSP in `tauri.conf.json` widened across `default-src` / `img-src` / `script-src` / `connect-src` to allow `http://localhost:*` and `http://127.0.0.1:*`.
+- Bundle main code grew from ~53 KB to ~132 KB (the docs strings ride along in the main chunk).
+
+### Tests
+
+- 76 Vitest unit tests, 29 Playwright E2E tests (105 total).
+- 87.4% line coverage in Vitest; effective E2E coverage substantially higher (Playwright drives the full pipeline including stores and workers).
 
 ## [0.6.0] — Phase 6 — 2026-04-27
 
