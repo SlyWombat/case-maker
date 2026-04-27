@@ -13,14 +13,13 @@ describe('Marketing gap #15 — project templates', () => {
     ]);
   });
 
-  it('each template builds a v4-conformant Project that round-trips through parseProject', () => {
+  it('each template builds a current-version Project that round-trips through parseProject', () => {
     for (const tpl of TEMPLATES) {
       const project = tpl.build();
-      expect(project.schemaVersion).toBe(4);
-      // Round-trip through serialize → parse to confirm schema validity
+      expect(project.schemaVersion).toBe(5);
       const text = serializeProject(project);
       const parsed = parseProject(text);
-      expect(parsed.schemaVersion).toBe(4);
+      expect(parsed.schemaVersion).toBe(5);
       expect(parsed.board.id).toBe(project.board.id);
     }
   });

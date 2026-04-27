@@ -1,5 +1,6 @@
 import type { BoardProfile, CaseParameters, PortPlacement } from '@/types';
-import { cube, translate, type BuildOp } from './buildPlan';
+import { type BuildOp } from './buildPlan';
+import { buildAxisAlignedCutout } from './roundCutout';
 
 const OVERSHOOT = 1;
 
@@ -46,7 +47,16 @@ export function buildPortCutoutOp(
   const wy = wall + cl + yMin;
   const wz = floor + zMin;
 
-  return translate([wx, wy, wz], cube([sizeX, sizeY, sizeZ]));
+  return buildAxisAlignedCutout(
+    port.facing,
+    wx,
+    wy,
+    wz,
+    sizeX,
+    sizeY,
+    sizeZ,
+    port.cutoutShape ?? 'rect',
+  );
 }
 
 export function buildPortCutoutsForProject(

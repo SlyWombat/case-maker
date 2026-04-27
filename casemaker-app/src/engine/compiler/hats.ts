@@ -5,8 +5,9 @@ import type {
   HatProfile,
   PortPlacement,
 } from '@/types';
-import { cube, translate, type BuildOp } from './buildPlan';
-import { computeStackedHatHeight } from './caseShell';
+import { type BuildOp } from './buildPlan';
+import { buildAxisAlignedCutout } from './roundCutout';
+import { computeStackedHatHeight, HOST_HAT_CLEARANCE } from './caseShell';
 
 const OVERSHOOT = 1;
 
@@ -22,11 +23,20 @@ export function computeHatBaseZ(
 ): Map<string, number> {
   const out = new Map<string, number>();
   const ordered = [...hats].sort((a, b) => a.stackIndex - b.stackIndex);
+  const hostTallest = board.components.reduce(
+    (m, c) => (c.facing === '+z' ? Math.max(m, c.position.z + c.size.z) : m),
+    0,
+  );
   let cursor = params.floorThickness + board.pcb.size.z;
+  let firstEnabled = true;
   for (const placement of ordered) {
     const profile = resolveHat(placement.hatId);
     if (!profile) continue;
-    const lift = placement.liftOverride ?? profile.headerHeight;
+    let lift = placement.liftOverride ?? profile.headerHeight;
+    if (placement.enabled && firstEnabled && hostTallest > 0) {
+      lift = Math.max(lift, hostTallest + HOST_HAT_CLEARANCE);
+    }
+    if (placement.enabled) firstEnabled = false;
     cursor += lift;
     if (placement.enabled) {
       out.set(placement.id, cursor);
@@ -100,7 +110,18 @@ export function buildHatCutoutsForProject(
       const wx = wall + cl + xMin;
       const wy = wall + cl + yMin;
       const wz = zMin;
-      ops.push(translate([wx, wy, wz], cube([sizeX, sizeY, sizeZ], false)));
+      ops.push(
+        buildAxisAlignedCutout(
+          port.facing,
+          wx,
+          wy,
+          wz,
+          sizeX,
+          sizeY,
+          sizeZ,
+          port.cutoutShape ?? 'rect',
+        ),
+      );
     }
   }
   return ops;
@@ -120,6 +141,7 @@ export function autoPortsForHat(profile: HatProfile, hatPlacementId: string): Po
       cutoutMargin: c.cutoutMargin ?? 0.5,
       locked: false,
       enabled: true,
+      cutoutShape: c.cutoutShape,
     }));
 }
 

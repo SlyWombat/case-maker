@@ -23,8 +23,11 @@ const componentKindSchema = z.enum([
   'flat-cable',
   'fan-mount',
   'text-label',
+  'antenna-connector',
   'custom',
 ]);
+
+const cutoutShapeSchema = z.enum(['rect', 'round']);
 
 const facingSchema = z.enum(['+x', '-x', '+y', '-y', '+z']);
 
@@ -37,6 +40,7 @@ const componentSchema = z.object({
   }),
   facing: facingSchema.optional(),
   cutoutMargin: z.number().nonnegative().optional(),
+  cutoutShape: cutoutShapeSchema.optional(),
 });
 
 export const hatProfileSchema = z.object({

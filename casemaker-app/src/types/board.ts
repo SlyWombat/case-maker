@@ -14,7 +14,10 @@ export type ComponentKind =
   | 'flat-cable'
   | 'fan-mount'
   | 'text-label'
+  | 'antenna-connector'
   | 'custom';
+
+export type CutoutShape = 'rect' | 'round';
 
 export type Facing = '+x' | '-x' | '+y' | '-y' | '+z';
 
@@ -32,6 +35,7 @@ export interface BoardComponent {
   size: { x: Mm; y: Mm; z: Mm };
   facing?: Facing;
   cutoutMargin?: Mm;
+  cutoutShape?: CutoutShape;
 }
 
 export interface BoardProfile {

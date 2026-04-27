@@ -7,6 +7,7 @@ import type { MountingFeature } from './mounting';
 import type { DisplayProfile, DisplayPlacement } from './display';
 import type { FanMount } from './fan';
 import type { TextLabel } from './textLabel';
+import type { AntennaPlacement } from './antenna';
 
 export interface ExternalAsset {
   id: string;
@@ -21,7 +22,7 @@ export interface ExternalAsset {
   visibility: 'reference' | 'subtract' | 'union';
 }
 
-export type ProjectSchemaVersion = 1 | 2 | 3 | 4;
+export type ProjectSchemaVersion = 1 | 2 | 3 | 4 | 5;
 
 export interface Project {
   schemaVersion: ProjectSchemaVersion;
@@ -42,4 +43,6 @@ export interface Project {
   fanMounts: FanMount[];
   /** Engraved/embossed text labels (issue #16, schemaVersion 4+). */
   textLabels: TextLabel[];
+  /** Antennas (issue #19, schemaVersion 5+). */
+  antennas: AntennaPlacement[];
 }

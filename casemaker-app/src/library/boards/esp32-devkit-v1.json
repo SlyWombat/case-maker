@@ -31,6 +31,14 @@
       "position": { "x": 47, "y": 14, "z": 1.6 },
       "size": { "x": 5, "y": 28, "z": 9 },
       "facing": "+z"
+    },
+    {
+      "id": "pcb-antenna",
+      "kind": "antenna-connector",
+      "position": { "x": 25, "y": 25, "z": 1.6 },
+      "size": { "x": 6, "y": 3, "z": 1 },
+      "facing": "+y",
+      "cutoutMargin": 0
     }
   ],
   "defaultStandoffHeight": 4,

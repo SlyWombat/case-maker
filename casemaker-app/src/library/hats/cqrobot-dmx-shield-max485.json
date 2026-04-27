@@ -15,17 +15,19 @@
       "id": "dmx-in-xlr",
       "kind": "custom",
       "position": { "x": 5, "y": 49, "z": 1.6 },
-      "size": { "x": 22, "y": 22, "z": 24 },
+      "size": { "x": 24, "y": 22, "z": 24 },
       "facing": "+y",
-      "cutoutMargin": 0.7
+      "cutoutMargin": 0.7,
+      "cutoutShape": "round"
     },
     {
       "id": "dmx-out-xlr",
       "kind": "custom",
       "position": { "x": 38, "y": 49, "z": 1.6 },
-      "size": { "x": 22, "y": 22, "z": 24 },
+      "size": { "x": 24, "y": 22, "z": 24 },
       "facing": "+y",
-      "cutoutMargin": 0.7
+      "cutoutMargin": 0.7,
+      "cutoutShape": "round"
     },
     {
       "id": "screw-terminal",

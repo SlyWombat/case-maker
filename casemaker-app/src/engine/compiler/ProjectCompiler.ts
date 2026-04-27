@@ -14,6 +14,7 @@ import { buildMountingFeatureOps } from './mountingFeatures';
 import { buildDisplayCutoutOps } from './displays';
 import { buildFanMountOps } from './fans';
 import { buildTextLabelOps } from './textLabels';
+import { buildAntennaOps } from './antennas';
 import { getBuiltinHat } from '@/library/hats';
 import { getBuiltinDisplay } from '@/library/displays';
 import type { DisplayProfile } from '@/types/display';
@@ -45,6 +46,7 @@ export function compileProject(project: Project): BuildPlan {
     display,
     fanMounts,
     textLabels,
+    antennas,
   } = project;
   const resolveHat = makeHatResolver(project);
   const resolveDisplay = makeDisplayResolver(project);
@@ -64,6 +66,7 @@ export function compileProject(project: Project): BuildPlan {
   const displayOps = buildDisplayCutoutOps(board, caseParams, display, resolveDisplay);
   const fanOps = buildFanMountOps(fanMounts, board, caseParams, hats ?? [], resolveHat);
   const textOps = buildTextLabelOps(textLabels, board, caseParams, hats ?? [], resolveHat);
+  const antennaOps = buildAntennaOps(antennas, board, caseParams);
 
   const additive = [
     shellOuter,
@@ -94,6 +97,7 @@ export function compileProject(project: Project): BuildPlan {
     ...displayOps.subtractive,
     ...fanOps.subtractive,
     ...textOps.subtractive,
+    ...antennaOps.subtractive,
   ];
 
   let shellOp: BuildOp = additive.length > 1 ? union(additive) : shellOuter;

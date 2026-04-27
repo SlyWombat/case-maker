@@ -43,6 +43,7 @@ const portPlacementSchema = z.object({
     'flat-cable',
     'fan-mount',
     'text-label',
+    'antenna-connector',
     'custom',
   ]),
   position: xyzSchema,
@@ -51,6 +52,7 @@ const portPlacementSchema = z.object({
   cutoutMargin: z.number().nonnegative(),
   locked: z.boolean(),
   enabled: z.boolean(),
+  cutoutShape: z.enum(['rect', 'round']).optional(),
 });
 
 const externalAssetSchema = z.object({
@@ -195,13 +197,41 @@ const projectV4Schema = z.object({
   textLabels: z.array(textLabelSchema),
 });
 
+const antennaPlacementSchema = z.object({
+  id: z.string(),
+  type: z.enum(['internal', 'rpi-external', 'external-mount']),
+  enabled: z.boolean(),
+  facing: z.enum(['+x', '-x', '+y', '-y']).optional(),
+  uOffset: z.number().optional(),
+});
+
+const projectV5Schema = z.object({
+  schemaVersion: z.literal(5),
+  id: z.string(),
+  name: z.string(),
+  createdAt: z.string(),
+  modifiedAt: z.string(),
+  board: boardProfileSchema,
+  case: caseParamsSchema,
+  ports: z.array(portPlacementSchema),
+  externalAssets: z.array(externalAssetSchema),
+  hats: z.array(hatPlacementSchema),
+  customHats: z.array(hatProfileSchema),
+  mountingFeatures: z.array(mountingFeatureSchema),
+  display: displayPlacementSchema.nullable(),
+  customDisplays: z.array(displayProfileSchema),
+  fanMounts: z.array(fanMountSchema),
+  textLabels: z.array(textLabelSchema),
+  antennas: z.array(antennaPlacementSchema),
+});
+
 export const projectSchema = z
-  .union([projectV1Schema, projectV2Schema, projectV3Schema, projectV4Schema])
+  .union([projectV1Schema, projectV2Schema, projectV3Schema, projectV4Schema, projectV5Schema])
   .transform((p) => {
     if (p.schemaVersion === 1) {
       return {
         ...p,
-        schemaVersion: 4 as const,
+        schemaVersion: 5 as const,
         hats: [],
         customHats: [],
         mountingFeatures: [],
@@ -209,25 +239,35 @@ export const projectSchema = z
         customDisplays: [],
         fanMounts: [],
         textLabels: [],
+        antennas: [],
       };
     }
     if (p.schemaVersion === 2) {
       return {
         ...p,
-        schemaVersion: 4 as const,
+        schemaVersion: 5 as const,
         mountingFeatures: [],
         display: null,
         customDisplays: [],
         fanMounts: [],
         textLabels: [],
+        antennas: [],
       };
     }
     if (p.schemaVersion === 3) {
       return {
         ...p,
-        schemaVersion: 4 as const,
+        schemaVersion: 5 as const,
         fanMounts: [],
         textLabels: [],
+        antennas: [],
+      };
+    }
+    if (p.schemaVersion === 4) {
+      return {
+        ...p,
+        schemaVersion: 5 as const,
+        antennas: [],
       };
     }
     return p;

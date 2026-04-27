@@ -16,22 +16,35 @@ export interface ShellDims {
  * Unknown hatId entries are ignored (defensive — the project store may carry
  * stale references after a HAT is removed).
  */
+export const HOST_HAT_CLEARANCE = 0.5;
+
+function tallestPlusZ(profile: { components: BoardProfile['components']; pcb: BoardProfile['pcb'] }, includePcb: boolean): number {
+  return profile.components.reduce(
+    (m, c) => (c.facing === '+z' ? Math.max(m, c.position.z + c.size.z) : m),
+    includePcb ? profile.pcb.size.z : 0,
+  );
+}
+
 export function computeStackedHatHeight(
   hats: HatPlacement[] | undefined,
   resolveHat: (id: string) => HatProfile | undefined,
+  hostBoard?: BoardProfile,
 ): number {
   if (!hats || hats.length === 0) return 0;
   const ordered = [...hats].sort((a, b) => a.stackIndex - b.stackIndex);
+  const hostTallest = hostBoard ? tallestPlusZ(hostBoard, false) : 0;
   let total = 0;
+  let firstEnabled = true;
   for (const placement of ordered) {
     if (!placement.enabled) continue;
     const profile = resolveHat(placement.hatId);
     if (!profile) continue;
-    const lift = placement.liftOverride ?? profile.headerHeight;
-    const tallest = profile.components.reduce((m, c) => {
-      if (c.facing === '+z') return Math.max(m, c.position.z + c.size.z);
-      return m;
-    }, profile.pcb.size.z);
+    let lift = placement.liftOverride ?? profile.headerHeight;
+    if (firstEnabled && hostTallest > 0) {
+      lift = Math.max(lift, hostTallest + HOST_HAT_CLEARANCE);
+    }
+    firstEnabled = false;
+    const tallest = tallestPlusZ(profile, true);
     total += lift + tallest;
   }
   return total;
@@ -47,7 +60,7 @@ export function computeShellDims(
   const pcb = board.pcb.size;
   const cavityX = pcb.x + 2 * cl;
   const cavityY = pcb.y + 2 * cl;
-  const stackHeight = computeStackedHatHeight(hats, resolveHat);
+  const stackHeight = computeStackedHatHeight(hats, resolveHat, board);
   const cavityZ = Math.max(zClearance, stackHeight) + pcb.z;
   return {
     outerX: cavityX + 2 * wall,

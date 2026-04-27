@@ -1,5 +1,5 @@
 import type { Mm } from './units';
-import type { ComponentKind, Facing } from './board';
+import type { ComponentKind, CutoutShape, Facing } from './board';
 
 export interface PortPlacement {
   id: string;
@@ -11,4 +11,5 @@ export interface PortPlacement {
   cutoutMargin: Mm;
   locked: boolean;
   enabled: boolean;
+  cutoutShape?: CutoutShape;
 }

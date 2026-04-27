@@ -18,6 +18,7 @@ import { getBuiltinHat } from '@/library/hats';
 import { newId } from '@/utils/id';
 import { autoPortsForBoard } from '@/engine/compiler/portFactory';
 import { autoPortsForHat } from '@/engine/compiler/hats';
+import { defaultAntennasForBoard } from '@/engine/compiler/antennas';
 import { fourCornerScrewTabs } from '@/engine/compiler/mountingFeatures';
 import { computeShellDims } from '@/engine/compiler/caseShell';
 
@@ -47,7 +48,7 @@ export function createDefaultProject(boardId = DEFAULT_BOARD_ID): Project {
   if (!board) throw new Error(`Unknown built-in board: ${boardId}`);
   const now = new Date(0).toISOString();
   return {
-    schemaVersion: 4,
+    schemaVersion: 5,
     id: newId('proj'),
     name: `${board.name} Case`,
     createdAt: now,
@@ -63,6 +64,7 @@ export function createDefaultProject(boardId = DEFAULT_BOARD_ID): Project {
     customDisplays: [],
     fanMounts: [],
     textLabels: [],
+    antennas: defaultAntennasForBoard(board),
   };
 }
 

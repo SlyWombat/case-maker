@@ -17,6 +17,7 @@ export function autoPortsForBoard(board: BoardProfile): PortPlacement[] {
       cutoutMargin: c.cutoutMargin ?? DEFAULT_MARGIN,
       locked: false,
       enabled: true,
+      cutoutShape: c.cutoutShape,
     });
   }
   return out;

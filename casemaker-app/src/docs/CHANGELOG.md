@@ -6,6 +6,13 @@ All notable changes to Case Maker. The project follows the [Keep a Changelog](ht
 
 ## [Unreleased]
 
+### Added
+
+- **Round cutouts for circular connectors** ([#18](https://github.com/SlyWombat/case-maker/issues/18)): new optional `cutoutShape: 'rect' | 'round'` on `BoardComponent` / `PortPlacement`. The compiler emits a wall-aligned cylindrical cutout (rotated about X or Y) when `round` is selected. CQRobot DMX shield XLR connectors now produce round 24 mm-dia cutouts instead of square slots.
+- **HAT lift over host components** ([#18](https://github.com/SlyWombat/case-maker/issues/18)): the bottom-most enabled HAT's lift is now `max(headerHeight, host.tallest+z + 0.5 mm)` so a HAT no longer collides with the host board's tallest +z component (e.g., GIGA R1 GPIO header columns under the DMX shield).
+- **Antenna feature** ([#19](https://github.com/SlyWombat/case-maker/issues/19)): new `AntennaPlacement` data model with three types — `internal`, `rpi-external` (9 mm panel mount), and `external-mount` (6.4 mm SMA). `BoardComponent.kind` gains `antenna-connector`; the compiler picks the closest side wall to the connector and emits a cylindrical hole (plus inside counterbore for `rpi-external`). Pi 5, Arduino GIGA R1 WiFi, and ESP32 DevKit V1 board profiles ship antenna connectors.
+- **Schema bumped to 5** to carry `project.antennas`. v1→v2→v3→v4→v5 chained migration backfills `antennas: []`.
+
 ### Fixed
 
 - **Smart cutout layout** ([#17](https://github.com/SlyWombat/case-maker/issues/17)): when a side-facing port cutout's top would leave less than `MIN_BRIDGE_THICKNESS` (1.5 mm) of wall material below the shell top, the compiler now extends the cutout up through the wall top so it becomes a notch instead of leaving a thin unsupported horizontal bridge above it. Decisions are recorded and exposed via `window.__caseMaker.getSmartCutoutDecisions()` for diagnostics.
@@ -13,6 +20,9 @@ All notable changes to Case Maker. The project follows the [Keep a Changelog](ht
 Open issues:
 
 - [#2](https://github.com/SlyWombat/case-maker/issues/2) Snap-fit physical print validation loop (blocked on hardware).
+- [#20](https://github.com/SlyWombat/case-maker/issues/20) Viewport: lid visibility toggle.
+- [#21](https://github.com/SlyWombat/case-maker/issues/21) Validate screw-down lid alignment.
+- [#22](https://github.com/SlyWombat/case-maker/issues/22) Library audit: per-board datasheet research.
 
 ## [0.9.0] — Marketing-gap sweep — 2026-04-27
 
