@@ -59,7 +59,7 @@ export interface CaseMakerTestApi {
   patchBoardPcb(patch: { x?: number; y?: number; z?: number }): Promise<void>;
   addMountingHole(): Promise<void>;
   importStlAsset(name: string, base64: string): Promise<string>;
-  getLastDiag(): { meshOpsSeen: number; note?: string } | null;
+  getLastDiag(): { meshOpsSeen: number; note?: string; componentSummary?: string } | null;
   getJobError(): string | null;
   getSmartCutoutDecisions(): SmartCutoutDecision[];
   getSettings(): { port: number; bindToAll: boolean };

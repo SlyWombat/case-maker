@@ -51,9 +51,19 @@ export function HatsPanel() {
         <ul className="port-list" style={{ marginTop: 8 }}>
           {[...hats]
             .sort((a, b) => a.stackIndex - b.stackIndex)
-            .map((h) => {
+            .map((h, idx, arr) => {
               const profile = getBuiltinHat(h.hatId);
               const name = profile?.name ?? h.hatId;
+              const positions = profile?.mountingPositions;
+              const canMoveUp = idx > 0;
+              const canMoveDown = idx < arr.length - 1;
+              const swap = (otherIdx: number) => {
+                const other = arr[otherIdx]!;
+                const myStack = h.stackIndex;
+                const otherStack = other.stackIndex;
+                patchHat(h.id, { stackIndex: otherStack });
+                patchHat(other.id, { stackIndex: myStack });
+              };
               return (
                 <li
                   key={h.id}
@@ -64,7 +74,19 @@ export function HatsPanel() {
                     marginBottom: 4,
                   }}
                 >
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span
+                      style={{
+                        background: '#2c343c',
+                        borderRadius: 3,
+                        padding: '1px 6px',
+                        fontSize: 10,
+                        color: '#8a94a4',
+                      }}
+                      title={`Stack index ${h.stackIndex}`}
+                    >
+                      #{h.stackIndex}
+                    </span>
                     <input
                       type="checkbox"
                       checked={h.enabled}
@@ -73,13 +95,51 @@ export function HatsPanel() {
                     />
                     <span style={{ flex: 1, fontSize: 12 }}>{name}</span>
                     <button
+                      onClick={() => canMoveUp && swap(idx - 1)}
+                      disabled={!canMoveUp}
+                      data-testid={`hat-up-${h.id}`}
+                      title="Move up in stack"
+                      style={{ fontSize: 11, padding: '2px 6px' }}
+                    >
+                      ↑
+                    </button>
+                    <button
+                      onClick={() => canMoveDown && swap(idx + 1)}
+                      disabled={!canMoveDown}
+                      data-testid={`hat-down-${h.id}`}
+                      title="Move down in stack"
+                      style={{ fontSize: 11, padding: '2px 6px' }}
+                    >
+                      ↓
+                    </button>
+                    <button
                       onClick={() => removeHat(h.id)}
                       data-testid={`hat-remove-${h.id}`}
+                      title="Remove HAT"
                       style={{ fontSize: 11, padding: '2px 6px' }}
                     >
                       ✕
                     </button>
-                  </label>
+                  </div>
+                  {positions && positions.length > 1 && (
+                    <div style={{ marginLeft: 18, marginTop: 4 }}>
+                      <label style={{ fontSize: 11, color: '#8a94a4', display: 'flex', gap: 4, alignItems: 'center' }}>
+                        Orientation:
+                        <select
+                          value={h.mountingPositionId ?? positions[0]!.id}
+                          onChange={(e) => patchHat(h.id, { mountingPositionId: e.target.value })}
+                          data-testid={`hat-orientation-${h.id}`}
+                          style={{ fontSize: 11 }}
+                        >
+                          {positions.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+                  )}
                   {h.ports.length > 0 && (
                     <ul style={{ listStyle: 'none', padding: 0, margin: '4px 0 0 18px' }}>
                       {h.ports.map((p) => (

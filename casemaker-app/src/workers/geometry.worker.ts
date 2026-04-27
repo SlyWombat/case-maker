@@ -13,7 +13,7 @@ interface BuildOutputWire {
   combinedVertexCount: number;
   combinedBBox: { min: [number, number, number]; max: [number, number, number] };
   durationMs: number;
-  diag?: { meshOpsSeen: number; note?: string };
+  diag?: { meshOpsSeen: number; note?: string; componentSummary?: string };
 }
 
 let currentGeneration = 0;
@@ -58,6 +58,10 @@ const api = {
       if (e instanceof CancelledError) return null;
       throw e;
     }
+    const componentSummary = nodes
+      .map((n) => `${n.id}=${n.componentCount}`)
+      .join(' ');
+    const totalIslands = nodes.reduce((s, n) => s + n.componentCount, 0);
     const result: BuildOutputWire = {
       generation,
       nodes,
@@ -65,6 +69,13 @@ const api = {
       combinedVertexCount: vertCount,
       combinedBBox: { min: [minX, minY, minZ], max: [maxX, maxY, maxZ] },
       durationMs: performance.now() - start,
+      diag: {
+        meshOpsSeen: nodes.length,
+        componentSummary,
+        ...(totalIslands > nodes.length
+          ? { note: `Floating geometry: total islands ${totalIslands} > expected ${nodes.length}` }
+          : {}),
+      },
     };
     const transferables: Transferable[] = [];
     for (const n of nodes) {

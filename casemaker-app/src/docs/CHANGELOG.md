@@ -8,6 +8,8 @@ All notable changes to Case Maker. The project follows the [Keep a Changelog](ht
 
 ### Added
 
+- **HatsPanel reorder + orientation controls** ([#25](https://github.com/SlyWombat/case-maker/issues/25)): each HAT row now shows a stack-index badge, ↑/↓ reorder buttons, and (when the profile declares `mountingPositions` with more than one entry) an orientation dropdown.
+- **Per-node connectivity check** ([#26](https://github.com/SlyWombat/case-maker/issues/26)): the Manifold worker now calls `decompose()` on each node and returns the disjoint-component count via `lastDiag.componentSummary`. When total islands exceed expected, a `note` surfaces "Floating geometry" diagnostics. New `engine/compiler/connectivity.ts` exposes a JS-side `bboxOfOp` and `checkBuildPlanShape` (asserts the canonical `shell + lid` two-node plan). The full monolith → cuts → split refactor is deferred — this lands the *detection* infrastructure so floating-geometry regressions surface as warnings instead of silent prints.
 - **HAT orientation model** ([#23](https://github.com/SlyWombat/case-maker/issues/23)): new optional `mountingPositions: HatMountingPosition[]` on `HatProfile` plus `mountingPositionId` on `HatPlacement`. Compiler rotates port positions/sizes/facings around the HAT PCB center per the chosen position. CQRobot DMX shield ships two declared positions (default + flipped 180°). Test API: `setHatMountingPosition(placementId, mountingPositionId)`. Drag-and-snap UX is a follow-up — this lands the data model + compiler.
 - **Board visualization toggle** ([#24](https://github.com/SlyWombat/case-maker/issues/24)): new `boardVisualization: 'schematic' | 'photo' | '3d'` mode on the viewport store with toolbar cycle button and `localStorage` persistence. New optional `visualAssets` field on `BoardProfile` for `glb` / `topImage` / `sideImage` / `license` / `sourceUrl`. `docs/board-assets.md` tracks per-board asset acquisition status (all 12 currently `_pending_` license-clearance verification).
 - **Lid visibility toggle** ([#20](https://github.com/SlyWombat/case-maker/issues/20)): toolbar button + `L` keyboard shortcut hide/show the lid in the viewport without recompiling. Preference persists in `localStorage`. Test API: `getLidVisible()` / `setLidVisible(v)`.
@@ -26,8 +28,6 @@ Open issues:
 
 - [#2](https://github.com/SlyWombat/case-maker/issues/2) Snap-fit physical print validation loop (printing now).
 - [#22](https://github.com/SlyWombat/case-maker/issues/22) Library audit: per-board datasheet research (schema lands; manual audit follows).
-- [#25](https://github.com/SlyWombat/case-maker/issues/25) HatsPanel: visual list of added HATs with remove + reorder.
-- [#26](https://github.com/SlyWombat/case-maker/issues/26) Compiler: guarantee only two connected components (eliminate floating parts).
 
 ## [0.9.0] — Marketing-gap sweep — 2026-04-27
 

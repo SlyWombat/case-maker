@@ -100,6 +100,8 @@ export interface NodeMeshOutput {
   triangleCount: number;
   vertexCount: number;
   bbox: { min: [number, number, number]; max: [number, number, number] };
+  /** Number of disjoint solid components in this node (issue #26). */
+  componentCount: number;
 }
 
 export async function buildOp(op: BuildOp, check: GenerationCheck): Promise<NodeMeshOutput> {
@@ -107,6 +109,20 @@ export async function buildOp(op: BuildOp, check: GenerationCheck): Promise<Node
   const m = await executeOp(tl, op, check);
   try {
     check();
+    let componentCount = 1;
+    try {
+      // Manifold's decompose() returns the disjoint components. We only need
+      // the count, then dispose the children.
+      const parts = (m as unknown as { decompose?: () => unknown[] }).decompose?.();
+      if (Array.isArray(parts)) {
+        componentCount = parts.length;
+        for (const p of parts) {
+          (p as { delete?: () => void }).delete?.();
+        }
+      }
+    } catch {
+      // older Manifold without decompose — leave at 1
+    }
     const mesh = m.getMesh();
     const positions = new Float32Array(mesh.vertProperties);
     const indices = new Uint32Array(mesh.triVerts);
@@ -135,6 +151,7 @@ export async function buildOp(op: BuildOp, check: GenerationCheck): Promise<Node
       triangleCount: indices.length / 3,
       vertexCount: numVert,
       bbox: { min: [minX, minY, minZ], max: [maxX, maxY, maxZ] },
+      componentCount,
     };
   } finally {
     m.delete();

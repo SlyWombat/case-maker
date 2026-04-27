@@ -10,14 +10,14 @@ export interface JobState {
   durationMs: number;
   nodes: Map<string, MeshNode>;
   combinedStats: MeshStats | null;
-  lastDiag: { meshOpsSeen: number; note?: string } | null;
+  lastDiag: { meshOpsSeen: number; note?: string; componentSummary?: string } | null;
   setStatus: (status: JobStatus, error?: string | null) => void;
   applyResult: (
     generation: number,
     nodes: MeshNode[],
     combinedStats: MeshStats,
     durationMs: number,
-    diag?: { meshOpsSeen: number; note?: string },
+    diag?: { meshOpsSeen: number; note?: string; componentSummary?: string },
   ) => void;
 }
 
