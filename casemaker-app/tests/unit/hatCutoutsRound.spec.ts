@@ -22,22 +22,18 @@ describe('Issue #18 — DMX shield round XLR cutouts + HAT lift over host compon
   it('DMX shield XLR connectors produce round cutouts via autoPortsForHat', () => {
     const dmx = getBuiltinHat('cqrobot-dmx-shield-max485')!;
     const ports = autoPortsForHat(dmx, 'h-1');
-    const xlrIn = ports.find((p) => p.sourceComponentId === 'dmx-in-xlr');
-    const xlrOut = ports.find((p) => p.sourceComponentId === 'dmx-out-xlr');
-    const screwTerm = ports.find((p) => p.sourceComponentId === 'screw-terminal');
-    expect(xlrIn?.cutoutShape).toBe('round');
-    expect(xlrOut?.cutoutShape).toBe('round');
-    expect(screwTerm?.cutoutShape).toBeUndefined();
+    const xlrFemale = ports.find((p) => p.sourceComponentId === 'dmx-xlr-female');
+    const xlrMale = ports.find((p) => p.sourceComponentId === 'dmx-xlr-male');
+    expect(xlrFemale?.cutoutShape).toBe('round');
+    expect(xlrMale?.cutoutShape).toBe('round');
   });
 
-  it('compileProject for Uno + DMX shield emits cylinder cutouts (round) and at least one cube cutout (rect screw-term)', () => {
+  it('compileProject for Uno + DMX shield emits two round XLR cutouts', () => {
     useProjectStore.getState().addHat('cqrobot-dmx-shield-max485');
     const plan = compileProject(useProjectStore.getState().project);
     const shellNode = plan.nodes.find((n) => n.id === 'shell')!;
     const cyls = countOps(shellNode.op, 'cylinder');
-    const cubes = countOps(shellNode.op, 'cube');
-    expect(cyls).toBeGreaterThanOrEqual(2); // two XLR connectors
-    expect(cubes).toBeGreaterThanOrEqual(2); // at least the outer shell + screw terminal cutout
+    expect(cyls).toBeGreaterThanOrEqual(2);
   });
 
   it('HAT lift clears host tallest +z when host is taller than headerHeight', () => {

@@ -61,7 +61,9 @@ export function computeShellDims(
   const cavityX = pcb.x + 2 * cl;
   const cavityY = pcb.y + 2 * cl;
   const stackHeight = computeStackedHatHeight(hats, resolveHat, board);
-  const cavityZ = Math.max(zClearance, stackHeight) + pcb.z;
+  // Cavity height includes the standoff under the PCB (issue #28) plus the
+  // PCB itself plus headroom for components / HATs.
+  const cavityZ = board.defaultStandoffHeight + pcb.z + Math.max(zClearance, stackHeight);
   return {
     outerX: cavityX + 2 * wall,
     outerY: cavityY + 2 * wall,

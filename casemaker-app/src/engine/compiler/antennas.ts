@@ -117,7 +117,9 @@ export function buildAntennaOps(
     // World-frame cutout center along Z: roughly mid-height on the wall, just
     // above the PCB. We place at (floor + pcb.z + 8mm) — comfortably above the
     // host PCB, comfortably below the lid even on small cases.
-    const zCenter = floor + board.pcb.size.z + Math.min(8, shell.cavityZ / 2);
+    // Antenna Z is anchored to the elevated PCB top (floor + standoff + pcb.z).
+    const zCenter =
+      floor + board.defaultStandoffHeight + board.pcb.size.z + Math.min(8, shell.cavityZ / 2);
 
     switch (facing) {
       case '+y': {

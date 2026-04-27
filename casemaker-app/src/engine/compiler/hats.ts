@@ -28,7 +28,8 @@ export function computeHatBaseZ(
     (m, c) => (c.facing === '+z' ? Math.max(m, c.position.z + c.size.z) : m),
     0,
   );
-  let cursor = params.floorThickness + board.pcb.size.z;
+  // Host PCB sits on bosses at floor + standoff (issue #28).
+  let cursor = params.floorThickness + board.defaultStandoffHeight + board.pcb.size.z;
   let firstEnabled = true;
   for (const placement of ordered) {
     const profile = resolveHat(placement.hatId);

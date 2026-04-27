@@ -1,7 +1,12 @@
 import type { Mm } from './units';
 
 export type JointType = 'snap-fit' | 'sliding' | 'screw-down' | 'flat-lid';
-export type InsertType = 'self-tap' | 'heat-set-m2.5' | 'heat-set-m3' | 'pass-through';
+export type InsertType =
+  | 'self-tap'
+  | 'heat-set-m2.5'
+  | 'heat-set-m3'
+  | 'pass-through'
+  | 'none';
 export type VentilationPattern = 'none' | 'slots' | 'hex';
 
 export interface BossesParams {

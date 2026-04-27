@@ -45,7 +45,9 @@ export function buildPortCutoutOp(
 
   const wx = wall + cl + xMin;
   const wy = wall + cl + yMin;
-  const wz = floor + zMin;
+  // Issue #28: the board sits on bosses at floor + standoff; port cutouts must
+  // align with the elevated board, not with the case floor.
+  const wz = floor + board.defaultStandoffHeight + zMin;
 
   return buildAxisAlignedCutout(
     port.facing,

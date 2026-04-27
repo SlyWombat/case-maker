@@ -28,6 +28,14 @@ Initial population: only the `Source` columns reflect the JSON `source` field. T
 | `microbit-v2` | https://tech.microbit.org/hardware/2-1-revision/ | _pending_ | _pending_ | |
 | `m5stack-core2` | https://docs.m5stack.com/en/core/core2 | _pending_ | _pending_ | LCD active-area dims need verification. |
 
+## Authoritative external references
+
+These references are checked alongside the per-board datasheet during the audit:
+
+- **KiCad symbol/footprint libraries** — https://gitlab.com/kicad/libraries — manufacturer-contributed PCB footprints with verified mechanical dimensions. Use the relevant `<board>.kicad_pcb` for any board where a community KiCad project exists.
+- **Pi HAT+ specification (RP-008281-DS-1)** — https://pip-assets.raspberrypi.com/categories/1215-raspberry-pi-hat/documents/RP-008281-DS-1-hat-plus-specification.pdf?disposition=inline — official Raspberry Pi spec for HAT+ form factor: 65 × 56.5 mm PCB, 2.7 mm mounting holes at 3.5/49/52.5 mm offsets, 40-pin GPIO, EEPROM addressing, mechanical tolerances. Required source-of-truth for any new HAT profile that targets the standard Pi GPIO connector.
+- **Arduino EAGLE / KiCad files** — https://www.arduino.cc/en/Main/ArduinoBoardUno (and equivalent product pages) — Arduino publishes board files under CC-BY-SA. Verify Uno / GIGA / Nano outlines against these.
+
 ## Process
 
 When auditing a board:

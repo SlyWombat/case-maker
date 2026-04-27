@@ -65,18 +65,19 @@ describe('Issue #21 — screw-down lid posts + validation', () => {
     expect(issues.some((i) => i.code === 'lid-post-collides-component')).toBe(true);
   });
 
-  it('screw-down lid mesh has more cylinder ops than a flat lid (posts present)', () => {
+  it('lid mesh carries posts on every joint (issue #27); screw-down adds clearance holes on top', () => {
     const project = createDefaultProject('rpi-4b');
     project.case.joint = 'flat-lid';
     const flatPlan = compileProject(project);
     const flatLid = flatPlan.nodes.find((n) => n.id === 'lid')!;
     const flatCyls = countOps(flatLid.op, 'cylinder');
+    expect(flatCyls).toBeGreaterThan(0); // posts present even on flat-lid
 
     project.case.joint = 'screw-down';
     const sdPlan = compileProject(project);
     const sdLid = sdPlan.nodes.find((n) => n.id === 'lid')!;
     const sdCyls = countOps(sdLid.op, 'cylinder');
 
-    expect(sdCyls).toBeGreaterThan(flatCyls);
+    expect(sdCyls).toBeGreaterThan(flatCyls); // screw-down adds clearance-hole cylinders
   });
 });

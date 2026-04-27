@@ -98,7 +98,7 @@ describe('HAT system (Phase 8a)', () => {
     expect(computeStackedHatHeight(project.hats, (id) => getBuiltinHat(id))).toBe(0);
   });
 
-  it('computeHatBaseZ places the HAT PCB at floor + pcb.z + max(headerHeight, hostTallest+clearance)', () => {
+  it('computeHatBaseZ places the HAT PCB at floor + standoff + pcb.z + max(headerHeight, hostTallest+clearance)', () => {
     useProjectStore.getState().addHat('cqrobot-dmx-shield-max485');
     const project = useProjectStore.getState().project;
     const placement = project.hats[0]!;
@@ -114,7 +114,11 @@ describe('HAT system (Phase 8a)', () => {
       0,
     );
     const lift = Math.max(headerHeight, hostTallest > 0 ? hostTallest + 0.5 : 0);
-    const expected = project.case.floorThickness + project.board.pcb.size.z + lift;
+    const expected =
+      project.case.floorThickness +
+      project.board.defaultStandoffHeight +
+      project.board.pcb.size.z +
+      lift;
     expect(baseZ.get(placement.id)).toBeCloseTo(expected, 4);
   });
 

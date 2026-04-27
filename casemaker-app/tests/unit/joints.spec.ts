@@ -10,17 +10,14 @@ describe('joint type compilation', () => {
     expect(plan.nodes.map((n) => n.id)).toEqual(['shell', 'lid']);
   });
 
-  it('snap-fit lid op tree contains a union (top + lip ring)', () => {
+  it('snap-fit lid op tree contains a union (top + lip ring) — possibly wrapped if posts present', () => {
     const project = createDefaultProject('rpi-4b');
     project.case.joint = 'snap-fit';
     const plan = compileProject(project);
     const lid = plan.nodes.find((n) => n.id === 'lid')!;
-    // Lid op is wrapped in translate; child should be a union for snap-fit.
-    if (lid.op.kind === 'translate') {
-      expect(lid.op.child.kind).toBe('union');
-    } else {
-      throw new Error('expected lid root op to be translate');
-    }
+    if (lid.op.kind !== 'translate') throw new Error('expected lid root op to be translate');
+    // Child is union (top + lip ring + posts) — no holes when joint != screw-down.
+    expect(lid.op.child.kind).toBe('union');
   });
 
   it('sliding joint adds rails: shell op tree includes union with extra children', () => {

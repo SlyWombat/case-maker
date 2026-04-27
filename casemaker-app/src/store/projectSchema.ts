@@ -20,7 +20,7 @@ const caseParamsSchema = z.object({
   }),
   bosses: z.object({
     enabled: z.boolean(),
-    insertType: z.enum(['self-tap', 'heat-set-m2.5', 'heat-set-m3', 'pass-through']),
+    insertType: z.enum(['self-tap', 'heat-set-m2.5', 'heat-set-m3', 'pass-through', 'none']),
     outerDiameter: z.number().positive(),
     holeDiameter: z.number().positive(),
   }),

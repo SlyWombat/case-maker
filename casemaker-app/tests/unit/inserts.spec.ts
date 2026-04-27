@@ -26,10 +26,19 @@ describe('boss insert variants', () => {
     expect(r.outerDiameter - r.holeDiameter).toBeGreaterThanOrEqual(2 - 0.0001);
   });
 
-  it('boss placements use the resolved diameters', () => {
+  it('boss placements use the resolved diameters when joint=screw-down', () => {
     const project = createDefaultProject('rpi-4b');
+    project.case.joint = 'screw-down';
     project.case.bosses.insertType = 'heat-set-m3';
     const placements = computeBossPlacements(project.board, project.case);
     expect(placements.every((b) => b.holeDiameter === 4.2)).toBe(true);
+  });
+
+  it('boss placements drop the pilot hole when joint != screw-down (issue #27)', () => {
+    const project = createDefaultProject('rpi-4b');
+    project.case.joint = 'flat-lid';
+    project.case.bosses.insertType = 'heat-set-m3';
+    const placements = computeBossPlacements(project.board, project.case);
+    expect(placements.every((b) => b.holeDiameter === 0)).toBe(true);
   });
 });

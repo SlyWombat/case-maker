@@ -33,7 +33,7 @@ describe('screw-down geometry', () => {
     expect(cur.kind).toBe('difference');
   });
 
-  it('flat-lid does NOT include lid holes (difference)', () => {
+  it('flat-lid is a union of plate + posts (no screw clearance holes — issue #27)', () => {
     const project = createDefaultProject('rpi-4b');
     project.case.joint = 'flat-lid';
     const plan = compileProject(project);
@@ -42,7 +42,8 @@ describe('screw-down geometry', () => {
     while (cur.kind === 'translate' || cur.kind === 'rotate' || cur.kind === 'scale') {
       cur = cur.child;
     }
-    expect(cur.kind).toBe('cube');
+    // Plate alone is a cube; plate + posts is a union; never a difference for non-screw-down.
+    expect(cur.kind).not.toBe('difference');
   });
 
   it('screw clearance diameter matches the insert variant', () => {

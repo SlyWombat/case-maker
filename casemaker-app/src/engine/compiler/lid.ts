@@ -28,9 +28,55 @@ export function computeLidDims(board: BoardProfile, params: CaseParameters): Lid
   };
 }
 
+/**
+ * Build the lid posts that clamp the board from above. Used by every joint type
+ * (issue #27): a flat-lid case still needs the posts to retain the board, the
+ * only difference is whether the post carries a screw clearance hole.
+ */
+function buildLidPosts(
+  board: BoardProfile,
+  params: CaseParameters,
+): { posts: BuildOp[]; holes: BuildOp[]; postLength: number } {
+  const dims = computeShellDims(board, params);
+  const placements = computeBossPlacements(board, params);
+  const standoff = board.defaultStandoffHeight;
+  const boardTopWorld = params.floorThickness + standoff + board.pcb.size.z;
+  const lidBottomWorld = dims.outerZ;
+  const postLength = Math.max(0, lidBottomWorld - boardTopWorld - LID_POST_BOARD_CLEARANCE);
+  if (postLength <= 0 || placements.length === 0) {
+    return { posts: [], holes: [], postLength };
+  }
+  const screwDia =
+    params.joint === 'screw-down'
+      ? getScrewClearanceDiameter(params.bosses.insertType)
+      : 0;
+  const posts: BuildOp[] = placements.map((b) =>
+    translate([b.x, b.y, -postLength], cylinder(postLength, b.outerDiameter / 2, 32)),
+  );
+  const holes: BuildOp[] =
+    screwDia > 0
+      ? placements.map((b) => {
+          const totalH = params.lidThickness + postLength + 1;
+          return translate(
+            [b.x, b.y, -postLength - 0.5],
+            cylinder(totalH, screwDia / 2, 24),
+          );
+        })
+      : [];
+  return { posts, holes, postLength };
+}
+
+function attachPosts(plate: BuildOp, posts: BuildOp[], holes: BuildOp[]): BuildOp {
+  if (posts.length === 0) return plate;
+  const solid = union([plate, ...posts]);
+  return holes.length > 0 ? difference([solid, ...holes]) : solid;
+}
+
 export function buildFlatLid(board: BoardProfile, params: CaseParameters): BuildOp {
   const lid = computeLidDims(board, params);
-  return cube([lid.x, lid.y, lid.z], false);
+  const plate = cube([lid.x, lid.y, lid.z], false);
+  const { posts, holes } = buildLidPosts(board, params);
+  return attachPosts(plate, posts, holes);
 }
 
 export function buildSnapFitLid(board: BoardProfile, params: CaseParameters): BuildOp {
@@ -54,7 +100,9 @@ export function buildSnapFitLid(board: BoardProfile, params: CaseParameters): Bu
     cube([lipInnerX, lipInnerY, SNAP_LIP_DEPTH + 1], false),
   );
   const lipRing = difference([lipOuter, lipInner]);
-  return union([topPlate, lipRing]);
+  const { posts, holes } = buildLidPosts(board, params);
+  const withPosts = posts.length > 0 ? union([topPlate, lipRing, ...posts]) : union([topPlate, lipRing]);
+  return holes.length > 0 ? difference([withPosts, ...holes]) : withPosts;
 }
 
 export function buildSlidingLid(board: BoardProfile, params: CaseParameters): BuildOp {
@@ -63,42 +111,16 @@ export function buildSlidingLid(board: BoardProfile, params: CaseParameters): Bu
   const slidX = dims.outerX;
   const slidY = dims.outerY - 2 * SLIDING_END_INSET;
   const baseY = SLIDING_END_INSET;
-  return translate([0, baseY, 0], cube([slidX, slidY, lid], false));
+  const plate = translate([0, baseY, 0], cube([slidX, slidY, lid], false));
+  const { posts, holes } = buildLidPosts(board, params);
+  return attachPosts(plate, posts, holes);
 }
 
 export function buildScrewDownLid(board: BoardProfile, params: CaseParameters): BuildOp {
   const dims = computeShellDims(board, params);
-  const lidThickness = params.lidThickness;
-  const plate = cube([dims.outerX, dims.outerY, lidThickness], false);
-  const placements = computeBossPlacements(board, params);
-  const screwDia = getScrewClearanceDiameter(params.bosses.insertType);
-
-  // Lid posts descend from the lid bottom down to (board top + clearance).
-  // In lid-local coords, the lid spans z=0..lidThickness and the post hangs in
-  // negative Z. Post length = lid bottom Z (=0 in local) − target Z below lid.
-  // World coords: lid bottom is at lidDims.zPosition. Board top is at
-  // floor + standoff + pcb.z. Post length = lidPos − (floor + standoff + pcb.z + clearance).
-  const standoff = board.defaultStandoffHeight;
-  const boardTopWorld = params.floorThickness + standoff + board.pcb.size.z;
-  const lidBottomWorld = dims.outerZ;
-  const postLength = Math.max(0, lidBottomWorld - boardTopWorld - LID_POST_BOARD_CLEARANCE);
-
-  const posts: BuildOp[] = placements.map((b) => {
-    const post = cylinder(postLength, b.outerDiameter / 2, 32);
-    return translate([b.x, b.y, -postLength], post);
-  });
-  // Continue the screw clearance hole through the entire lid + post.
-  const holes: BuildOp[] = placements.map((b) => {
-    const totalH = lidThickness + postLength + 1;
-    return translate(
-      [b.x, b.y, -postLength - 0.5],
-      cylinder(totalH, screwDia / 2, 24),
-    );
-  });
-
-  if (placements.length === 0) return plate;
-  const solid = posts.length > 0 ? union([plate, ...posts]) : plate;
-  return difference([solid, ...holes]);
+  const plate = cube([dims.outerX, dims.outerY, params.lidThickness], false);
+  const { posts, holes } = buildLidPosts(board, params);
+  return attachPosts(plate, posts, holes);
 }
 
 export function buildLid(board: BoardProfile, params: CaseParameters): BuildOp {
