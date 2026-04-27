@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
+import { temporal } from 'zundo';
 import { produce } from 'immer';
 import type { Project, BoardProfile, CaseParameters, PortPlacement } from '@/types';
 import { getBuiltinBoard } from '@/library';
@@ -56,42 +57,72 @@ export interface ProjectState {
 }
 
 export const useProjectStore = create<ProjectState>()(
-  subscribeWithSelector((set) => ({
-    project: createDefaultProject(),
-    setProject: (p) => set({ project: p }),
-    patchCase: (patch) =>
-      set((s) => ({
-        project: produce(s.project, (draft) => {
-          Object.assign(draft.case, patch);
-          draft.modifiedAt = new Date(0).toISOString();
-        }),
-      })),
-    loadBuiltinBoard: (boardId) =>
-      set(() => ({ project: createDefaultProject(boardId) })),
-    addPort: (port) =>
-      set((s) => ({
-        project: produce(s.project, (draft) => {
-          draft.ports.push(port);
-        }),
-      })),
-    removePort: (portId) =>
-      set((s) => ({
-        project: produce(s.project, (draft) => {
-          draft.ports = draft.ports.filter((p) => p.id !== portId);
-        }),
-      })),
-    setPortEnabled: (portId, enabled) =>
-      set((s) => ({
-        project: produce(s.project, (draft) => {
-          const p = draft.ports.find((x) => x.id === portId);
-          if (p) p.enabled = enabled;
-        }),
-      })),
-    setBoard: (board) =>
-      set((s) => ({
-        project: produce(s.project, (draft) => {
-          draft.board = structuredClone(board);
-        }),
-      })),
-  })),
+  subscribeWithSelector(
+    temporal(
+      (set) => ({
+        project: createDefaultProject(),
+        setProject: (p) => set({ project: p }),
+        patchCase: (patch) =>
+          set((s) => ({
+            project: produce(s.project, (draft) => {
+              for (const [k, v] of Object.entries(patch) as [keyof CaseParameters, unknown][]) {
+                (draft.case as Record<string, unknown>)[k as string] = v;
+              }
+              draft.modifiedAt = new Date(0).toISOString();
+            }),
+          })),
+        loadBuiltinBoard: (boardId) =>
+          set(() => ({ project: createDefaultProject(boardId) })),
+        addPort: (port) =>
+          set((s) => ({
+            project: produce(s.project, (draft) => {
+              draft.ports.push(port);
+            }),
+          })),
+        removePort: (portId) =>
+          set((s) => ({
+            project: produce(s.project, (draft) => {
+              draft.ports = draft.ports.filter((p) => p.id !== portId);
+            }),
+          })),
+        setPortEnabled: (portId, enabled) =>
+          set((s) => ({
+            project: produce(s.project, (draft) => {
+              const p = draft.ports.find((x) => x.id === portId);
+              if (p) p.enabled = enabled;
+            }),
+          })),
+        setBoard: (board) =>
+          set((s) => ({
+            project: produce(s.project, (draft) => {
+              draft.board = structuredClone(board);
+            }),
+          })),
+      }),
+      {
+        partialize: (state) => ({ project: state.project }),
+        limit: 50,
+      },
+    ),
+  ),
 );
+
+export function undoProject(): void {
+  useProjectStore.temporal.getState().undo();
+}
+
+export function redoProject(): void {
+  useProjectStore.temporal.getState().redo();
+}
+
+export function canUndo(): boolean {
+  return useProjectStore.temporal.getState().pastStates.length > 0;
+}
+
+export function canRedo(): boolean {
+  return useProjectStore.temporal.getState().futureStates.length > 0;
+}
+
+export function clearHistory(): void {
+  useProjectStore.temporal.getState().clear();
+}

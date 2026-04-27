@@ -1,6 +1,13 @@
 import type { ChangeEvent } from 'react';
 import { useProjectStore } from '@/store/projectStore';
-import type { CaseParameters } from '@/types';
+import type { CaseParameters, JointType } from '@/types';
+
+const JOINT_OPTIONS: { value: JointType; label: string }[] = [
+  { value: 'flat-lid', label: 'Flat lid' },
+  { value: 'snap-fit', label: 'Snap-fit' },
+  { value: 'sliding', label: 'Sliding' },
+  { value: 'screw-down', label: 'Screw-down' },
+];
 
 interface SliderProps {
   label: string;
@@ -96,6 +103,48 @@ export function CasePanel() {
         onChange={set('zClearance')}
         testId="z-clearance"
       />
+      <div className="joint-row">
+        <span className="joint-label">Joint type</span>
+        <div className="joint-buttons" role="radiogroup" aria-label="Joint type">
+          {JOINT_OPTIONS.map((opt) => (
+            <label key={opt.value}>
+              <input
+                type="radio"
+                name="joint"
+                value={opt.value}
+                checked={params.joint === opt.value}
+                onChange={() => patch({ joint: opt.value })}
+                data-testid={`joint-${opt.value}`}
+              />
+              <span>{opt.label}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+      <label className="vent-row">
+        <input
+          type="checkbox"
+          checked={params.ventilation.enabled}
+          onChange={(e) =>
+            patch({
+              ventilation: { ...params.ventilation, enabled: e.target.checked, pattern: 'slots' },
+            })
+          }
+          data-testid="ventilation-toggle"
+        />
+        <span>Ventilation slots on back wall</span>
+      </label>
+      {params.ventilation.enabled && (
+        <Slider
+          label="Vent coverage"
+          value={params.ventilation.coverage}
+          min={0}
+          max={1}
+          step={0.05}
+          onChange={(v) => patch({ ventilation: { ...params.ventilation, coverage: v } })}
+          testId="vent-coverage"
+        />
+      )}
     </div>
   );
 }

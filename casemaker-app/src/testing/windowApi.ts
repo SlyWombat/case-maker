@@ -1,5 +1,12 @@
 import type { Project, MeshStats } from '@/types';
-import { useProjectStore } from '@/store/projectStore';
+import {
+  useProjectStore,
+  undoProject,
+  redoProject,
+  canUndo,
+  canRedo,
+  clearHistory,
+} from '@/store/projectStore';
 import { useJobStore } from '@/store/jobStore';
 import {
   setDebounce,
@@ -11,6 +18,7 @@ import {
 import { resetSeed, setSeededIds } from '@/utils/id';
 import { triggerExport } from '@/engine/exportTrigger';
 import { isZUp } from '@/engine/coords';
+import { serializeProject, parseProject } from '@/store/persistence';
 
 export interface SceneNodeSummary {
   id: string;
@@ -35,6 +43,13 @@ export interface CaseMakerTestApi {
   waitForIdle(): Promise<void>;
   triggerExport(format: 'stl' | '3mf'): Promise<void>;
   resetSeed(seed?: number): void;
+  serializeProject(): string;
+  loadSerializedProject(json: string): Promise<void>;
+  undo(): Promise<void>;
+  redo(): Promise<void>;
+  canUndo(): boolean;
+  canRedo(): boolean;
+  clearHistory(): void;
 }
 
 export function installCaseMakerTestApi(): void {
@@ -88,6 +103,25 @@ export function installCaseMakerTestApi(): void {
     waitForIdle,
     triggerExport,
     resetSeed: (seed = 0) => resetSeed(seed),
+    serializeProject: () => serializeProject(useProjectStore.getState().project),
+    async loadSerializedProject(json: string) {
+      const p = parseProject(json);
+      useProjectStore.getState().setProject(p);
+      clearHistory();
+      await scheduleImmediate(p);
+      await waitForIdle();
+    },
+    async undo() {
+      undoProject();
+      await waitForIdle();
+    },
+    async redo() {
+      redoProject();
+      await waitForIdle();
+    },
+    canUndo,
+    canRedo,
+    clearHistory,
   };
 
   (window as unknown as { __caseMaker: CaseMakerTestApi }).__caseMaker = api;

@@ -6,7 +6,7 @@ See [docs/casemaker.md](docs/casemaker.md) for the original design brief.
 
 ## Status
 
-**Phase 2 shipped.** Five built-in board profiles (Pi 4B, Pi 5, Pi Zero 2W, Arduino Uno R3, ESP32 DevKit V1), automatic port cutouts with per-port toggles, mounting bosses, parametric flat-lid case, STL + 3MF export. Windows desktop installer built via Tauri 2 in CI.
+**Phase 3 shipped.** Five built-in board profiles, automatic port cutouts, four lid joint types (flat, snap-fit, sliding, screw-down), ventilation slots, project save/load (`.caseproj.json`) with schema-versioned zod validation, undo/redo with Ctrl+Z keyboard shortcut, Tauri 2 Windows installer in CI.
 
 ## Stack
 
@@ -45,11 +45,12 @@ Don't have Rust locally? Push to `main` (or trigger the workflow manually) and g
 
 ## Coverage
 
-- 19 Vitest unit tests (compiler math, board zod schema, STL/3MF writers, port cutouts, port factory)
-- 11 Playwright E2E tests (boot, board load, board swap across all 5 boards, parameter sensitivity, port cutout toggle, STL round-trip with parsed binary, 3MF round-trip with parsed XML)
+- 26 Vitest unit tests (compiler math, board zod schema, STL/3MF writers, port cutouts/factory, joint compilation, persistence round-trip + version rejection)
+- 16 Playwright E2E tests (boot, board load, board swap across all 5 boards, parameter sensitivity, port cutout toggle, STL/3MF round-trips, snap-fit / sliding lid bbox checks, ventilation cutout, project save/load round-trip with mesh-stat restore, undo/redo restoration)
 
 ## Roadmap
 
 - **Phase 1 ✓:** Pi 4B tray + flat lid + STL/3MF export
 - **Phase 2 ✓:** all 5 built-in boards, automatic port cutouts, per-port toggles, Windows installer via Tauri
-- **Phase 3:** snap-fit lids, sliding lids, screw-down bosses with heat-set inserts, ventilation patterns, custom-board editor UI, external STL/3MF import, project save/load, undo/redo
+- **Phase 3 ✓:** snap-fit + sliding + screw-down joint types (UI selector), ventilation slots, project save/load with zod validation, undo/redo (Ctrl+Z / Ctrl+Shift+Z)
+- **Phase 4 (next):** custom-board editor UI (mounting hole + component editing), external STL/3MF import (union/subtract/reference), heat-set insert boss variants, hex ventilation pattern, snap-fit physical print validation

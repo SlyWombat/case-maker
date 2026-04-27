@@ -22,6 +22,7 @@ body, html, #root {
 .app-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   padding: 0 16px;
   background: #14181c;
   border-bottom: 1px solid #2a2f36;
@@ -115,6 +116,48 @@ body, html, #root {
 .port-facing {
   color: #6c7585;
   font-variant-numeric: tabular-nums;
+}
+
+.joint-row {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.joint-label {
+  font-size: 12px;
+  color: #c4cad3;
+}
+.joint-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  font-size: 12px;
+}
+.joint-buttons label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  background: #14181c;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.vent-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  margin: 8px 0;
+}
+
+.toolbar-buttons {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.toolbar-buttons input[type=file] {
+  display: none;
 }
 
 select, button {
