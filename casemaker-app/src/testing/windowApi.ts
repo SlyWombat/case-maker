@@ -20,6 +20,8 @@ import { triggerExport } from '@/engine/exportTrigger';
 import { isZUp } from '@/engine/coords';
 import { serializeProject, parseProject } from '@/store/persistence';
 import { importStlFile } from '@/engine/import/assetImporter';
+import { useSettingsStore } from '@/store/settingsStore';
+import { useViewportStore } from '@/store/viewportStore';
 
 export interface SceneNodeSummary {
   id: string;
@@ -42,7 +44,7 @@ export interface CaseMakerTestApi {
   getDebounce(): number;
   getGeneration(): number;
   waitForIdle(): Promise<void>;
-  triggerExport(format: 'stl' | '3mf'): Promise<void>;
+  triggerExport(format: 'stl-binary' | 'stl-ascii' | '3mf'): Promise<void>;
   resetSeed(seed?: number): void;
   serializeProject(): string;
   loadSerializedProject(json: string): Promise<void>;
@@ -57,6 +59,14 @@ export interface CaseMakerTestApi {
   importStlAsset(name: string, base64: string): Promise<string>;
   getLastDiag(): { meshOpsSeen: number; note?: string } | null;
   getJobError(): string | null;
+  getSettings(): { port: number; bindToAll: boolean };
+  setPortSetting(port: number): void;
+  selectPort(portId: string | null): void;
+  getSelectedPortId(): string | null;
+  patchPort(
+    portId: string,
+    patch: { position?: { x?: number; y?: number; z?: number } },
+  ): Promise<void>;
 }
 
 export function installCaseMakerTestApi(): void {
@@ -152,6 +162,21 @@ export function installCaseMakerTestApi(): void {
       useProjectStore.getState().addExternalAsset(asset);
       await waitForIdle();
       return asset.id;
+    },
+    getSettings: () => {
+      const s = useSettingsStore.getState();
+      return { port: s.port, bindToAll: s.bindToAll };
+    },
+    setPortSetting: (port) => {
+      useSettingsStore.getState().setPort(port);
+    },
+    selectPort: (portId) => {
+      useViewportStore.getState().selectPort(portId);
+    },
+    getSelectedPortId: () => useViewportStore.getState().selectedPortId,
+    async patchPort(portId, patch) {
+      useProjectStore.getState().patchPort(portId, patch);
+      await waitForIdle();
     },
   };
 

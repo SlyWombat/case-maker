@@ -7,13 +7,13 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: isCI,
   retries: isCI ? 2 : 0,
-  workers: isCI ? 1 : undefined,
+  workers: 1,
   reporter: isCI ? [['html', { open: 'never' }], ['github']] : 'list',
   expect: {
     toHaveScreenshot: { maxDiffPixelRatio: 0.005 },
   },
   use: {
-    baseURL: 'http://127.0.0.1:5173',
+    baseURL: 'http://127.0.0.1:8000',
     viewport: { width: 1024, height: 768 },
     deviceScaleFactor: 1,
     trace: 'on-first-retry',
@@ -33,8 +33,8 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'npm run dev -- --port 5173 --strictPort',
-    url: 'http://127.0.0.1:5173',
+    command: 'npm run dev -- --port 8000 --strictPort',
+    url: 'http://127.0.0.1:8000',
     reuseExistingServer: !isCI,
     timeout: 120_000,
     env: { VITE_E2E: '1' },

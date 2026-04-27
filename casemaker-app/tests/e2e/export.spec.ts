@@ -11,7 +11,7 @@ test('STL export round-trip: triangle count and bbox match in-app stats', async 
 
   const [download] = await Promise.all([
     page.waitForEvent('download'),
-    page.evaluate(() => window.__caseMaker!.triggerExport('stl')),
+    page.evaluate(() => window.__caseMaker!.triggerExport('stl-binary')),
   ]);
   const stream = await download.createReadStream();
   const buf = await downloadToBuffer(stream);

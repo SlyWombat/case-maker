@@ -61,6 +61,10 @@ export interface ProjectState {
   addPort: (port: PortPlacement) => void;
   removePort: (portId: string) => void;
   setPortEnabled: (portId: string, enabled: boolean) => void;
+  patchPort: (
+    portId: string,
+    patch: { position?: Partial<{ x: number; y: number; z: number }>; locked?: boolean },
+  ) => void;
   setBoard: (board: BoardProfile) => void;
   cloneBoardForEditing: () => void;
   patchBoardPcb: (patch: { x?: number; y?: number; z?: number }) => void;
@@ -124,6 +128,19 @@ export const useProjectStore = create<ProjectState>()(
             project: produce(s.project, (draft) => {
               const p = draft.ports.find((x) => x.id === portId);
               if (p) p.enabled = enabled;
+            }),
+          })),
+        patchPort: (portId, patch) =>
+          set((s) => ({
+            project: produce(s.project, (draft) => {
+              const p = draft.ports.find((x) => x.id === portId);
+              if (!p) return;
+              if (patch.position) {
+                if (typeof patch.position.x === 'number') p.position.x = patch.position.x;
+                if (typeof patch.position.y === 'number') p.position.y = patch.position.y;
+                if (typeof patch.position.z === 'number') p.position.z = patch.position.z;
+              }
+              if (typeof patch.locked === 'boolean') p.locked = patch.locked;
             }),
           })),
         setBoard: (board) =>

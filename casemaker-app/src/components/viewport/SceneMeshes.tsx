@@ -4,6 +4,7 @@ import { useJobStore } from '@/store/jobStore';
 import { useViewportStore } from '@/store/viewportStore';
 import { bufferToGeometry } from '@/engine/scene/meshFromBuffer';
 import { ExternalAssetMeshes } from './ExternalAssetMeshes';
+import { PortMarkers } from './PortMarkers';
 
 interface NodeMeshProps {
   id: string;
@@ -38,6 +39,7 @@ export function SceneMeshes() {
       <NodeMesh id="shell" color="#88a4cc" />
       {showLid && <NodeMesh id="lid" color="#a8b8d0" opacity={0.85} />}
       <ExternalAssetMeshes />
+      <PortMarkers />
     </group>
   );
 }

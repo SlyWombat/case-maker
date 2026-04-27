@@ -3,6 +3,7 @@ import { ExportPanel } from '@/components/panels/ExportPanel';
 import { PortsPanel } from '@/components/panels/PortsPanel';
 import { BoardEditorPanel } from '@/components/panels/BoardEditorPanel';
 import { AssetsPanel } from '@/components/panels/AssetsPanel';
+import { SettingsPanel } from '@/components/panels/SettingsPanel';
 import { useProjectStore } from '@/store/projectStore';
 import { listBuiltinBoardIds } from '@/library';
 
@@ -34,6 +35,7 @@ export function Sidebar() {
       <PortsPanel />
       <AssetsPanel />
       <ExportPanel />
+      <SettingsPanel />
     </aside>
   );
 }

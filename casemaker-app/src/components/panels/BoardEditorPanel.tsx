@@ -171,8 +171,8 @@ export function BoardEditorPanel() {
           </tr>
         </thead>
         <tbody>
-          {board.components.map((c) => (
-            <tr key={c.id}>
+          {board.components.flatMap((c) => [
+            <tr key={`${c.id}-head`}>
               <td>
                 <select
                   value={c.kind}
@@ -205,11 +205,8 @@ export function BoardEditorPanel() {
                   ))}
                 </select>
               </td>
-              <td style={{ fontVariantNumeric: 'tabular-nums' }}>
-                {c.position.x.toFixed(1)},{c.position.y.toFixed(1)},{c.position.z.toFixed(1)}
-              </td>
-              <td style={{ fontVariantNumeric: 'tabular-nums' }}>
-                {c.size.x.toFixed(1)}×{c.size.y.toFixed(1)}×{c.size.z.toFixed(1)}
+              <td colSpan={2} style={{ color: '#8a94a4', fontSize: 11 }}>
+                pos / size below
               </td>
               <td>
                 <button
@@ -219,8 +216,46 @@ export function BoardEditorPanel() {
                   ✕
                 </button>
               </td>
-            </tr>
-          ))}
+            </tr>,
+            <tr key={`${c.id}-body`}>
+              <td colSpan={5} style={{ paddingBottom: 8 }}>
+                <div className="comp-coord-grid">
+                  <span className="coord-label">pos</span>
+                  <NumInput
+                    value={c.position.x}
+                    onChange={(v) => patchComponent(c.id, { position: { x: v } })}
+                    testId={`component-${c.id}-pos-x`}
+                  />
+                  <NumInput
+                    value={c.position.y}
+                    onChange={(v) => patchComponent(c.id, { position: { y: v } })}
+                    testId={`component-${c.id}-pos-y`}
+                  />
+                  <NumInput
+                    value={c.position.z}
+                    onChange={(v) => patchComponent(c.id, { position: { z: v } })}
+                    testId={`component-${c.id}-pos-z`}
+                  />
+                  <span className="coord-label">size</span>
+                  <NumInput
+                    value={c.size.x}
+                    onChange={(v) => patchComponent(c.id, { size: { x: v } })}
+                    testId={`component-${c.id}-size-x`}
+                  />
+                  <NumInput
+                    value={c.size.y}
+                    onChange={(v) => patchComponent(c.id, { size: { y: v } })}
+                    testId={`component-${c.id}-size-y`}
+                  />
+                  <NumInput
+                    value={c.size.z}
+                    onChange={(v) => patchComponent(c.id, { size: { z: v } })}
+                    testId={`component-${c.id}-size-z`}
+                  />
+                </div>
+              </td>
+            </tr>,
+          ])}
         </tbody>
       </table>
     </div>

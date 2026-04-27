@@ -49,8 +49,12 @@ export async function setWorkerGeneration(generation: number): Promise<void> {
   await getGeomApi().setGeneration(generation);
 }
 
-export async function exportStl(meshes: StlMeshInput[]): Promise<ArrayBuffer> {
-  return getExportApi().exportStl(meshes);
+export async function exportStlBinary(meshes: StlMeshInput[]): Promise<ArrayBuffer> {
+  return getExportApi().exportStlBinary(meshes);
+}
+
+export async function exportStlAscii(meshes: StlMeshInput[]): Promise<string> {
+  return getExportApi().exportStlAscii(meshes);
 }
 
 export async function exportThreeMf(meshes: StlMeshInput[]): Promise<ArrayBuffer> {

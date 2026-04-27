@@ -222,6 +222,32 @@ body, html, #root {
   padding: 2px 4px;
 }
 
+.comp-coord-grid {
+  display: grid;
+  grid-template-columns: 28px 1fr 1fr 1fr;
+  gap: 2px 4px;
+  align-items: center;
+}
+.coord-label {
+  font-size: 10px;
+  color: #6c7585;
+  text-transform: uppercase;
+}
+
+.settings-row {
+  display: grid;
+  grid-template-columns: 1fr 80px;
+  gap: 6px;
+  align-items: center;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+.settings-hint {
+  font-size: 11px;
+  color: #6c7585;
+  margin: 4px 0 0;
+}
+
 select, button {
   background: #14181c;
   color: #e6e8eb;

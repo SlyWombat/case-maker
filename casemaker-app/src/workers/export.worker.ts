@@ -1,11 +1,15 @@
 import * as Comlink from 'comlink';
 import { buildBinaryStl, type StlMeshInput } from './export/stlBinary';
+import { buildAsciiStl } from './export/stlAscii';
 import { buildThreeMf } from './export/threeMf';
 
 const api = {
-  exportStl(meshes: StlMeshInput[]): ArrayBuffer {
+  exportStlBinary(meshes: StlMeshInput[]): ArrayBuffer {
     const buf = buildBinaryStl(meshes);
     return Comlink.transfer(buf, [buf]);
+  },
+  exportStlAscii(meshes: StlMeshInput[]): string {
+    return buildAsciiStl(meshes);
   },
   exportThreeMf(meshes: StlMeshInput[]): ArrayBuffer {
     const buf = buildThreeMf(meshes);
