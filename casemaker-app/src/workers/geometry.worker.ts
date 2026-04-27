@@ -13,6 +13,7 @@ interface BuildOutputWire {
   combinedVertexCount: number;
   combinedBBox: { min: [number, number, number]; max: [number, number, number] };
   durationMs: number;
+  diag?: { meshOpsSeen: number; note?: string };
 }
 
 let currentGeneration = 0;

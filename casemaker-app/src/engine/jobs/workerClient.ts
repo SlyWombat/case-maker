@@ -2,6 +2,7 @@ import * as Comlink from 'comlink';
 import type { GeometryWorkerApi, BuildOutputWire } from '@/workers/geometry.worker';
 import type { ExportWorkerApi } from '@/workers/export.worker';
 import type { StlMeshInput } from '@/workers/export/stlBinary';
+import { collectMeshTransferables } from '@/engine/compiler/buildPlan';
 
 let geomWorker: Worker | null = null;
 let geomApi: Comlink.Remote<GeometryWorkerApi> | null = null;
@@ -34,7 +35,14 @@ export async function buildGeometry(
   plan: import('@/engine/compiler/buildPlan').BuildPlan,
   generation: number,
 ): Promise<BuildOutputWire | null> {
-  return getGeomApi().build(plan, generation);
+  const buffers: ArrayBuffer[] = [];
+  for (const node of plan.nodes) {
+    for (const buf of collectMeshTransferables(node.op)) buffers.push(buf);
+  }
+  if (buffers.length === 0) {
+    return getGeomApi().build(plan, generation);
+  }
+  return getGeomApi().build(Comlink.transfer(plan, buffers), generation);
 }
 
 export async function setWorkerGeneration(generation: number): Promise<void> {

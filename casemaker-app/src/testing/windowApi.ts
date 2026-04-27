@@ -55,6 +55,8 @@ export interface CaseMakerTestApi {
   patchBoardPcb(patch: { x?: number; y?: number; z?: number }): Promise<void>;
   addMountingHole(): Promise<void>;
   importStlAsset(name: string, base64: string): Promise<string>;
+  getLastDiag(): { meshOpsSeen: number; note?: string } | null;
+  getJobError(): string | null;
 }
 
 export function installCaseMakerTestApi(): void {
@@ -139,6 +141,8 @@ export function installCaseMakerTestApi(): void {
       useProjectStore.getState().addMountingHole();
       await waitForIdle();
     },
+    getLastDiag: () => useJobStore.getState().lastDiag,
+    getJobError: () => useJobStore.getState().error,
     async importStlAsset(name, base64) {
       const binary = atob(base64);
       const bytes = new Uint8Array(binary.length);

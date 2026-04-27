@@ -1,5 +1,6 @@
 import type { CaseParameters, BoardProfile, InsertType } from '@/types';
 import { cylinder, difference, translate, type BuildOp } from './buildPlan';
+import { computeShellDims } from './caseShell';
 
 export interface BossPlacement {
   id: string;
@@ -40,7 +41,11 @@ export function computeBossPlacements(
   if (!params.bosses.enabled) return [];
   const { wallThickness: wall, internalClearance: cl, floorThickness: floor } = params;
   const standoff = board.defaultStandoffHeight;
-  const totalHeight = floor + standoff;
+  // Screw-down extends bosses to the top of the cavity so the lid screws into them.
+  const totalHeight =
+    params.joint === 'screw-down'
+      ? floor + computeShellDims(board, params).cavityZ
+      : floor + standoff;
   const { outerDiameter, holeDiameter } = resolveInsertSpec(
     params.bosses.insertType,
     params.bosses.outerDiameter,
@@ -54,6 +59,20 @@ export function computeBossPlacements(
     holeDiameter,
     totalHeight,
   }));
+}
+
+export function getScrewClearanceDiameter(insertType: InsertType): number {
+  switch (insertType) {
+    case 'heat-set-m3':
+      return 3.4;
+    case 'heat-set-m2.5':
+    case 'self-tap':
+      return 2.9;
+    case 'pass-through':
+      return 3.4;
+    default:
+      return 2.9;
+  }
 }
 
 export function buildBossesUnion(placements: BossPlacement[]): BuildOp[] {

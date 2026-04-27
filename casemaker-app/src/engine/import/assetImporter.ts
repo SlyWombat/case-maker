@@ -1,15 +1,12 @@
 import type { ExternalAsset } from '@/types';
 import { arrayBufferToBase64, base64ToArrayBuffer } from './base64';
-import { parseBinaryStl, looksLikeBinaryStl, type ParsedMesh } from './stlParser';
+import { parseStl, type ParsedMesh } from './stlParser';
+import { parse3MF } from './threeMfParser';
 import { newId } from '@/utils/id';
 
 export async function importStlFile(file: File): Promise<ExternalAsset> {
   const buf = await file.arrayBuffer();
-  if (!looksLikeBinaryStl(buf)) {
-    throw new Error('Only binary STL is supported in this build (ASCII STL coming soon)');
-  }
-  // Validate by parsing once before storing.
-  parseBinaryStl(buf);
+  parseStl(buf); // validate by parsing once
   return {
     id: newId('asset'),
     name: file.name,
@@ -20,16 +17,32 @@ export async function importStlFile(file: File): Promise<ExternalAsset> {
   };
 }
 
+export async function importThreeMfFile(file: File): Promise<ExternalAsset> {
+  const buf = await file.arrayBuffer();
+  parse3MF(buf);
+  return {
+    id: newId('asset'),
+    name: file.name,
+    format: '3mf',
+    data: arrayBufferToBase64(buf),
+    transform: { position: [0, 0, 0], rotation: [0, 0, 0], scale: 1 },
+    visibility: 'reference',
+  };
+}
+
+export async function importMeshFile(file: File): Promise<ExternalAsset> {
+  const lower = file.name.toLowerCase();
+  if (lower.endsWith('.3mf')) return importThreeMfFile(file);
+  return importStlFile(file);
+}
+
 const meshCache = new Map<string, ParsedMesh>();
 
 export function decodeAssetMesh(asset: ExternalAsset): ParsedMesh {
   const cached = meshCache.get(asset.id);
   if (cached) return cached;
-  if (asset.format !== 'stl') {
-    throw new Error(`3MF asset decoding is not yet supported (${asset.name})`);
-  }
   const buf = base64ToArrayBuffer(asset.data);
-  const parsed = parseBinaryStl(buf);
+  const parsed = asset.format === '3mf' ? parse3MF(buf) : parseStl(buf);
   meshCache.set(asset.id, parsed);
   return parsed;
 }

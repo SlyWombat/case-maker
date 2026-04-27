@@ -54,9 +54,64 @@ export function parseBinaryStl(buf: ArrayBuffer): ParsedMesh {
 
 export function looksLikeBinaryStl(buf: ArrayBuffer): boolean {
   if (buf.byteLength < 84) return false;
-  // Heuristic: ASCII STL starts with "solid"; binary often does too in the header but we
-  // verify by checking the declared triangle count matches the byte length.
   const dv = new DataView(buf);
   const triCount = dv.getUint32(80, true);
-  return buf.byteLength >= 84 + triCount * 50;
+  return buf.byteLength === 84 + triCount * 50;
+}
+
+export function looksLikeAsciiStl(buf: ArrayBuffer): boolean {
+  if (buf.byteLength < 6) return false;
+  const head = new Uint8Array(buf, 0, Math.min(80, buf.byteLength));
+  const text = new TextDecoder('utf-8', { fatal: false }).decode(head).trimStart().toLowerCase();
+  return text.startsWith('solid') && !looksLikeBinaryStl(buf);
+}
+
+const VERTEX_RE = /vertex\s+(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)\s+(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)\s+(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g;
+
+export function parseAsciiStl(text: string): ParsedMesh {
+  const flat: number[] = [];
+  let m: RegExpExecArray | null;
+  VERTEX_RE.lastIndex = 0;
+  while ((m = VERTEX_RE.exec(text)) !== null) {
+    flat.push(parseFloat(m[1]!), parseFloat(m[2]!), parseFloat(m[3]!));
+  }
+  if (flat.length === 0 || flat.length % 9 !== 0) {
+    throw new Error(`ASCII STL: parsed ${flat.length / 3} vertices, not a multiple of 3`);
+  }
+  const triCount = flat.length / 9;
+  const positions = new Float32Array(flat);
+  const indices = new Uint32Array(triCount * 3);
+  let minX = Infinity,
+    minY = Infinity,
+    minZ = Infinity,
+    maxX = -Infinity,
+    maxY = -Infinity,
+    maxZ = -Infinity;
+  for (let i = 0; i < triCount * 3; i++) indices[i] = i;
+  for (let i = 0; i < triCount * 3; i++) {
+    const x = positions[i * 3]!;
+    const y = positions[i * 3 + 1]!;
+    const z = positions[i * 3 + 2]!;
+    if (x < minX) minX = x;
+    if (y < minY) minY = y;
+    if (z < minZ) minZ = z;
+    if (x > maxX) maxX = x;
+    if (y > maxY) maxY = y;
+    if (z > maxZ) maxZ = z;
+  }
+  return {
+    positions,
+    indices,
+    triangleCount: triCount,
+    bbox: { min: [minX, minY, minZ], max: [maxX, maxY, maxZ] },
+  };
+}
+
+export function parseStl(buf: ArrayBuffer): ParsedMesh {
+  if (looksLikeBinaryStl(buf)) return parseBinaryStl(buf);
+  if (looksLikeAsciiStl(buf)) {
+    const text = new TextDecoder('utf-8').decode(buf);
+    return parseAsciiStl(text);
+  }
+  throw new Error('STL: not recognized as binary or ASCII');
 }

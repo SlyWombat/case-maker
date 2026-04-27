@@ -1,6 +1,7 @@
 import type { CaseParameters, BoardProfile } from '@/types';
-import { cube, difference, translate, union, type BuildOp } from './buildPlan';
+import { cube, cylinder, difference, translate, union, type BuildOp } from './buildPlan';
 import { computeShellDims } from './caseShell';
+import { computeBossPlacements, getScrewClearanceDiameter } from './bosses';
 
 const SNAP_FRICTION = 0.2;
 const SNAP_LIP_DEPTH = 4;
@@ -40,8 +41,6 @@ export function buildSnapFitLid(board: BoardProfile, params: CaseParameters): Bu
   const lipInnerY = lipOuterY - 2 * lipWall;
 
   const topPlate = cube([dims.outerX, dims.outerY, lid], false);
-  // Build the lip ring: outer minus inner, extending downward from z=0 to z=-LIP_DEPTH.
-  // Local frame matches the top plate's corner at (0,0,0).
   const lipOriginX = wall + cl + SNAP_FRICTION;
   const lipOriginY = wall + cl + SNAP_FRICTION;
   const lipOuter = translate(
@@ -65,14 +64,31 @@ export function buildSlidingLid(board: BoardProfile, params: CaseParameters): Bu
   return translate([0, baseY, 0], cube([slidX, slidY, lid], false));
 }
 
+export function buildScrewDownLid(board: BoardProfile, params: CaseParameters): BuildOp {
+  const dims = computeShellDims(board, params);
+  const lidThickness = params.lidThickness;
+  const plate = cube([dims.outerX, dims.outerY, lidThickness], false);
+  const placements = computeBossPlacements(board, params);
+  const screwDia = getScrewClearanceDiameter(params.bosses.insertType);
+  const holes: BuildOp[] = placements.map((b) =>
+    translate(
+      [b.x, b.y, -0.5],
+      cylinder(lidThickness + 1, screwDia / 2, 24),
+    ),
+  );
+  if (holes.length === 0) return plate;
+  return difference([plate, ...holes]);
+}
+
 export function buildLid(board: BoardProfile, params: CaseParameters): BuildOp {
   switch (params.joint) {
     case 'snap-fit':
       return buildSnapFitLid(board, params);
     case 'sliding':
       return buildSlidingLid(board, params);
-    case 'flat-lid':
     case 'screw-down':
+      return buildScrewDownLid(board, params);
+    case 'flat-lid':
     default:
       return buildFlatLid(board, params);
   }

@@ -10,12 +10,14 @@ export interface JobState {
   durationMs: number;
   nodes: Map<string, MeshNode>;
   combinedStats: MeshStats | null;
+  lastDiag: { meshOpsSeen: number; note?: string } | null;
   setStatus: (status: JobStatus, error?: string | null) => void;
   applyResult: (
     generation: number,
     nodes: MeshNode[],
     combinedStats: MeshStats,
     durationMs: number,
+    diag?: { meshOpsSeen: number; note?: string },
   ) => void;
 }
 
@@ -26,8 +28,9 @@ export const useJobStore = create<JobState>()((set) => ({
   durationMs: 0,
   nodes: new Map(),
   combinedStats: null,
+  lastDiag: null,
   setStatus: (status, error = null) => set({ status, error }),
-  applyResult: (generation, nodes, combinedStats, durationMs) =>
+  applyResult: (generation, nodes, combinedStats, durationMs, diag) =>
     set(() => {
       const map = new Map<string, MeshNode>();
       for (const n of nodes) map.set(n.id, n);
@@ -38,6 +41,7 @@ export const useJobStore = create<JobState>()((set) => ({
         durationMs,
         nodes: map,
         combinedStats,
+        lastDiag: diag ?? null,
       };
     }),
 }));

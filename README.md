@@ -6,7 +6,7 @@ See [docs/casemaker.md](docs/casemaker.md) for the original design brief.
 
 ## Status
 
-**Phase 4 shipped.** Custom-board editor (clone-built-in-then-edit pattern), external STL import (reference visibility), heat-set insert variants (M2.5 / M3 / pass-through / self-tap) with auto-sized boss outer diameter, hex ventilation pattern alongside slots. Plus everything from Phases 1-3.
+**Phase 5 shipped.** Full STL/3MF subtract/union geometry pipeline (mesh ops in the Manifold worker), 3MF asset import, ASCII STL parser with auto-format detection, component editor for custom boards (port table — kind, facing, position, size editing), real screw-down lid (tall bosses + lid corner holes sized by insert variant). Plus everything from Phases 1-4.
 
 ## Stack
 
@@ -45,8 +45,8 @@ Don't have Rust locally? Push to `main` (or trigger the workflow manually) and g
 
 ## Coverage
 
-- 42 Vitest unit tests (compiler math, board zod schema, STL/3MF writers, port cutouts/factory, joint compilation, persistence round-trip + version rejection, custom-board editor guards, heat-set insert resolver, hex vs slot ventilation, STL parser round-trip)
-- 19 Playwright E2E tests (boot, board load, board swap across all 5 boards, parameter sensitivity, port cutout toggle, STL/3MF round-trips, snap-fit / sliding lid bbox checks, ventilation cutout, project save/load round-trip with mesh-stat restore, undo/redo restoration, clone-and-edit custom board, add mounting hole, STL asset import)
+- 62 Vitest unit tests (compiler math, board zod schema, STL/3MF writers, port cutouts/factory, joint compilation, persistence round-trip + version rejection, custom-board editor guards, component editor, heat-set insert resolver, screw-down geometry, hex vs slot ventilation, ASCII STL parser, 3MF round-trip parsing, external asset compilation pipeline)
+- 21 Playwright E2E tests (boot, board load, board swap across all 5 boards, parameter sensitivity, port cutout toggle, STL/3MF round-trips, snap-fit / sliding / screw-down lid bbox checks, ventilation cutout, project save/load round-trip, undo/redo restoration, clone-and-edit custom board, add mounting hole, STL asset import + subtract pipeline)
 
 ## Roadmap
 
@@ -54,4 +54,5 @@ Don't have Rust locally? Push to `main` (or trigger the workflow manually) and g
 - **Phase 2 ✓:** all 5 built-in boards, automatic port cutouts, per-port toggles, Windows installer via Tauri
 - **Phase 3 ✓:** snap-fit + sliding + screw-down joint types (UI selector), ventilation slots, project save/load with zod validation, undo/redo (Ctrl+Z / Ctrl+Shift+Z)
 - **Phase 4 ✓:** custom-board editor UI (clone built-in → edit dims + holes), external STL import (reference visibility), heat-set insert variants with auto-sized bosses, hex ventilation pattern
-- **Phase 5 (next):** STL/3MF subtract/union geometry pipeline (currently reference-only), 3MF asset import, ASCII STL parsing, component editor UI for custom boards (port positions), snap-fit physical print validation iteration
+- **Phase 5 ✓:** STL/3MF subtract/union geometry pipeline through the Manifold worker, 3MF asset import, ASCII STL parser with auto-format detection, component editor UI (port table for custom boards), real screw-down lid with corner holes sized by insert variant
+- **Phase 6 (next):** drag-handle port repositioning in the 3D viewport, snap-fit physical print validation, STL ASCII export option, dynamic library import for code-splitting (the bundle is 1.2MB pre-gzip and tree-shaking can't help much)

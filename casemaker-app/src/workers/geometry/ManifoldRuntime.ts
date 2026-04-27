@@ -25,12 +25,13 @@ export class CancelledError extends Error {
 
 export type GenerationCheck = () => void;
 
-function executeOp(
-  Manifold: ManifoldClass,
+async function executeOp(
+  tl: Awaited<ReturnType<typeof ManifoldModule>>,
   op: BuildOp,
   check: GenerationCheck,
-): ManifoldInstance {
+): Promise<ManifoldInstance> {
   check();
+  const Manifold = tl.Manifold;
   switch (op.kind) {
     case 'cube':
       return Manifold.cube(op.size, op.center ?? false);
@@ -42,22 +43,46 @@ function executeOp(
         op.segments ?? 0,
         op.center ?? false,
       );
+    case 'mesh': {
+      const dedup = deduplicateMesh(op.positions, op.indices);
+      console.log('[worker] mesh op: dedup verts', dedup.positions.length / 3, 'tris', dedup.indices.length / 3);
+      try {
+        const meshObj = new tl.Mesh({
+          numProp: 3,
+          vertProperties: dedup.positions,
+          triVerts: dedup.indices,
+        });
+        const m = new Manifold(meshObj);
+        console.log('[worker] mesh op: built Manifold OK');
+        return m;
+      } catch (e) {
+        console.error('[worker] mesh op failed:', e);
+        throw e;
+      }
+    }
     case 'translate': {
-      const child = executeOp(Manifold, op.child, check);
+      const child = await executeOp(tl, op.child, check);
       const result = child.translate(op.offset);
       child.delete();
       return result;
     }
     case 'rotate': {
-      const child = executeOp(Manifold, op.child, check);
+      const child = await executeOp(tl, op.child, check);
       const result = child.rotate(op.degrees);
+      child.delete();
+      return result;
+    }
+    case 'scale': {
+      const child = await executeOp(tl, op.child, check);
+      const result = child.scale([op.factor, op.factor, op.factor]);
       child.delete();
       return result;
     }
     case 'union':
     case 'difference':
     case 'intersection': {
-      const children = op.children.map((c) => executeOp(Manifold, c, check));
+      const children: ManifoldInstance[] = [];
+      for (const c of op.children) children.push(await executeOp(tl, c, check));
       check();
       let result: ManifoldInstance;
       if (op.kind === 'union') result = Manifold.union(children);
@@ -79,7 +104,7 @@ export interface NodeMeshOutput {
 
 export async function buildOp(op: BuildOp, check: GenerationCheck): Promise<NodeMeshOutput> {
   const tl = await getToplevel();
-  const m = executeOp(tl.Manifold, op, check);
+  const m = await executeOp(tl, op, check);
   try {
     check();
     const mesh = m.getMesh();
@@ -124,4 +149,30 @@ function flattenPositions(src: Float32Array, numProp: number, numVert: number): 
     out[i * 3 + 2] = src[i * numProp + 2]!;
   }
   return out;
+}
+
+const DEDUP_PRECISION = 1e5;
+
+function deduplicateMesh(
+  positions: Float32Array,
+  indices: Uint32Array,
+): { positions: Float32Array; indices: Uint32Array } {
+  const map = new Map<string, number>();
+  const newPos: number[] = [];
+  const newIdx = new Uint32Array(indices.length);
+  for (let i = 0; i < indices.length; i++) {
+    const v = indices[i]!;
+    const x = Math.round(positions[v * 3]! * DEDUP_PRECISION) / DEDUP_PRECISION;
+    const y = Math.round(positions[v * 3 + 1]! * DEDUP_PRECISION) / DEDUP_PRECISION;
+    const z = Math.round(positions[v * 3 + 2]! * DEDUP_PRECISION) / DEDUP_PRECISION;
+    const key = `${x},${y},${z}`;
+    let id = map.get(key);
+    if (id === undefined) {
+      id = newPos.length / 3;
+      newPos.push(x, y, z);
+      map.set(key, id);
+    }
+    newIdx[i] = id;
+  }
+  return { positions: new Float32Array(newPos), indices: newIdx };
 }

@@ -49,7 +49,7 @@ async function dispatch(project: Project, myGen: number): Promise<void> {
       triangleCount: result.combinedTriangleCount,
       bbox: result.combinedBBox,
     };
-    job.applyResult(myGen, nodes, combined, result.durationMs);
+    job.applyResult(myGen, nodes, combined, result.durationMs, result.diag);
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     useJobStore.getState().setStatus('error', message);

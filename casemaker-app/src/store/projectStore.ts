@@ -2,7 +2,15 @@ import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import { temporal } from 'zundo';
 import { produce } from 'immer';
-import type { Project, BoardProfile, CaseParameters, PortPlacement } from '@/types';
+import type {
+  Project,
+  BoardProfile,
+  CaseParameters,
+  PortPlacement,
+  BoardComponent,
+  ComponentKind,
+  Facing,
+} from '@/types';
 import { getBuiltinBoard } from '@/library';
 import { newId } from '@/utils/id';
 import { autoPortsForBoard } from '@/engine/compiler/portFactory';
@@ -67,6 +75,18 @@ export interface ProjectState {
   patchExternalAsset: (
     assetId: string,
     patch: Partial<import('@/types').ExternalAsset>,
+  ) => void;
+  addComponent: () => void;
+  removeComponent: (componentId: string) => void;
+  patchComponent: (
+    componentId: string,
+    patch: {
+      kind?: ComponentKind;
+      position?: Partial<{ x: number; y: number; z: number }>;
+      size?: Partial<{ x: number; y: number; z: number }>;
+      facing?: Facing;
+      cutoutMargin?: number;
+    },
   ) => void;
 }
 
@@ -181,6 +201,61 @@ export const useProjectStore = create<ProjectState>()(
               const a = draft.externalAssets.find((x) => x.id === assetId);
               if (!a) return;
               Object.assign(a, patch);
+            }),
+          })),
+        addComponent: () =>
+          set((s) => ({
+            project: produce(s.project, (draft) => {
+              if (draft.board.builtin) return;
+              const newComp: BoardComponent = {
+                id: `c-${newId()}`,
+                kind: 'custom',
+                position: { x: 0, y: 0, z: draft.board.pcb.size.z },
+                size: { x: 5, y: 5, z: 5 },
+                facing: '+y',
+                cutoutMargin: 0.5,
+              };
+              draft.board.components.push(newComp);
+            }),
+          })),
+        removeComponent: (componentId) =>
+          set((s) => ({
+            project: produce(s.project, (draft) => {
+              if (draft.board.builtin) return;
+              draft.board.components = draft.board.components.filter(
+                (c) => c.id !== componentId,
+              );
+              draft.ports = draft.ports.filter((p) => p.sourceComponentId !== componentId);
+            }),
+          })),
+        patchComponent: (componentId, patch) =>
+          set((s) => ({
+            project: produce(s.project, (draft) => {
+              if (draft.board.builtin) return;
+              const c = draft.board.components.find((x) => x.id === componentId);
+              if (!c) return;
+              if (patch.kind) c.kind = patch.kind;
+              if (patch.facing) c.facing = patch.facing;
+              if (typeof patch.cutoutMargin === 'number') c.cutoutMargin = patch.cutoutMargin;
+              if (patch.position) {
+                if (typeof patch.position.x === 'number') c.position.x = patch.position.x;
+                if (typeof patch.position.y === 'number') c.position.y = patch.position.y;
+                if (typeof patch.position.z === 'number') c.position.z = patch.position.z;
+              }
+              if (patch.size) {
+                if (typeof patch.size.x === 'number') c.size.x = patch.size.x;
+                if (typeof patch.size.y === 'number') c.size.y = patch.size.y;
+                if (typeof patch.size.z === 'number') c.size.z = patch.size.z;
+              }
+              const matchingPort = draft.ports.find((p) => p.sourceComponentId === componentId);
+              if (matchingPort) {
+                if (patch.kind) matchingPort.kind = patch.kind;
+                if (patch.facing) matchingPort.facing = patch.facing;
+                if (typeof patch.cutoutMargin === 'number')
+                  matchingPort.cutoutMargin = patch.cutoutMargin;
+                if (patch.position) Object.assign(matchingPort.position, patch.position);
+                if (patch.size) Object.assign(matchingPort.size, patch.size);
+              }
             }),
           })),
       }),
