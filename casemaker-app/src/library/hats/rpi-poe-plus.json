@@ -1,0 +1,25 @@
+{
+  "id": "rpi-poe-plus",
+  "name": "Raspberry Pi PoE+ HAT",
+  "manufacturer": "Raspberry Pi Ltd",
+  "pcb": { "size": { "x": 65, "y": 30.5, "z": 1.6 } },
+  "mountingHoles": [
+    { "id": "h1", "x": 3.5, "y": 3.5, "diameter": 2.75 },
+    { "id": "h2", "x": 3.5, "y": 27, "diameter": 2.75 },
+    { "id": "h3", "x": 61.5, "y": 3.5, "diameter": 2.75 },
+    { "id": "h4", "x": 61.5, "y": 27, "diameter": 2.75 }
+  ],
+  "headerHeight": 8.5,
+  "components": [
+    {
+      "id": "fan",
+      "kind": "custom",
+      "position": { "x": 28, "y": 8, "z": 1.6 },
+      "size": { "x": 30, "y": 30, "z": 11 },
+      "facing": "+z"
+    }
+  ],
+  "compatibleBoards": ["rpi-4b", "rpi-5"],
+  "source": "https://datasheets.raspberrypi.com/poe-plus/poe-plus-hat-product-brief.pdf",
+  "builtin": true
+}

@@ -1,0 +1,20 @@
+{
+  "id": "pimoroni-fan-shim",
+  "name": "Pimoroni Fan SHIM",
+  "manufacturer": "Pimoroni",
+  "pcb": { "size": { "x": 64, "y": 17, "z": 1.6 } },
+  "mountingHoles": [],
+  "headerHeight": 5,
+  "components": [
+    {
+      "id": "fan",
+      "kind": "custom",
+      "position": { "x": 24, "y": 0.5, "z": 1.6 },
+      "size": { "x": 16, "y": 16, "z": 6 },
+      "facing": "+z"
+    }
+  ],
+  "compatibleBoards": ["rpi-4b", "rpi-5", "rpi-zero-2w"],
+  "source": "https://shop.pimoroni.com/products/fan-shim",
+  "builtin": true
+}

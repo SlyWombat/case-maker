@@ -51,9 +51,29 @@ export function SettingsPanel() {
         />
         <span>Allow LAN access (bind 0.0.0.0)</span>
       </label>
+      <ExportLayoutSelector />
       <button onClick={reset} data-testid="settings-reset" style={{ fontSize: 11 }}>
         Reset to defaults
       </button>
+    </div>
+  );
+}
+
+function ExportLayoutSelector() {
+  const layout = useSettingsStore((s) => s.exportLayout);
+  const setLayout = useSettingsStore((s) => s.setExportLayout);
+  return (
+    <div className="settings-row" style={{ gridTemplateColumns: '1fr auto' }}>
+      <label htmlFor="settings-export-layout">Export layout</label>
+      <select
+        id="settings-export-layout"
+        value={layout}
+        onChange={(e) => setLayout(e.target.value as 'print-ready' | 'assembled')}
+        data-testid="settings-export-layout"
+      >
+        <option value="print-ready">Print-ready (lid flipped, side-by-side)</option>
+        <option value="assembled">Assembled (visualization)</option>
+      </select>
     </div>
   );
 }

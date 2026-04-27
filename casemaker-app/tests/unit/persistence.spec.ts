@@ -11,7 +11,7 @@ describe('project persistence', () => {
     expect(parsed.board.id).toBe(original.board.id);
     expect(parsed.case).toEqual(original.case);
     expect(parsed.ports.length).toBe(original.ports.length);
-    expect(parsed.schemaVersion).toBe(2);
+    expect(parsed.schemaVersion).toBe(3);
   });
 
   it('rejects malformed JSON', () => {
@@ -24,16 +24,36 @@ describe('project persistence', () => {
     expect(() => parseProject(tampered)).toThrow();
   });
 
-  it('migrates schemaVersion=1 projects by adding empty hats and customHats arrays', () => {
-    const v2 = createDefaultProject('rpi-4b');
-    const v1Raw: Record<string, unknown> = { ...v2 };
-    delete v1Raw.hats;
-    delete v1Raw.customHats;
-    const v1 = { ...v1Raw, schemaVersion: 1 };
+  it('migrates schemaVersion=1 projects forward to v3', () => {
+    const v3 = createDefaultProject('rpi-4b');
+    const raw: Record<string, unknown> = { ...v3 };
+    delete raw.hats;
+    delete raw.customHats;
+    delete raw.mountingFeatures;
+    delete raw.display;
+    delete raw.customDisplays;
+    const v1 = { ...raw, schemaVersion: 1 };
     const text = JSON.stringify(v1);
     const parsed = parseProject(text);
-    expect(parsed.schemaVersion).toBe(2);
+    expect(parsed.schemaVersion).toBe(3);
     expect(parsed.hats).toEqual([]);
     expect(parsed.customHats).toEqual([]);
+    expect(parsed.mountingFeatures).toEqual([]);
+    expect(parsed.display).toBeNull();
+    expect(parsed.customDisplays).toEqual([]);
+  });
+
+  it('migrates schemaVersion=2 projects forward to v3', () => {
+    const v3 = createDefaultProject('rpi-4b');
+    const raw: Record<string, unknown> = { ...v3 };
+    delete raw.mountingFeatures;
+    delete raw.display;
+    delete raw.customDisplays;
+    const v2 = { ...raw, schemaVersion: 2 };
+    const text = JSON.stringify(v2);
+    const parsed = parseProject(text);
+    expect(parsed.schemaVersion).toBe(3);
+    expect(parsed.mountingFeatures).toEqual([]);
+    expect(parsed.display).toBeNull();
   });
 });

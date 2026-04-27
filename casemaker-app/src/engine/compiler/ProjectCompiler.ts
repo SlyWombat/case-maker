@@ -9,6 +9,7 @@ import { buildSlidingRails } from './slidingRails';
 import { buildVentilationCutouts } from './ventilation';
 import { buildExternalAssetOps } from './externalAssets';
 import { buildHatCutoutsForProject } from './hats';
+import { buildMountingFeatureOps } from './mountingFeatures';
 import { getBuiltinHat } from '@/library/hats';
 
 function makeHatResolver(project: Project): (id: string) => HatProfile | undefined {
@@ -17,7 +18,7 @@ function makeHatResolver(project: Project): (id: string) => HatProfile | undefin
 }
 
 export function compileProject(project: Project): BuildPlan {
-  const { board, case: caseParams, ports, externalAssets, hats } = project;
+  const { board, case: caseParams, ports, externalAssets, hats, mountingFeatures } = project;
   const resolveHat = makeHatResolver(project);
 
   const shellOuter = buildOuterShell(board, caseParams, hats ?? [], resolveHat);
@@ -25,13 +26,27 @@ export function compileProject(project: Project): BuildPlan {
   const bossOps = buildBossesUnion(bossPlacements);
   const railOps = caseParams.joint === 'sliding' ? buildSlidingRails(board, caseParams) : [];
   const assetOps = buildExternalAssetOps(externalAssets);
-  const additive = [shellOuter, ...bossOps, ...railOps, ...assetOps.unionOps];
+  const featureOps = buildMountingFeatureOps(
+    mountingFeatures,
+    board,
+    caseParams,
+    hats ?? [],
+    resolveHat,
+  );
+  const additive = [
+    shellOuter,
+    ...bossOps,
+    ...railOps,
+    ...assetOps.unionOps,
+    ...featureOps.additive,
+  ];
 
   const cutoutOps: BuildOp[] = [
     ...buildPortCutoutsForProject(ports, board, caseParams),
     ...buildVentilationCutouts(board, caseParams),
     ...buildHatCutoutsForProject(board, caseParams, hats ?? [], resolveHat),
     ...assetOps.subtractOps,
+    ...featureOps.subtractive,
   ];
 
   let shellOp: BuildOp = additive.length > 1 ? union(additive) : shellOuter;

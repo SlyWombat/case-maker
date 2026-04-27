@@ -1,8 +1,11 @@
 import { useProjectStore } from '@/store/projectStore';
 import { useJobStore } from '@/store/jobStore';
+import { useSettingsStore } from '@/store/settingsStore';
 import { exportStlBinary, exportStlAscii, exportThreeMf } from '@/engine/jobs/workerClient';
 import { scheduleImmediate, waitForIdle } from '@/engine/jobs/JobScheduler';
 import type { StlMeshInput } from '@/workers/export/stlBinary';
+import { applyLayoutToMeshes } from '@/engine/exportLayout';
+import type { MeshNode } from '@/types';
 
 export type ExportFormat = 'stl-binary' | 'stl-ascii' | '3mf';
 
@@ -27,15 +30,24 @@ function triggerDownload(blob: Blob, filename: string): void {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+export function meshesForExport(): StlMeshInput[] {
+  const layoutMode = useSettingsStore.getState().exportLayout;
+  const nodes = useJobStore.getState().nodes;
+  const list: MeshNode[] = [];
+  for (const n of nodes.values()) list.push(n);
+  if (layoutMode === 'assembled') {
+    return list.map((n) => ({ positions: n.buffer.positions, indices: n.buffer.indices }));
+  }
+  // Print-ready: lay parts out flat, lid flipped, side-by-side along +X.
+  const laid = applyLayoutToMeshes(list, { flipNodeIds: ['lid'] });
+  return laid.map((m) => ({ positions: m.positions, indices: m.indices }));
+}
+
 export async function triggerExport(format: ExportFormat): Promise<void> {
   const project = useProjectStore.getState().project;
   await scheduleImmediate(project);
   await waitForIdle();
-  const nodes = useJobStore.getState().nodes;
-  const meshes: StlMeshInput[] = [];
-  for (const n of nodes.values()) {
-    meshes.push({ positions: n.buffer.positions, indices: n.buffer.indices });
-  }
+  const meshes = meshesForExport();
   if (meshes.length === 0) throw new Error('No mesh available to export');
   const safeName = project.name.replace(/[^a-z0-9-_]+/gi, '_');
   if (format === 'stl-binary') {

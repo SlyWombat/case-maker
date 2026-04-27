@@ -1,8 +1,18 @@
 import type { HatProfile } from '@/types';
 import { builtinHatProfileSchema } from '../hatSchema';
 import cqrobotDmxRaw from './cqrobot-dmx-shield-max485.json';
+import rpiPoEPlusRaw from './rpi-poe-plus.json';
+import rpiSenseRaw from './rpi-sense-hat.json';
+import pimoroniFanShimRaw from './pimoroni-fan-shim.json';
+import arduinoEthernetRaw from './arduino-ethernet-shield-2.json';
 
-const validated: HatProfile[] = [cqrobotDmxRaw].map((raw) => {
+const validated: HatProfile[] = [
+  cqrobotDmxRaw,
+  rpiPoEPlusRaw,
+  rpiSenseRaw,
+  pimoroniFanShimRaw,
+  arduinoEthernetRaw,
+].map((raw) => {
   const parsed = builtinHatProfileSchema.parse(raw);
   return parsed as HatProfile;
 });

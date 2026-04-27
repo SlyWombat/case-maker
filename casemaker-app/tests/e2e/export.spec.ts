@@ -1,8 +1,12 @@
 import { test, expect } from './fixtures/caseMaker';
 import { parseBinaryStl, downloadToBuffer } from './fixtures/parsers';
 
-test('STL export round-trip: triangle count and bbox match in-app stats', async ({ cm, page }) => {
+test('STL export round-trip (assembled mode): triangle count + bbox match in-app stats', async ({
+  cm,
+  page,
+}) => {
   await cm.ready();
+  await page.evaluate(() => window.__caseMaker!.setExportLayout('assembled'));
   await page.evaluate(async () => {
     await window.__caseMaker!.loadBuiltinBoard('rpi-4b');
   });
@@ -24,4 +28,7 @@ test('STL export round-trip: triangle count and bbox match in-app stats', async 
   expect(parsed.bbox.max[0]).toBeCloseTo(inAppStats.bbox.max[0], 2);
   expect(parsed.bbox.max[1]).toBeCloseTo(inAppStats.bbox.max[1], 2);
   expect(parsed.bbox.max[2]).toBeCloseTo(inAppStats.bbox.max[2], 2);
+
+  // Reset for downstream tests
+  await page.evaluate(() => window.__caseMaker!.setExportLayout('print-ready'));
 });

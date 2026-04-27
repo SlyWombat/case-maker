@@ -1,0 +1,22 @@
+{
+  "id": "rpi-7-touch",
+  "name": "Raspberry Pi 7\" Touch Display",
+  "manufacturer": "Raspberry Pi Ltd",
+  "pcb": { "size": { "x": 193, "y": 110, "z": 5 } },
+  "activeArea": { "x": 154.21, "y": 85.92, "offsetX": 19.4, "offsetY": 12.04 },
+  "bezel": { "top": 12.04, "right": 19.4, "bottom": 12.04, "left": 19.4 },
+  "overallHeight": 11,
+  "mounting": "standalone",
+  "mountingHoles": [
+    { "id": "h1", "x": 5, "y": 5, "diameter": 3.2 },
+    { "id": "h2", "x": 188, "y": 5, "diameter": 3.2 },
+    { "id": "h3", "x": 5, "y": 105, "diameter": 3.2 },
+    { "id": "h4", "x": 188, "y": 105, "diameter": 3.2 }
+  ],
+  "interface": "dsi",
+  "touch": "capacitive-fts",
+  "components": [],
+  "compatibleBoards": [],
+  "source": "https://datasheets.raspberrypi.com/display/7-inch-display-mechanical-drawing.pdf",
+  "builtin": true
+}

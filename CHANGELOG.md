@@ -9,8 +9,24 @@ All notable changes to Case Maker. The project follows the [Keep a Changelog](ht
 Open issues:
 
 - [#2](https://github.com/SlyWombat/case-maker/issues/2) Snap-fit physical print validation loop (blocked on hardware).
-- [#8](https://github.com/SlyWombat/case-maker/issues/8) Display mounting system + library of common displays.
-- [#9](https://github.com/SlyWombat/case-maker/issues/9) External case mounting features (screw tabs, zip-tie slots, VESA, DIN rail, keyhole, magnets).
+
+## [0.8.0] — Phase 8b/9a/10a + print-ready export — 2026-04-27
+
+### Added
+
+- **Print-ready export layout** (closes [#10](https://github.com/SlyWombat/case-maker/issues/10)). New `src/engine/exportLayout.ts` flips the lid 180° around X so its flat exterior lands on the bed, drops every part to `Z = 0`, and packs parts side-by-side along +X with a 5 mm gap (wraps to a second row beyond a 220 mm bed width). Triangle winding is reversed for flipped parts so face normals stay outward. New **Export layout** setting (`print-ready` default vs `assembled`) in the Settings panel.
+- **HAT library expansion** (closes [#7](https://github.com/SlyWombat/case-maker/issues/7) Phase 8b). Four new built-in HATs alongside the existing CQRobot DMX shield: Pi PoE+ HAT, Pi Sense HAT, Pimoroni Fan SHIM, Arduino Ethernet Shield 2 — each schema-validated against a datasheet/source URL. New **HatsPanel** in the sidebar with a board-filtered picker, per-HAT enable/disable, port toggles, and remove button.
+- **Display mounting foundation** (closes [#8](https://github.com/SlyWombat/case-maker/issues/8) Phase 9a). New `DisplayProfile` + `DisplayPlacement` types, strict zod schema (mandatory `source` URL on built-ins), compiler in `src/engine/compiler/displays.ts` with **`top-window`** and **`recessed-bezel`** framings. Two seed displays: Raspberry Pi 7" Touch Display and Pimoroni HyperPixel 4.0. Footprint auto-grow logic computed (UI to apply it follows in 9b).
+- **External mounting features foundation** (closes [#9](https://github.com/SlyWombat/case-maker/issues/9) Phase 10a). New `MountingFeature` type and three generators in `src/engine/compiler/mountingFeatures.ts`: `screw-tab` (flanged tab + through-hole), `zip-tie-slot`, `vesa-mount` (4-hole pattern at 75 or 100 mm). Presets: `four-corner-screw-tabs`, `rear-vesa-100`, `rear-vesa-75`. Test-API-driven; UI panel deferred to Phase 10b.
+
+### Changed
+
+- **Project schema bumped to `schemaVersion: 3`** with v1 → v3 and v2 → v3 migrations adding `mountingFeatures: []`, `display: null`, `customDisplays: []` (the v2 → v3 path keeps `hats` and `customHats` intact).
+- Sample STLs in `samples/` regenerated with the new print-ready layout. Both files now include the lid flipped and spaced beside the base.
+
+### Tests
+
+- 119 Vitest unit tests, 36 Playwright E2E tests (155 total).
 
 ## [0.7.3] — Phase 8a — 2026-04-27
 

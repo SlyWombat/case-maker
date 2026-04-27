@@ -61,6 +61,7 @@ export interface CaseMakerTestApi {
   getJobError(): string | null;
   getSettings(): { port: number; bindToAll: boolean };
   setPortSetting(port: number): void;
+  setExportLayout(mode: 'print-ready' | 'assembled'): void;
   selectPort(portId: string | null): void;
   getSelectedPortId(): string | null;
   patchPort(
@@ -176,6 +177,9 @@ export function installCaseMakerTestApi(): void {
     },
     setPortSetting: (port) => {
       useSettingsStore.getState().setPort(port);
+    },
+    setExportLayout: (mode) => {
+      useSettingsStore.getState().setExportLayout(mode);
     },
     selectPort: (portId) => {
       useViewportStore.getState().selectPort(portId);

@@ -12,11 +12,14 @@ import type {
   Facing,
   HatPlacement,
 } from '@/types';
+import type { MountingFeature } from '@/types/mounting';
 import { getBuiltinBoard } from '@/library';
 import { getBuiltinHat } from '@/library/hats';
 import { newId } from '@/utils/id';
 import { autoPortsForBoard } from '@/engine/compiler/portFactory';
 import { autoPortsForHat } from '@/engine/compiler/hats';
+import { fourCornerScrewTabs } from '@/engine/compiler/mountingFeatures';
+import { computeShellDims } from '@/engine/compiler/caseShell';
 
 const DEFAULT_BOARD_ID = 'rpi-4b';
 
@@ -44,7 +47,7 @@ export function createDefaultProject(boardId = DEFAULT_BOARD_ID): Project {
   if (!board) throw new Error(`Unknown built-in board: ${boardId}`);
   const now = new Date(0).toISOString();
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     id: newId('proj'),
     name: `${board.name} Case`,
     createdAt: now,
@@ -55,6 +58,9 @@ export function createDefaultProject(boardId = DEFAULT_BOARD_ID): Project {
     externalAssets: [],
     hats: [],
     customHats: [],
+    mountingFeatures: [],
+    display: null,
+    customDisplays: [],
   };
 }
 
@@ -102,6 +108,14 @@ export interface ProjectState {
   reorderHat: (placementId: string, newIndex: number) => void;
   patchHat: (placementId: string, patch: Partial<HatPlacement>) => void;
   setHatPortEnabled: (placementId: string, portId: string, enabled: boolean) => void;
+  addMountingFeature: (feature: MountingFeature) => void;
+  removeMountingFeature: (featureId: string) => void;
+  patchMountingFeature: (featureId: string, patch: Partial<MountingFeature>) => void;
+  applyMountingPreset: (presetId: 'four-corner-screw-tabs' | 'rear-vesa-100' | 'rear-vesa-75') => void;
+  setDisplay: (displayId: string | null, framing?: import('@/types/display').DisplayFraming) => void;
+  patchDisplay: (
+    patch: Partial<import('@/types/display').DisplayPlacement>,
+  ) => void;
 }
 
 export const useProjectStore = create<ProjectState>()(
@@ -350,6 +364,91 @@ export const useProjectStore = create<ProjectState>()(
               if (!h) return;
               const port = h.ports.find((p) => p.id === portId);
               if (port) port.enabled = enabled;
+            }),
+          })),
+        addMountingFeature: (feature) =>
+          set((s) => ({
+            project: produce(s.project, (draft) => {
+              if (!draft.mountingFeatures) draft.mountingFeatures = [];
+              draft.mountingFeatures.push(feature);
+            }),
+          })),
+        removeMountingFeature: (featureId) =>
+          set((s) => ({
+            project: produce(s.project, (draft) => {
+              if (!draft.mountingFeatures) return;
+              draft.mountingFeatures = draft.mountingFeatures.filter((f) => f.id !== featureId);
+            }),
+          })),
+        patchMountingFeature: (featureId, patch) =>
+          set((s) => ({
+            project: produce(s.project, (draft) => {
+              if (!draft.mountingFeatures) return;
+              const f = draft.mountingFeatures.find((x) => x.id === featureId);
+              if (!f) return;
+              if (typeof patch.enabled === 'boolean') f.enabled = patch.enabled;
+              if (typeof patch.rotation === 'number') f.rotation = patch.rotation;
+              if (patch.position) Object.assign(f.position, patch.position);
+              if (patch.params) Object.assign(f.params, patch.params);
+            }),
+          })),
+        applyMountingPreset: (presetId) =>
+          set((s) => ({
+            project: produce(s.project, (draft) => {
+              if (!draft.mountingFeatures) draft.mountingFeatures = [];
+              const dims = computeShellDims(
+                draft.board,
+                draft.case,
+                draft.hats ?? [],
+                () => undefined,
+              );
+              if (presetId === 'four-corner-screw-tabs') {
+                draft.mountingFeatures.push(
+                  ...fourCornerScrewTabs(dims.outerX, dims.outerY),
+                );
+              } else if (presetId === 'rear-vesa-100' || presetId === 'rear-vesa-75') {
+                const size = presetId === 'rear-vesa-100' ? 100 : 75;
+                draft.mountingFeatures.push({
+                  id: `${presetId}-${newId()}`,
+                  type: 'vesa-mount',
+                  face: '+y',
+                  position: { u: dims.outerX / 2, v: dims.outerZ / 2 },
+                  rotation: 0,
+                  params: { patternSize: size, holeDiameter: 5 },
+                  enabled: true,
+                  presetId,
+                });
+              }
+            }),
+          })),
+        setDisplay: (displayId, framing = 'top-window') =>
+          set((s) => ({
+            project: produce(s.project, (draft) => {
+              if (!displayId) {
+                draft.display = null;
+                return;
+              }
+              draft.display = {
+                id: `display-${newId()}`,
+                displayId,
+                framing,
+                offset: { x: 0, y: 0 },
+                hostSupport: 'gpio-only',
+                enabled: true,
+              };
+            }),
+          })),
+        patchDisplay: (patch) =>
+          set((s) => ({
+            project: produce(s.project, (draft) => {
+              if (!draft.display) return;
+              if (typeof patch.enabled === 'boolean') draft.display.enabled = patch.enabled;
+              if (patch.framing) draft.display.framing = patch.framing;
+              if (typeof patch.tiltAngle === 'number') draft.display.tiltAngle = patch.tiltAngle;
+              if (typeof patch.hoodHeight === 'number') draft.display.hoodHeight = patch.hoodHeight;
+              if (typeof patch.bezelInset === 'number') draft.display.bezelInset = patch.bezelInset;
+              if (patch.offset) Object.assign(draft.display.offset, patch.offset);
+              if (patch.hostSupport) draft.display.hostSupport = patch.hostSupport;
             }),
           })),
       }),

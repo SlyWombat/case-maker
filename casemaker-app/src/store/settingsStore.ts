@@ -1,28 +1,41 @@
 import { create } from 'zustand';
 
+export type ExportLayoutMode = 'print-ready' | 'assembled';
+
 export interface AppSettings {
   port: number;
   bindToAll: boolean;
+  exportLayout: ExportLayoutMode;
 }
 
 const SETTINGS_KEY = 'casemaker.settings.v1';
 const DEFAULT_PORT = 8000;
+const DEFAULT_EXPORT_LAYOUT: ExportLayoutMode = 'print-ready';
+
+const DEFAULTS: AppSettings = {
+  port: DEFAULT_PORT,
+  bindToAll: false,
+  exportLayout: DEFAULT_EXPORT_LAYOUT,
+};
 
 function loadSettings(): AppSettings {
   if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
-    return { port: DEFAULT_PORT, bindToAll: false };
+    return { ...DEFAULTS };
   }
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
-    if (!raw) return { port: DEFAULT_PORT, bindToAll: false };
+    if (!raw) return { ...DEFAULTS };
     const parsed = JSON.parse(raw) as Partial<AppSettings>;
-    const port = clampPort(parsed.port);
     return {
-      port,
+      port: clampPort(parsed.port),
       bindToAll: Boolean(parsed.bindToAll),
+      exportLayout:
+        parsed.exportLayout === 'assembled' || parsed.exportLayout === 'print-ready'
+          ? parsed.exportLayout
+          : DEFAULT_EXPORT_LAYOUT,
     };
   } catch {
-    return { port: DEFAULT_PORT, bindToAll: false };
+    return { ...DEFAULTS };
   }
 }
 
@@ -45,6 +58,7 @@ function persist(s: AppSettings): void {
 export interface SettingsState extends AppSettings {
   setPort: (port: number) => void;
   setBindToAll: (v: boolean) => void;
+  setExportLayout: (mode: ExportLayoutMode) => void;
   resetSettings: () => void;
 }
 
@@ -55,19 +69,23 @@ export const useSettingsStore = create<SettingsState>()((set, get) => {
     setPort: (port) => {
       const clamped = clampPort(port);
       set({ port: clamped });
-      persist({ port: clamped, bindToAll: get().bindToAll });
+      persist({ ...get(), port: clamped });
     },
     setBindToAll: (bindToAll) => {
       set({ bindToAll });
-      persist({ port: get().port, bindToAll });
+      persist({ ...get(), bindToAll });
+    },
+    setExportLayout: (mode) => {
+      set({ exportLayout: mode });
+      persist({ ...get(), exportLayout: mode });
     },
     resetSettings: () => {
-      const fresh = { port: DEFAULT_PORT, bindToAll: false };
+      const fresh = { ...DEFAULTS };
       set(fresh);
       persist(fresh);
     },
   };
 });
 
-export const SETTINGS_DEFAULTS = { port: DEFAULT_PORT, bindToAll: false };
+export const SETTINGS_DEFAULTS = DEFAULTS;
 export { clampPort };

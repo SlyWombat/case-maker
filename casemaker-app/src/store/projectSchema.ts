@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { boardProfileSchema } from '@/library/schema';
 import { hatProfileSchema } from '@/library/hatSchema';
+import { displayProfileSchema } from '@/library/displaySchema';
 
 const xyzSchema = z.object({ x: z.number(), y: z.number(), z: z.number() });
 
@@ -72,6 +73,37 @@ const hatPlacementSchema = z.object({
   enabled: z.boolean(),
 });
 
+const mountingFeatureSchema = z.object({
+  id: z.string(),
+  type: z.enum(['screw-tab', 'zip-tie-slot', 'vesa-mount']),
+  face: z.enum(['+x', '-x', '+y', '-y', '+z', '-z']),
+  position: z.object({ u: z.number(), v: z.number() }),
+  rotation: z.number(),
+  params: z.record(z.string(), z.union([z.number(), z.string()])),
+  enabled: z.boolean(),
+  presetId: z.string().optional(),
+});
+
+const displayPlacementSchema = z.object({
+  id: z.string(),
+  displayId: z.string(),
+  framing: z.enum([
+    'top-window',
+    'recessed-bezel',
+    'flush-glass',
+    'hood-shade',
+    'tilted',
+    'removable-cap',
+    'bracket-only',
+  ]),
+  tiltAngle: z.number().optional(),
+  hoodHeight: z.number().optional(),
+  bezelInset: z.number().optional(),
+  offset: z.object({ x: z.number(), y: z.number() }),
+  hostSupport: z.enum(['gpio-only', 'case-rim-bracket', 'under-board-posts', 'full-cradle']),
+  enabled: z.boolean(),
+});
+
 const projectV1Schema = z.object({
   schemaVersion: z.literal(1),
   id: z.string(),
@@ -98,16 +130,47 @@ const projectV2Schema = z.object({
   customHats: z.array(hatProfileSchema),
 });
 
-export const projectSchema = z.union([projectV1Schema, projectV2Schema]).transform((p) => {
-  if (p.schemaVersion === 1) {
-    return {
-      ...p,
-      schemaVersion: 2 as const,
-      hats: [],
-      customHats: [],
-    };
-  }
-  return p;
+const projectV3Schema = z.object({
+  schemaVersion: z.literal(3),
+  id: z.string(),
+  name: z.string(),
+  createdAt: z.string(),
+  modifiedAt: z.string(),
+  board: boardProfileSchema,
+  case: caseParamsSchema,
+  ports: z.array(portPlacementSchema),
+  externalAssets: z.array(externalAssetSchema),
+  hats: z.array(hatPlacementSchema),
+  customHats: z.array(hatProfileSchema),
+  mountingFeatures: z.array(mountingFeatureSchema),
+  display: displayPlacementSchema.nullable(),
+  customDisplays: z.array(displayProfileSchema),
 });
+
+export const projectSchema = z
+  .union([projectV1Schema, projectV2Schema, projectV3Schema])
+  .transform((p) => {
+    if (p.schemaVersion === 1) {
+      return {
+        ...p,
+        schemaVersion: 3 as const,
+        hats: [],
+        customHats: [],
+        mountingFeatures: [],
+        display: null,
+        customDisplays: [],
+      };
+    }
+    if (p.schemaVersion === 2) {
+      return {
+        ...p,
+        schemaVersion: 3 as const,
+        mountingFeatures: [],
+        display: null,
+        customDisplays: [],
+      };
+    }
+    return p;
+  });
 
 export type ProjectInput = z.infer<typeof projectSchema>;

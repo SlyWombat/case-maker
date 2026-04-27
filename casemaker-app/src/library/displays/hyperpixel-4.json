@@ -1,0 +1,22 @@
+{
+  "id": "hyperpixel-4",
+  "name": "Pimoroni HyperPixel 4.0",
+  "manufacturer": "Pimoroni",
+  "pcb": { "size": { "x": 71.8, "y": 50.5, "z": 1.6 } },
+  "activeArea": { "x": 84.7, "y": 50.8, "offsetX": -6.4, "offsetY": 0 },
+  "bezel": { "top": 1.5, "right": 1.5, "bottom": 1.5, "left": 1.5 },
+  "overallHeight": 12.5,
+  "mounting": "gpio-mate",
+  "mountingHoles": [
+    { "id": "h1", "x": 3.5, "y": 3.5, "diameter": 2.75 },
+    { "id": "h2", "x": 3.5, "y": 47, "diameter": 2.75 },
+    { "id": "h3", "x": 61.5, "y": 3.5, "diameter": 2.75 },
+    { "id": "h4", "x": 61.5, "y": 47, "diameter": 2.75 }
+  ],
+  "interface": "spi",
+  "touch": "capacitive-fts",
+  "components": [],
+  "compatibleBoards": ["rpi-4b", "rpi-zero-2w", "rpi-5"],
+  "source": "https://shop.pimoroni.com/products/hyperpixel-4",
+  "builtin": true
+}

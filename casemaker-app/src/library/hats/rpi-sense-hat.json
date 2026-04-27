@@ -1,0 +1,25 @@
+{
+  "id": "rpi-sense-hat",
+  "name": "Raspberry Pi Sense HAT",
+  "manufacturer": "Raspberry Pi Ltd",
+  "pcb": { "size": { "x": 65, "y": 56.5, "z": 1.6 } },
+  "mountingHoles": [
+    { "id": "h1", "x": 3.5, "y": 3.5, "diameter": 2.75 },
+    { "id": "h2", "x": 3.5, "y": 53, "diameter": 2.75 },
+    { "id": "h3", "x": 61.5, "y": 3.5, "diameter": 2.75 },
+    { "id": "h4", "x": 61.5, "y": 53, "diameter": 2.75 }
+  ],
+  "headerHeight": 8.5,
+  "components": [
+    {
+      "id": "led-matrix",
+      "kind": "custom",
+      "position": { "x": 12, "y": 12, "z": 1.6 },
+      "size": { "x": 41, "y": 41, "z": 4 },
+      "facing": "+z"
+    }
+  ],
+  "compatibleBoards": ["rpi-4b", "rpi-5", "rpi-zero-2w"],
+  "source": "https://datasheets.raspberrypi.com/sense-hat/sense-hat-product-brief.pdf",
+  "builtin": true
+}
