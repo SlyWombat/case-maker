@@ -5,6 +5,7 @@ import { buildOuterShell } from './caseShell';
 import { computeBossPlacements, buildBossesUnion } from './bosses';
 import { buildLid, computeLidDims } from './lid';
 import { buildPortCutoutsForProject } from './ports';
+import { applySmartCutoutLayout, type SmartCutoutDecision } from './smartCutoutLayout';
 import { buildSlidingRails } from './slidingRails';
 import { buildVentilationCutouts } from './ventilation';
 import { buildExternalAssetOps } from './externalAssets';
@@ -25,6 +26,12 @@ function makeHatResolver(project: Project): (id: string) => HatProfile | undefin
 function makeDisplayResolver(project: Project): (id: string) => DisplayProfile | undefined {
   const customById = new Map((project.customDisplays ?? []).map((d) => [d.id, d] as const));
   return (id: string) => customById.get(id) ?? getBuiltinDisplay(id);
+}
+
+let lastSmartCutoutDecisions: SmartCutoutDecision[] = [];
+
+export function getLastSmartCutoutDecisions(): SmartCutoutDecision[] {
+  return lastSmartCutoutDecisions;
 }
 
 export function compileProject(project: Project): BuildPlan {
@@ -69,8 +76,17 @@ export function compileProject(project: Project): BuildPlan {
     ...textOps.additive,
   ];
 
+  const smartLayout = applySmartCutoutLayout(
+    ports,
+    board,
+    caseParams,
+    hats ?? [],
+    resolveHat,
+  );
+  lastSmartCutoutDecisions = smartLayout.decisions;
+
   const cutoutOps: BuildOp[] = [
-    ...buildPortCutoutsForProject(ports, board, caseParams),
+    ...buildPortCutoutsForProject(smartLayout.ports, board, caseParams),
     ...buildVentilationCutouts(board, caseParams),
     ...buildHatCutoutsForProject(board, caseParams, hats ?? [], resolveHat),
     ...assetOps.subtractOps,

@@ -6,6 +6,10 @@ All notable changes to Case Maker. The project follows the [Keep a Changelog](ht
 
 ## [Unreleased]
 
+### Fixed
+
+- **Smart cutout layout** ([#17](https://github.com/SlyWombat/case-maker/issues/17)): when a side-facing port cutout's top would leave less than `MIN_BRIDGE_THICKNESS` (1.5 mm) of wall material below the shell top, the compiler now extends the cutout up through the wall top so it becomes a notch instead of leaving a thin unsupported horizontal bridge above it. Decisions are recorded and exposed via `window.__caseMaker.getSmartCutoutDecisions()` for diagnostics.
+
 Open issues:
 
 - [#2](https://github.com/SlyWombat/case-maker/issues/2) Snap-fit physical print validation loop (blocked on hardware).
