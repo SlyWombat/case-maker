@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { useJobStore } from '@/store/jobStore';
 import { useViewportStore } from '@/store/viewportStore';
 import { bufferToGeometry } from '@/engine/scene/meshFromBuffer';
+import { ExternalAssetMeshes } from './ExternalAssetMeshes';
 
 interface NodeMeshProps {
   id: string;
@@ -36,6 +37,7 @@ export function SceneMeshes() {
     <group>
       <NodeMesh id="shell" color="#88a4cc" />
       {showLid && <NodeMesh id="lid" color="#a8b8d0" opacity={0.85} />}
+      <ExternalAssetMeshes />
     </group>
   );
 }

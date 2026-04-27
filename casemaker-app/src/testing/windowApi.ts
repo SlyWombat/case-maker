@@ -19,6 +19,7 @@ import { resetSeed, setSeededIds } from '@/utils/id';
 import { triggerExport } from '@/engine/exportTrigger';
 import { isZUp } from '@/engine/coords';
 import { serializeProject, parseProject } from '@/store/persistence';
+import { importStlFile } from '@/engine/import/assetImporter';
 
 export interface SceneNodeSummary {
   id: string;
@@ -50,6 +51,10 @@ export interface CaseMakerTestApi {
   canUndo(): boolean;
   canRedo(): boolean;
   clearHistory(): void;
+  cloneBoardForEditing(): Promise<void>;
+  patchBoardPcb(patch: { x?: number; y?: number; z?: number }): Promise<void>;
+  addMountingHole(): Promise<void>;
+  importStlAsset(name: string, base64: string): Promise<string>;
 }
 
 export function installCaseMakerTestApi(): void {
@@ -122,6 +127,28 @@ export function installCaseMakerTestApi(): void {
     canUndo,
     canRedo,
     clearHistory,
+    async cloneBoardForEditing() {
+      useProjectStore.getState().cloneBoardForEditing();
+      await waitForIdle();
+    },
+    async patchBoardPcb(patch) {
+      useProjectStore.getState().patchBoardPcb(patch);
+      await waitForIdle();
+    },
+    async addMountingHole() {
+      useProjectStore.getState().addMountingHole();
+      await waitForIdle();
+    },
+    async importStlAsset(name, base64) {
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      const file = new File([bytes], name, { type: 'model/stl' });
+      const asset = await importStlFile(file);
+      useProjectStore.getState().addExternalAsset(asset);
+      await waitForIdle();
+      return asset.id;
+    },
   };
 
   (window as unknown as { __caseMaker: CaseMakerTestApi }).__caseMaker = api;

@@ -1,12 +1,19 @@
 import type { ChangeEvent } from 'react';
 import { useProjectStore } from '@/store/projectStore';
-import type { CaseParameters, JointType } from '@/types';
+import type { CaseParameters, JointType, InsertType } from '@/types';
 
 const JOINT_OPTIONS: { value: JointType; label: string }[] = [
   { value: 'flat-lid', label: 'Flat lid' },
   { value: 'snap-fit', label: 'Snap-fit' },
   { value: 'sliding', label: 'Sliding' },
   { value: 'screw-down', label: 'Screw-down' },
+];
+
+const INSERT_OPTIONS: { value: InsertType; label: string }[] = [
+  { value: 'self-tap', label: 'Self-tap M2.5' },
+  { value: 'heat-set-m2.5', label: 'Heat-set M2.5' },
+  { value: 'heat-set-m3', label: 'Heat-set M3' },
+  { value: 'pass-through', label: 'Pass-through' },
 ];
 
 interface SliderProps {
@@ -121,29 +128,69 @@ export function CasePanel() {
           ))}
         </div>
       </div>
+      <div className="joint-row">
+        <span className="joint-label">Boss insert type</span>
+        <select
+          value={params.bosses.insertType}
+          onChange={(e) =>
+            patch({ bosses: { ...params.bosses, insertType: e.target.value as InsertType } })
+          }
+          data-testid="insert-type"
+        >
+          {INSERT_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      </div>
       <label className="vent-row">
         <input
           type="checkbox"
           checked={params.ventilation.enabled}
           onChange={(e) =>
             patch({
-              ventilation: { ...params.ventilation, enabled: e.target.checked, pattern: 'slots' },
+              ventilation: {
+                ...params.ventilation,
+                enabled: e.target.checked,
+                pattern: e.target.checked && params.ventilation.pattern === 'none' ? 'slots' : params.ventilation.pattern,
+              },
             })
           }
           data-testid="ventilation-toggle"
         />
-        <span>Ventilation slots on back wall</span>
+        <span>Ventilation on back wall</span>
       </label>
       {params.ventilation.enabled && (
-        <Slider
-          label="Vent coverage"
-          value={params.ventilation.coverage}
-          min={0}
-          max={1}
-          step={0.05}
-          onChange={(v) => patch({ ventilation: { ...params.ventilation, coverage: v } })}
-          testId="vent-coverage"
-        />
+        <>
+          <div className="joint-row">
+            <span className="joint-label">Pattern</span>
+            <div className="joint-buttons" role="radiogroup" aria-label="Ventilation pattern">
+              {(['slots', 'hex'] as const).map((p) => (
+                <label key={p}>
+                  <input
+                    type="radio"
+                    name="vent-pattern"
+                    value={p}
+                    checked={params.ventilation.pattern === p}
+                    onChange={() => patch({ ventilation: { ...params.ventilation, pattern: p } })}
+                    data-testid={`vent-pattern-${p}`}
+                  />
+                  <span>{p}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+          <Slider
+            label="Vent coverage"
+            value={params.ventilation.coverage}
+            min={0}
+            max={1}
+            step={0.05}
+            onChange={(v) => patch({ ventilation: { ...params.ventilation, coverage: v } })}
+            testId="vent-coverage"
+          />
+        </>
       )}
     </div>
   );

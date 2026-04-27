@@ -1,6 +1,8 @@
 import { CasePanel } from '@/components/panels/CasePanel';
 import { ExportPanel } from '@/components/panels/ExportPanel';
 import { PortsPanel } from '@/components/panels/PortsPanel';
+import { BoardEditorPanel } from '@/components/panels/BoardEditorPanel';
+import { AssetsPanel } from '@/components/panels/AssetsPanel';
 import { useProjectStore } from '@/store/projectStore';
 import { listBuiltinBoardIds } from '@/library';
 
@@ -27,8 +29,10 @@ export function Sidebar() {
           {board.name} — {board.pcb.size.x} × {board.pcb.size.y} × {board.pcb.size.z} mm
         </p>
       </div>
+      <BoardEditorPanel />
       <CasePanel />
       <PortsPanel />
+      <AssetsPanel />
       <ExportPanel />
     </aside>
   );

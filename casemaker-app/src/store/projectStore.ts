@@ -54,6 +54,20 @@ export interface ProjectState {
   removePort: (portId: string) => void;
   setPortEnabled: (portId: string, enabled: boolean) => void;
   setBoard: (board: BoardProfile) => void;
+  cloneBoardForEditing: () => void;
+  patchBoardPcb: (patch: { x?: number; y?: number; z?: number }) => void;
+  addMountingHole: () => void;
+  removeMountingHole: (holeId: string) => void;
+  patchMountingHole: (
+    holeId: string,
+    patch: { x?: number; y?: number; diameter?: number },
+  ) => void;
+  addExternalAsset: (asset: import('@/types').ExternalAsset) => void;
+  removeExternalAsset: (assetId: string) => void;
+  patchExternalAsset: (
+    assetId: string,
+    patch: Partial<import('@/types').ExternalAsset>,
+  ) => void;
 }
 
 export const useProjectStore = create<ProjectState>()(
@@ -96,6 +110,77 @@ export const useProjectStore = create<ProjectState>()(
           set((s) => ({
             project: produce(s.project, (draft) => {
               draft.board = structuredClone(board);
+            }),
+          })),
+        cloneBoardForEditing: () =>
+          set((s) => ({
+            project: produce(s.project, (draft) => {
+              if (!draft.board.builtin) return;
+              draft.board.id = `custom-${draft.board.id}-${newId()}`;
+              draft.board.name = `${draft.board.name} (custom)`;
+              draft.board.builtin = false;
+              delete draft.board.source;
+            }),
+          })),
+        patchBoardPcb: (patch) =>
+          set((s) => ({
+            project: produce(s.project, (draft) => {
+              if (draft.board.builtin) return;
+              if (typeof patch.x === 'number') draft.board.pcb.size.x = patch.x;
+              if (typeof patch.y === 'number') draft.board.pcb.size.y = patch.y;
+              if (typeof patch.z === 'number') draft.board.pcb.size.z = patch.z;
+            }),
+          })),
+        addMountingHole: () =>
+          set((s) => ({
+            project: produce(s.project, (draft) => {
+              if (draft.board.builtin) return;
+              draft.board.mountingHoles.push({
+                id: `h-${newId()}`,
+                x: draft.board.pcb.size.x / 2,
+                y: draft.board.pcb.size.y / 2,
+                diameter: 2.75,
+              });
+            }),
+          })),
+        removeMountingHole: (holeId) =>
+          set((s) => ({
+            project: produce(s.project, (draft) => {
+              if (draft.board.builtin) return;
+              draft.board.mountingHoles = draft.board.mountingHoles.filter(
+                (h) => h.id !== holeId,
+              );
+            }),
+          })),
+        patchMountingHole: (holeId, patch) =>
+          set((s) => ({
+            project: produce(s.project, (draft) => {
+              if (draft.board.builtin) return;
+              const h = draft.board.mountingHoles.find((m) => m.id === holeId);
+              if (!h) return;
+              if (typeof patch.x === 'number') h.x = patch.x;
+              if (typeof patch.y === 'number') h.y = patch.y;
+              if (typeof patch.diameter === 'number') h.diameter = patch.diameter;
+            }),
+          })),
+        addExternalAsset: (asset) =>
+          set((s) => ({
+            project: produce(s.project, (draft) => {
+              draft.externalAssets.push(asset);
+            }),
+          })),
+        removeExternalAsset: (assetId) =>
+          set((s) => ({
+            project: produce(s.project, (draft) => {
+              draft.externalAssets = draft.externalAssets.filter((a) => a.id !== assetId);
+            }),
+          })),
+        patchExternalAsset: (assetId, patch) =>
+          set((s) => ({
+            project: produce(s.project, (draft) => {
+              const a = draft.externalAssets.find((x) => x.id === assetId);
+              if (!a) return;
+              Object.assign(a, patch);
             }),
           })),
       }),

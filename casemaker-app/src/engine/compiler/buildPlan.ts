@@ -42,6 +42,10 @@ export function translate(offset: Vec3, child: BuildOp): BuildOp {
   return { kind: 'translate', offset, child };
 }
 
+export function rotate(degrees: Vec3, child: BuildOp): BuildOp {
+  return { kind: 'rotate', degrees, child };
+}
+
 export function difference(children: BuildOp[]): BuildOp {
   return { kind: 'difference', children };
 }
