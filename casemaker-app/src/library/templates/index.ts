@@ -66,6 +66,21 @@ function arduinoDmxController(): Project {
   return p;
 }
 
+function gigaDmxController(): Project {
+  const p = createDefaultProject('arduino-giga-r1-wifi');
+  p.name = 'GIGA R1 + CQRobot DMX shield';
+  p.case.joint = 'screw-down';
+  p.case.ventilation = { enabled: true, pattern: 'slots', coverage: 0.5 };
+  p.hats.push({
+    id: 'tpl-hat-giga-dmx',
+    hatId: 'cqrobot-dmx-shield-max485',
+    stackIndex: 0,
+    ports: [],
+    enabled: true,
+  });
+  return p;
+}
+
 function esp32DevTray(): Project {
   const p = createDefaultProject('esp32-devkit-v1');
   p.name = 'ESP32 DevKit dev tray';
@@ -102,6 +117,13 @@ export const TEMPLATES: ReadonlyArray<ProjectTemplate> = [
     description: 'Arduino Uno R3 + CQRobot DMX MAX485 shield with screw-down lid.',
     estPrintMinutes: 200,
     build: arduinoDmxController,
+  },
+  {
+    id: 'giga-dmx-controller',
+    name: 'GIGA R1 + DMX shield',
+    description: 'Arduino GIGA R1 WiFi + CQRobot DMX shield, slot-vented screw-down lid.',
+    estPrintMinutes: 240,
+    build: gigaDmxController,
   },
   {
     id: 'esp32-dev-tray',

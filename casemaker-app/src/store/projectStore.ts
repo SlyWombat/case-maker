@@ -148,6 +148,23 @@ export const useProjectStore = create<ProjectState>()(
               ) {
                 draft.case.snapCatches = defaultSnapCatchesForCase(draft.board, draft.case);
               }
+              // Issue #33: when ventilation is toggled on with coverage still 0,
+              // bump coverage to a sensible default so vents are visible. Pattern
+              // 'none' likewise defaults to 'hex' so the user sees something.
+              if (
+                draft.case.ventilation.enabled &&
+                draft.case.ventilation.coverage === 0
+              ) {
+                draft.case.ventilation.coverage = 0.5;
+              }
+              if (
+                draft.case.ventilation.enabled &&
+                draft.case.ventilation.pattern === 'none'
+              ) {
+                // Default to slots — works on small cavity heights where hex
+                // wouldn't fit (issue #33).
+                draft.case.ventilation.pattern = 'slots';
+              }
               draft.modifiedAt = new Date(0).toISOString();
             }),
           })),

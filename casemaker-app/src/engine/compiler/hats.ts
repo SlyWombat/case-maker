@@ -24,8 +24,9 @@ export function computeHatBaseZ(
 ): Map<string, number> {
   const out = new Map<string, number>();
   const ordered = [...hats].sort((a, b) => a.stackIndex - b.stackIndex);
+  // Issue #32: count Z extent of every component regardless of facing.
   const hostTallest = board.components.reduce(
-    (m, c) => (c.facing === '+z' ? Math.max(m, c.position.z + c.size.z) : m),
+    (m, c) => Math.max(m, c.position.z + c.size.z),
     0,
   );
   // Host PCB sits on bosses at floor + standoff (issue #28).
@@ -44,10 +45,12 @@ export function computeHatBaseZ(
       out.set(placement.id, cursor);
     }
     cursor += profile.pcb.size.z;
-    const tallestPlus = profile.components.reduce((m, c) => {
-      if (c.facing === '+z') return Math.max(m, c.position.z + c.size.z);
-      return m;
-    }, 0);
+    // Issue #32: include Z extent of every HAT component regardless of facing
+    // direction (an XLR body that pierces +y is still 24mm tall in Z).
+    const tallestPlus = profile.components.reduce(
+      (m, c) => Math.max(m, c.position.z + c.size.z),
+      0,
+    );
     cursor += tallestPlus;
   }
   return out;

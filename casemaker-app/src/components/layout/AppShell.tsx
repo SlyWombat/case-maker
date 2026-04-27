@@ -4,7 +4,8 @@ import { StatusBar } from './StatusBar';
 import { Toolbar } from './Toolbar';
 import { Viewport } from '@/components/viewport/Viewport';
 import { useRebuildOnProjectChange } from '@/hooks/useRebuildOnProjectChange';
-import { undoProject, redoProject } from '@/store/projectStore';
+import { undoProject, redoProject, useProjectStore } from '@/store/projectStore';
+import { useViewportStore } from '@/store/viewportStore';
 
 function useUndoRedoShortcuts(): void {
   useEffect(() => {
@@ -27,6 +28,15 @@ function useUndoRedoShortcuts(): void {
 export function AppShell() {
   useRebuildOnProjectChange();
   useUndoRedoShortcuts();
+  const board = useProjectStore((s) => s.project.board);
+  const boardVisualization = useViewportStore((s) => s.boardVisualization);
+  const assets = board.visualAssets;
+  const wantsAsset = boardVisualization === 'photo' || boardVisualization === '3d';
+  const haveAsset =
+    assets &&
+    ((boardVisualization === 'photo' && assets.topImage) ||
+      (boardVisualization === '3d' && assets.glb));
+  const showFallback = wantsAsset && !haveAsset;
   return (
     <div className="app-shell">
       <header className="app-header">
@@ -36,6 +46,25 @@ export function AppShell() {
       <main className="app-main">
         <Sidebar />
         <div className="viewport-pane">
+          {showFallback && (
+            <div
+              data-testid="board-visualization-fallback"
+              style={{
+                position: 'absolute',
+                top: 8,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                background: '#2a3038',
+                color: '#cbd5e1',
+                padding: '6px 12px',
+                borderRadius: 4,
+                fontSize: 12,
+                zIndex: 10,
+              }}
+            >
+              No {boardVisualization} asset for {board.name}; rendering schematic.
+            </div>
+          )}
           <Viewport />
         </div>
       </main>

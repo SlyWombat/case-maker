@@ -6,6 +6,13 @@ All notable changes to Case Maker. The project follows the [Keep a Changelog](ht
 
 ## [Unreleased]
 
+### Fixed
+
+- **Templates panel apply** ([#31](https://github.com/SlyWombat/case-maker/issues/31)): clicking a template now correctly replaces the project. The handler mirrors `loadSerializedProject` — `setProject` + `clearHistory` + `scheduleImmediate`.
+- **HAT side-facing components count toward case height** ([#32](https://github.com/SlyWombat/case-maker/issues/32)): `computeStackedHatHeight` and `computeHatBaseZ` no longer filter to `facing === '+z'` when summing component Z extent. The CQRobot DMX shield's XLR-3 bodies (z=24mm, facing +y) now correctly drive the cavity ceiling, raising the GIGA + DMX case from ~22mm to ≥45mm. New `giga-dmx-controller` template ships as a 6th starter.
+- **Ventilation visible by default** ([#33](https://github.com/SlyWombat/case-maker/issues/33)): toggling `case.ventilation.enabled = true` now auto-fills `coverage = 0.5` and `pattern = 'slots'` when the user leaves them at zero/none. Previously the early-exit on `coverage <= 0` produced no vent geometry.
+- **Board visualization fallback** ([#34](https://github.com/SlyWombat/case-maker/issues/34)): when `boardVisualization` is `photo` or `3d` and the active board has no bundled assets, a `data-testid="board-visualization-fallback"` banner now surfaces "No &lt;mode&gt; asset for &lt;board&gt;; rendering schematic." instead of silently leaving the user with the schematic and no explanation.
+
 ### Added
 
 - **Real snap-fit catches** ([#29](https://github.com/SlyWombat/case-maker/issues/29)): the snap-fit lid now generates cantilever arm + barb geometry on the lid lip, with mating pockets cut into the case wall. New `case.snapCatches: SnapCatch[]` is auto-populated when the joint flips to `snap-fit` based on the case's longest outer dimension — 2 catches for cases under 80 mm, 4 for 80–150 mm, 6 for over 150 mm. Default cantilever dimensions are tuned for PLA per the Bayer/Bonenberger snap-fit guides; tuning notes and the strain formula are documented in `docs/snap-fit.md`. Tests: `tests/unit/snapCatches.spec.ts` (6 cases).

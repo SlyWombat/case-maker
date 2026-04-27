@@ -19,8 +19,11 @@ export interface ShellDims {
 export const HOST_HAT_CLEARANCE = 0.5;
 
 function tallestPlusZ(profile: { components: BoardProfile['components']; pcb: BoardProfile['pcb'] }, includePcb: boolean): number {
+  // Issue #32: count the Z extent of every component, not just +z-facing ones.
+  // A +y-facing connector body (e.g., XLR-3 at z=24mm) still occupies
+  // vertical space in the cavity even though it pierces a side wall.
   return profile.components.reduce(
-    (m, c) => (c.facing === '+z' ? Math.max(m, c.position.z + c.size.z) : m),
+    (m, c) => Math.max(m, c.position.z + c.size.z),
     includePcb ? profile.pcb.size.z : 0,
   );
 }

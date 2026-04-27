@@ -1,9 +1,10 @@
-import { useProjectStore } from '@/store/projectStore';
+import { useProjectStore, clearHistory } from '@/store/projectStore';
 import { TEMPLATES, findTemplate } from '@/library/templates';
+import { scheduleImmediate } from '@/engine/jobs/JobScheduler';
 
 export function TemplatesPanel() {
   const setProject = useProjectStore((s) => s.setProject);
-  const apply = (id: string) => {
+  const apply = async (id: string) => {
     const t = findTemplate(id);
     if (!t) return;
     if (
@@ -12,7 +13,10 @@ export function TemplatesPanel() {
       )
     )
       return;
-    setProject(t.build());
+    const project = t.build();
+    setProject(project);
+    clearHistory();
+    await scheduleImmediate(project);
   };
   return (
     <div className="panel">
@@ -22,7 +26,9 @@ export function TemplatesPanel() {
         {TEMPLATES.map((t) => (
           <li key={t.id} style={{ marginBottom: 6 }}>
             <button
-              onClick={() => apply(t.id)}
+              onClick={() => {
+                void apply(t.id);
+              }}
               data-testid={`template-${t.id}`}
               style={{ width: '100%', textAlign: 'left', padding: 6 }}
             >

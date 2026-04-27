@@ -114,6 +114,13 @@ describe('Issue #18 — DMX shield round XLR cutouts + HAT lift over host compon
     const z1 = baseZ.get('h-1')!;
     const z2 = baseZ.get('h-2')!;
     const stacked = z2 - z1;
-    expect(stacked).toBeCloseTo(dmx.pcb.size.z + dmx.headerHeight, 5);
+    // Issue #32: stack delta now includes the previous HAT's full Z extent
+    // (PCB + tallest component, including side-facing connectors). For the DMX
+    // shield, the XLR connector body adds 24mm on top of the 1.6mm PCB.
+    const tallestPlus = dmx.components.reduce(
+      (m, c) => Math.max(m, c.position.z + c.size.z),
+      0,
+    );
+    expect(stacked).toBeCloseTo(dmx.pcb.size.z + tallestPlus + dmx.headerHeight, 5);
   });
 });

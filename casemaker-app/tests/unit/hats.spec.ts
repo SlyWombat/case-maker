@@ -109,8 +109,9 @@ describe('HAT system (Phase 8a)', () => {
       (id) => getBuiltinHat(id),
     );
     const headerHeight = getBuiltinHat('cqrobot-dmx-shield-max485')!.headerHeight;
+    // Issue #32: side-facing components count toward host tallest Z too.
     const hostTallest = project.board.components.reduce(
-      (m, c) => (c.facing === '+z' ? Math.max(m, c.position.z + c.size.z) : m),
+      (m, c) => Math.max(m, c.position.z + c.size.z),
       0,
     );
     const lift = Math.max(headerHeight, hostTallest > 0 ? hostTallest + 0.5 : 0);

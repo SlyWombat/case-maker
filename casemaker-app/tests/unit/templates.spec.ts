@@ -9,6 +9,7 @@ describe('Marketing gap #15 — project templates', () => {
       'pi-poe-stack',
       'pi-zero-tablet',
       'arduino-dmx',
+      'giga-dmx-controller',
       'esp32-dev-tray',
     ]);
   });
