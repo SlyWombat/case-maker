@@ -46,7 +46,6 @@ export function FeaturesPanel() {
       <TextLabelsSection />
       <MountingSection />
       <SnapCatchesSection />
-      <RecessToggle />
     </div>
   );
 }
@@ -395,21 +394,3 @@ function SnapCatchesSection() {
   );
 }
 
-function RecessToggle() {
-  const lidRecess = useProjectStore((s) => s.project.case.lidRecess ?? false);
-  const patchCase = useProjectStore((s) => s.patchCase);
-
-  return (
-    <section className="features-section">
-      <label className="features-row">
-        <input
-          type="checkbox"
-          checked={lidRecess}
-          onChange={(e) => patchCase({ lidRecess: e.target.checked })}
-          data-testid="lid-recess"
-        />
-        Recessed lid (drops into a pocket flush with the rim)
-      </label>
-    </section>
-  );
-}
