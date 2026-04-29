@@ -11,6 +11,7 @@ import { downloadProjectJson, readProjectFromFile } from '@/store/persistence';
 import { triggerExport } from '@/engine/exportTrigger';
 import { DocsModal } from '@/components/docs/DocsModal';
 import { SettingsMenu } from '@/components/layout/SettingsMenu';
+import { BoardTemplateMenu } from '@/components/layout/BoardTemplateMenu';
 
 const FORMAT_LABEL: Record<string, string> = {
   'stl-binary': 'STL (binary)',
@@ -85,6 +86,7 @@ export function Toolbar() {
 
   return (
     <div className="toolbar-buttons">
+      <BoardTemplateMenu />
       <button onClick={undoProject} data-testid="undo-btn" title="Undo (Ctrl+Z)">
         ↶ Undo
       </button>
