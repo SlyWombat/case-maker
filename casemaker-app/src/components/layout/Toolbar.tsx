@@ -7,7 +7,14 @@ import {
 } from '@/store/projectStore';
 import { useViewportStore } from '@/store/viewportStore';
 import { useSettingsStore } from '@/store/settingsStore';
-import { downloadProjectJson, readProjectFromFile } from '@/store/persistence';
+import {
+  downloadProjectJson,
+  fileSystemAccessAvailable,
+  openProjectViaPicker,
+  readProjectFromFile,
+  saveProjectViaPicker,
+  type ProjectFileHandle,
+} from '@/store/persistence';
 import { triggerExport } from '@/engine/exportTrigger';
 import { DocsModal } from '@/components/docs/DocsModal';
 import { SettingsMenu } from '@/components/layout/SettingsMenu';
@@ -24,14 +31,16 @@ export function Toolbar() {
   const showWelcome = useProjectStore((s) => s.showWelcome);
   const showLid = useViewportStore((s) => s.showLid);
   const toggleShowLid = useViewportStore((s) => s.toggleShowLid);
-  const boardVisualization = useViewportStore((s) => s.boardVisualization);
-  const cycleBoardVisualization = useViewportStore((s) => s.cycleBoardVisualization);
   const exportFormat = useSettingsStore((s) => s.exportFormat);
   const fileInput = useRef<HTMLInputElement | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [docsOpen, setDocsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
+  // Issue #70 — remember the last file handle so subsequent saves overwrite
+  // in place. Reset whenever the user picks "Save as…" or loads a new file.
+  const fileHandleRef = useRef<ProjectFileHandle>(null);
+  const fsaAvailable = fileSystemAccessAvailable();
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -46,13 +55,53 @@ export function Toolbar() {
     return () => window.removeEventListener('keydown', onKey);
   }, [toggleShowLid]);
 
-  const onSave = useCallback(() => {
-    downloadProjectJson(project);
-  }, [project]);
+  const onSave = useCallback(async () => {
+    if (!fsaAvailable) {
+      downloadProjectJson(project);
+      return;
+    }
+    try {
+      const handle = await saveProjectViaPicker(project, fileHandleRef.current ?? undefined);
+      fileHandleRef.current = handle;
+      setError(null);
+    } catch (err) {
+      // AbortError from a cancelled picker is harmless; ignore it.
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }, [project, fsaAvailable]);
 
-  const onLoadClick = useCallback(() => {
-    fileInput.current?.click();
-  }, []);
+  const onSaveAs = useCallback(async () => {
+    if (!fsaAvailable) {
+      downloadProjectJson(project);
+      return;
+    }
+    try {
+      const handle = await saveProjectViaPicker(project); // no existing handle → picker
+      fileHandleRef.current = handle;
+      setError(null);
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }, [project, fsaAvailable]);
+
+  const onLoadClick = useCallback(async () => {
+    if (!fsaAvailable) {
+      fileInput.current?.click();
+      return;
+    }
+    try {
+      const { project: loaded, handle } = await openProjectViaPicker();
+      setProject(loaded);
+      clearHistory();
+      fileHandleRef.current = handle;
+      setError(null);
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }, [fsaAvailable, setProject]);
 
   const onFileChange = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -62,6 +111,8 @@ export function Toolbar() {
         const loaded = await readProjectFromFile(f);
         setProject(loaded);
         clearHistory();
+        // Fallback path: no handle, so subsequent Save behaves like Save As.
+        fileHandleRef.current = null;
         setError(null);
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
@@ -108,10 +159,23 @@ export function Toolbar() {
       <button
         onClick={onSave}
         data-testid="save-project"
-        title="Save the current project to a .caseproj.json file"
+        title={
+          fsaAvailable
+            ? 'Save project (.caseproj.json) — overwrites the open file after first Save As'
+            : 'Save project — downloads .caseproj.json to your Downloads folder'
+        }
       >
         💾 Save
       </button>
+      {fsaAvailable && (
+        <button
+          onClick={onSaveAs}
+          data-testid="save-project-as"
+          title="Save the project to a new .caseproj.json file (pick filename + folder)"
+        >
+          💾 Save as…
+        </button>
+      )}
       <button
         onClick={onLoadClick}
         data-testid="load-project"
@@ -141,13 +205,6 @@ export function Toolbar() {
         aria-pressed={showLid}
       >
         {showLid ? '👁 Lid' : '🚫 Lid'}
-      </button>
-      <button
-        onClick={cycleBoardVisualization}
-        data-testid="cycle-board-visualization-btn"
-        title="Cycle board visualization: schematic / photo / 3D"
-      >
-        Board: {boardVisualization}
       </button>
       <button
         onClick={() => setDocsOpen(true)}

@@ -16,7 +16,6 @@ export function BoardPlaceholderMesh() {
   const board = useProjectStore((s) => s.project.board);
   const params = useProjectStore((s) => s.project.case);
   const showBoard = useViewportStore((s) => s.showBoard);
-  const visualization = useViewportStore((s) => s.boardVisualization);
 
   const group = useMemo(() => {
     const wall = params.wallThickness;
@@ -33,9 +32,8 @@ export function BoardPlaceholderMesh() {
     params.floorThickness,
   ]);
 
-  // Issue #72 — 'none' explicitly hides the board renderer, separate from
-  // the showBoard layer toggle. 'photo' and '3d' fall back to the
-  // schematic placeholder until per-board GLB / image assets ship.
-  if (!showBoard || visualization === 'none') return null;
+  // Issue #59 — boardVisualization cycle removed; board visibility is just
+  // the showBoard layer toggle now.
+  if (!showBoard) return null;
   return <primitive object={group} />;
 }

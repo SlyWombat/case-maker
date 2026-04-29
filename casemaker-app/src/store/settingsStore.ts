@@ -13,7 +13,10 @@ export interface AppSettings {
 const SETTINGS_KEY = 'casemaker.settings.v1';
 const DEFAULT_PORT = 8000;
 const DEFAULT_EXPORT_LAYOUT: ExportLayoutMode = 'print-ready';
-const DEFAULT_EXPORT_FORMAT: ExportFormat = 'stl-binary';
+// Issue #75 — fresh users get a human-readable text STL out of the gate.
+// Existing localStorage prefs override this default; they're respected
+// in loadSettings() below.
+const DEFAULT_EXPORT_FORMAT: ExportFormat = 'stl-ascii';
 
 const DEFAULTS: AppSettings = {
   port: DEFAULT_PORT,

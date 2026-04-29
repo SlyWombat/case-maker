@@ -20,6 +20,11 @@ const caseParamsSchema = z.object({
   extraCavityZ: z.number().nonnegative().optional(),
   snapType: z.enum(['barb', 'full-lid']).optional(),
   ventilation: z.object({
+    // Issue #75 — surfaces the vent pattern is cut into. Optional so legacy
+    // projects load with no migration; compiler defaults to ['back'].
+    surfaces: z
+      .array(z.enum(['top', 'bottom', 'front', 'back', 'left', 'right']))
+      .optional(),
     enabled: z.boolean(),
     pattern: z.enum(['none', 'slots', 'hex']),
     coverage: z.number().min(0).max(1),

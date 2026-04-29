@@ -1,6 +1,7 @@
 import type { ChangeEvent } from 'react';
 import { useProjectStore } from '@/store/projectStore';
 import type { CaseParameters, JointType, InsertType, SnapType } from '@/types';
+import { VENT_SURFACES } from '@/types';
 
 const JOINT_OPTIONS: { value: JointType; label: string }[] = [
   { value: 'flat-lid', label: 'Flat lid' },
@@ -192,10 +193,37 @@ export function CasePanel() {
           }
           data-testid="ventilation-toggle"
         />
-        <span>Ventilation on back wall</span>
+        <span>Ventilation</span>
       </label>
       {params.ventilation.enabled && (
         <>
+          <div className="joint-row">
+            <span className="joint-label">Surfaces</span>
+            <div className="joint-buttons" role="group" aria-label="Vent surfaces">
+              {VENT_SURFACES.map((s) => {
+                const current = params.ventilation.surfaces ?? ['back'];
+                const checked = current.includes(s);
+                return (
+                  <label key={s}>
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={(e) => {
+                        const next = e.target.checked
+                          ? [...current, s]
+                          : current.filter((x) => x !== s);
+                        patch({
+                          ventilation: { ...params.ventilation, surfaces: next },
+                        });
+                      }}
+                      data-testid={`vent-surface-${s}`}
+                    />
+                    <span>{s}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
           <div className="joint-row">
             <span className="joint-label">Pattern</span>
             <div className="joint-buttons" role="radiogroup" aria-label="Ventilation pattern">

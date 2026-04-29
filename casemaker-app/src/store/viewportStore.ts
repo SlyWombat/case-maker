@@ -2,13 +2,17 @@ import { create } from 'zustand';
 
 const LS_KEY = 'casemaker.viewport';
 
-export type BoardVisualizationMode = 'none' | 'schematic' | 'photo' | '3d';
+// Issue #59 — board visualization cycle (schematic / photo / 3d) was a
+// no-op: no built-in board carries a `visualAssets.glb` or `topImage`, so
+// every project rendered as the schematic placeholder regardless of mode.
+// The cycle button + fallback banner are removed; board visibility is now
+// just a single `showBoard` boolean. Re-introduce the cycle when GLB
+// assets actually exist (issue #39 phase 2).
 
 interface PersistedViewportFlags {
   showLid?: boolean;
   showBoard?: boolean;
   showGrid?: boolean;
-  boardVisualization?: BoardVisualizationMode;
 }
 
 function loadPersisted(): PersistedViewportFlags {
@@ -36,26 +40,20 @@ export interface ViewportState {
   showLid: boolean;
   showBoard: boolean;
   showGrid: boolean;
-  boardVisualization: BoardVisualizationMode;
   selectedPortId: string | null;
   setShowLid: (v: boolean) => void;
   setShowBoard: (v: boolean) => void;
   setShowGrid: (v: boolean) => void;
   toggleShowLid: () => void;
-  setBoardVisualization: (mode: BoardVisualizationMode) => void;
-  cycleBoardVisualization: () => void;
   selectPort: (id: string | null) => void;
 }
 
 const persisted = loadPersisted();
 
-const VISUALIZATION_CYCLE: BoardVisualizationMode[] = ['schematic', 'photo', '3d', 'none'];
-
 export const useViewportStore = create<ViewportState>()((set, get) => ({
   showLid: persisted.showLid ?? true,
   showBoard: persisted.showBoard ?? true,
   showGrid: persisted.showGrid ?? true,
-  boardVisualization: persisted.boardVisualization ?? 'schematic',
   selectedPortId: null,
   setShowLid: (v) => {
     set({ showLid: v });
@@ -73,17 +71,6 @@ export const useViewportStore = create<ViewportState>()((set, get) => ({
     const next = !get().showLid;
     set({ showLid: next });
     savePersisted({ ...get(), showLid: next });
-  },
-  setBoardVisualization: (mode) => {
-    set({ boardVisualization: mode });
-    savePersisted({ ...get(), boardVisualization: mode });
-  },
-  cycleBoardVisualization: () => {
-    const cur = get().boardVisualization;
-    const idx = VISUALIZATION_CYCLE.indexOf(cur);
-    const next = VISUALIZATION_CYCLE[(idx + 1) % VISUALIZATION_CYCLE.length]!;
-    set({ boardVisualization: next });
-    savePersisted({ ...get(), boardVisualization: next });
   },
   selectPort: (id) => set({ selectedPortId: id }),
 }));

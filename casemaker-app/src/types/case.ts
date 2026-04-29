@@ -26,10 +26,26 @@ export interface BossesParams {
   holeDiameter: Mm;
 }
 
+/** Issue #75 — surfaces the vent pattern can be cut into. Multi-select; the
+ *  same pattern + coverage applies to every selected surface. */
+export type VentSurface = 'top' | 'bottom' | 'front' | 'back' | 'left' | 'right';
+
+export const VENT_SURFACES: ReadonlyArray<VentSurface> = [
+  'top',
+  'bottom',
+  'front',
+  'back',
+  'left',
+  'right',
+];
+
 export interface VentilationParams {
   enabled: boolean;
   pattern: VentilationPattern;
   coverage: number;
+  /** Issue #75 — defaults to ['back'] when absent so legacy projects render
+   *  byte-identical to today (single +y wall). */
+  surfaces?: VentSurface[];
 }
 
 export interface CaseParameters {
