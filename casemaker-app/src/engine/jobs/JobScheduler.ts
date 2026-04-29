@@ -42,6 +42,9 @@ async function dispatch(project: Project, myGen: number): Promise<void> {
         vertexCount: n.vertexCount,
         triangleCount: n.triangleCount,
         bbox: n.bbox,
+        // Issue #83 — propagate Manifold.decompose() count so the UI can
+        // warn when a node has loose pieces.
+        componentCount: n.componentCount,
       },
     }));
     const combined: MeshStats = {
