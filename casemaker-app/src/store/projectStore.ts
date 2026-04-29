@@ -75,6 +75,10 @@ export interface ProjectState {
    * Suppresses the viewport rendering and shows a Welcome panel instead. */
   welcomeMode: boolean;
   dismissWelcome: () => void;
+  /** Issue #75 — return to the welcome screen so the user can pick a new
+   * board / template. Project is reset to the default so the engine still
+   * has a valid board behind the welcome overlay. */
+  showWelcome: () => void;
   setProject: (p: Project) => void;
   patchCase: (patch: Partial<CaseParameters>) => void;
   loadBuiltinBoard: (boardId: string) => void;
@@ -180,6 +184,7 @@ export const useProjectStore = create<ProjectState>()(
         project: createDefaultProject(),
         welcomeMode: true,
         dismissWelcome: () => set({ welcomeMode: false }),
+        showWelcome: () => set({ project: createDefaultProject(), welcomeMode: true }),
         setProject: (p) => set({ project: p, welcomeMode: false }),
         patchCase: (patch) =>
           set((s) => ({

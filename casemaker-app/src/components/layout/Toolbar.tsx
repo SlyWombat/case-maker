@@ -11,7 +11,6 @@ import { downloadProjectJson, readProjectFromFile } from '@/store/persistence';
 import { triggerExport } from '@/engine/exportTrigger';
 import { DocsModal } from '@/components/docs/DocsModal';
 import { SettingsMenu } from '@/components/layout/SettingsMenu';
-import { BoardTemplateMenu } from '@/components/layout/BoardTemplateMenu';
 
 const FORMAT_LABEL: Record<string, string> = {
   'stl-binary': 'STL (binary)',
@@ -22,6 +21,7 @@ const FORMAT_LABEL: Record<string, string> = {
 export function Toolbar() {
   const project = useProjectStore((s) => s.project);
   const setProject = useProjectStore((s) => s.setProject);
+  const showWelcome = useProjectStore((s) => s.showWelcome);
   const showLid = useViewportStore((s) => s.showLid);
   const toggleShowLid = useViewportStore((s) => s.toggleShowLid);
   const boardVisualization = useViewportStore((s) => s.boardVisualization);
@@ -72,6 +72,12 @@ export function Toolbar() {
     [setProject],
   );
 
+  const onNew = useCallback(() => {
+    if (!window.confirm('Start a new project? Unsaved changes will be lost.')) return;
+    showWelcome();
+    clearHistory();
+  }, [showWelcome]);
+
   const onExport = useCallback(async () => {
     setExporting(true);
     try {
@@ -86,7 +92,13 @@ export function Toolbar() {
 
   return (
     <div className="toolbar-buttons">
-      <BoardTemplateMenu />
+      <button
+        onClick={onNew}
+        data-testid="new-project"
+        title="Start a new project (returns to the board / template picker)"
+      >
+        ✨ New
+      </button>
       <button onClick={undoProject} data-testid="undo-btn" title="Undo (Ctrl+Z)">
         ↶ Undo
       </button>
