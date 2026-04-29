@@ -1,13 +1,13 @@
 import { useProjectStore } from '@/store/projectStore';
 import { useJobStore } from '@/store/jobStore';
-import { useSettingsStore } from '@/store/settingsStore';
+import { useSettingsStore, type ExportFormat } from '@/store/settingsStore';
 import { exportStlBinary, exportStlAscii, exportThreeMf } from '@/engine/jobs/workerClient';
 import { scheduleImmediate, waitForIdle } from '@/engine/jobs/JobScheduler';
 import type { StlMeshInput } from '@/workers/export/stlBinary';
 import { applyLayoutToMeshes } from '@/engine/exportLayout';
 import type { MeshNode } from '@/types';
 
-export type ExportFormat = 'stl-binary' | 'stl-ascii' | '3mf';
+export type { ExportFormat };
 
 function downloadArrayBuffer(buf: ArrayBuffer, filename: string, mime: string): void {
   const blob = new Blob([buf], { type: mime });

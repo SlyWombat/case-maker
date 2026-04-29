@@ -3,7 +3,6 @@ import { ExportPanel } from '@/components/panels/ExportPanel';
 import { PortsPanel } from '@/components/panels/PortsPanel';
 import { BoardEditorPanel } from '@/components/panels/BoardEditorPanel';
 import { AssetsPanel } from '@/components/panels/AssetsPanel';
-import { SettingsPanel } from '@/components/panels/SettingsPanel';
 import { HatsPanel } from '@/components/panels/HatsPanel';
 import { TemplatesPanel } from '@/components/panels/TemplatesPanel';
 import { FeaturesPanel } from '@/components/panels/FeaturesPanel';
@@ -17,13 +16,9 @@ export function Sidebar() {
   const ids = listBuiltinBoardIds();
   if (welcomeMode) {
     // Issue #69 — hide all per-board panels until the user picks a board /
-    // template via the WelcomeOverlay. Settings stays visible so users can
-    // still tweak global preferences.
-    return (
-      <aside className="sidebar">
-        <SettingsPanel />
-      </aside>
-    );
+    // template via the WelcomeOverlay. Settings now live in the title-bar
+    // gear menu (issue #74), so the sidebar is empty in welcome mode.
+    return <aside className="sidebar" />;
   }
   return (
     <aside className="sidebar">
@@ -52,7 +47,6 @@ export function Sidebar() {
       <FeaturesPanel />
       <AssetsPanel />
       <ExportPanel />
-      <SettingsPanel />
     </aside>
   );
 }

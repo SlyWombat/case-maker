@@ -6,8 +6,17 @@ import {
   clearHistory,
 } from '@/store/projectStore';
 import { useViewportStore } from '@/store/viewportStore';
+import { useSettingsStore } from '@/store/settingsStore';
 import { downloadProjectJson, readProjectFromFile } from '@/store/persistence';
+import { triggerExport } from '@/engine/exportTrigger';
 import { DocsModal } from '@/components/docs/DocsModal';
+import { SettingsMenu } from '@/components/layout/SettingsMenu';
+
+const FORMAT_LABEL: Record<string, string> = {
+  'stl-binary': 'STL (binary)',
+  'stl-ascii': 'STL (ASCII)',
+  '3mf': '3MF',
+};
 
 export function Toolbar() {
   const project = useProjectStore((s) => s.project);
@@ -16,9 +25,12 @@ export function Toolbar() {
   const toggleShowLid = useViewportStore((s) => s.toggleShowLid);
   const boardVisualization = useViewportStore((s) => s.boardVisualization);
   const cycleBoardVisualization = useViewportStore((s) => s.cycleBoardVisualization);
+  const exportFormat = useSettingsStore((s) => s.exportFormat);
   const fileInput = useRef<HTMLInputElement | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [docsOpen, setDocsOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -59,6 +71,18 @@ export function Toolbar() {
     [setProject],
   );
 
+  const onExport = useCallback(async () => {
+    setExporting(true);
+    try {
+      await triggerExport(useSettingsStore.getState().exportFormat);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setExporting(false);
+    }
+  }, []);
+
   return (
     <div className="toolbar-buttons">
       <button onClick={undoProject} data-testid="undo-btn" title="Undo (Ctrl+Z)">
@@ -67,11 +91,27 @@ export function Toolbar() {
       <button onClick={redoProject} data-testid="redo-btn" title="Redo (Ctrl+Shift+Z)">
         ↷ Redo
       </button>
-      <button onClick={onSave} data-testid="save-project">
-        Save .caseproj.json
+      <button
+        onClick={onSave}
+        data-testid="save-project"
+        title="Save the current project to a .caseproj.json file"
+      >
+        💾 Save
       </button>
-      <button onClick={onLoadClick} data-testid="load-project">
-        Load .caseproj.json
+      <button
+        onClick={onLoadClick}
+        data-testid="load-project"
+        title="Load a project from a .caseproj.json file"
+      >
+        📂 Load
+      </button>
+      <button
+        onClick={onExport}
+        disabled={exporting}
+        data-testid="export-default"
+        title={`Export current case as ${FORMAT_LABEL[exportFormat] ?? exportFormat} (change format in ⚙)`}
+      >
+        {exporting ? '⏳ Exporting…' : '⬇ Export'}
       </button>
       <input
         ref={fileInput}
@@ -91,13 +131,29 @@ export function Toolbar() {
       <button
         onClick={cycleBoardVisualization}
         data-testid="cycle-board-visualization-btn"
-        title="Board visualization: schematic / photo / 3D"
+        title="Cycle board visualization: schematic / photo / 3D"
       >
         Board: {boardVisualization}
       </button>
-      <button onClick={() => setDocsOpen(true)} data-testid="docs-open">
+      <button
+        onClick={() => setDocsOpen(true)}
+        data-testid="docs-open"
+        title="Open the User Manual"
+      >
         📖 Docs
       </button>
+      <div className="toolbar-settings-wrap">
+        <button
+          onClick={() => setSettingsOpen((v) => !v)}
+          data-testid="settings-open"
+          title="App settings"
+          aria-haspopup="dialog"
+          aria-expanded={settingsOpen}
+        >
+          ⚙
+        </button>
+        {settingsOpen && <SettingsMenu onClose={() => setSettingsOpen(false)} />}
+      </div>
       {error && <span style={{ color: '#ff8888', fontSize: 12 }}>{error}</span>}
       {docsOpen && <DocsModal initialId="user-manual" onClose={() => setDocsOpen(false)} />}
     </div>

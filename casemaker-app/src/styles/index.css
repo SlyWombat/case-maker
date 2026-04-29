@@ -171,6 +171,54 @@ body, html, #root {
   display: none;
 }
 
+/* Issue #74 — settings gear popover anchored to its button. */
+.toolbar-settings-wrap {
+  position: relative;
+  display: inline-flex;
+}
+.settings-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 100;
+  min-width: 280px;
+  padding: 12px;
+  background: #1a2028;
+  border: 1px solid #2a3340;
+  border-radius: 6px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+  font-size: 12px;
+  color: #cbd5e1;
+}
+.settings-menu h3 {
+  margin: 0 0 10px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #e5e7eb;
+}
+.settings-menu .settings-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+  margin: 6px 0;
+}
+.settings-menu .settings-hint {
+  margin: 4px 0 8px 0;
+  color: #8a94a4;
+  font-size: 11px;
+}
+.settings-menu .settings-check {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin: 8px 0;
+}
+.settings-menu .settings-reset {
+  margin-top: 10px;
+  font-size: 11px;
+}
+
 .pcb-grid {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;

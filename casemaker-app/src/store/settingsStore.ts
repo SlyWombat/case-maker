@@ -1,22 +1,28 @@
 import { create } from 'zustand';
 
 export type ExportLayoutMode = 'print-ready' | 'assembled';
+export type ExportFormat = 'stl-binary' | 'stl-ascii' | '3mf';
 
 export interface AppSettings {
   port: number;
   bindToAll: boolean;
   exportLayout: ExportLayoutMode;
+  exportFormat: ExportFormat;
 }
 
 const SETTINGS_KEY = 'casemaker.settings.v1';
 const DEFAULT_PORT = 8000;
 const DEFAULT_EXPORT_LAYOUT: ExportLayoutMode = 'print-ready';
+const DEFAULT_EXPORT_FORMAT: ExportFormat = 'stl-binary';
 
 const DEFAULTS: AppSettings = {
   port: DEFAULT_PORT,
   bindToAll: false,
   exportLayout: DEFAULT_EXPORT_LAYOUT,
+  exportFormat: DEFAULT_EXPORT_FORMAT,
 };
+
+const VALID_FORMATS: ReadonlySet<ExportFormat> = new Set(['stl-binary', 'stl-ascii', '3mf']);
 
 function loadSettings(): AppSettings {
   if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
@@ -33,6 +39,10 @@ function loadSettings(): AppSettings {
         parsed.exportLayout === 'assembled' || parsed.exportLayout === 'print-ready'
           ? parsed.exportLayout
           : DEFAULT_EXPORT_LAYOUT,
+      exportFormat:
+        typeof parsed.exportFormat === 'string' && VALID_FORMATS.has(parsed.exportFormat as ExportFormat)
+          ? (parsed.exportFormat as ExportFormat)
+          : DEFAULT_EXPORT_FORMAT,
     };
   } catch {
     return { ...DEFAULTS };
@@ -59,6 +69,7 @@ export interface SettingsState extends AppSettings {
   setPort: (port: number) => void;
   setBindToAll: (v: boolean) => void;
   setExportLayout: (mode: ExportLayoutMode) => void;
+  setExportFormat: (fmt: ExportFormat) => void;
   resetSettings: () => void;
 }
 
@@ -78,6 +89,10 @@ export const useSettingsStore = create<SettingsState>()((set, get) => {
     setExportLayout: (mode) => {
       set({ exportLayout: mode });
       persist({ ...get(), exportLayout: mode });
+    },
+    setExportFormat: (fmt) => {
+      set({ exportFormat: fmt });
+      persist({ ...get(), exportFormat: fmt });
     },
     resetSettings: () => {
       const fresh = { ...DEFAULTS };
