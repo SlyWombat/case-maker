@@ -527,6 +527,75 @@ body, html, #root {
 .port-editor-row--selected .port-editor-row__expand {
   color: var(--cm-color-primary);
 }
+/* Issue #95 / #96 — same selected-row styling for snap-catch + mounting
+   features rows (which use the .features-row class). */
+.features-row--selected {
+  background: var(--cm-color-surface-bright);
+  border-left: 2px solid var(--cm-color-primary);
+  padding-left: 4px;
+}
+.features-row__select {
+  flex: 1;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--cm-color-on-surface);
+  font-size: 11px;
+  padding: 2px 0;
+  cursor: pointer;
+}
+.features-row__select:hover {
+  color: var(--cm-color-primary);
+}
+.features-row--selected .features-row__select {
+  color: var(--cm-color-primary);
+}
+
+/* Issue #97 (Phase 4e) — component list rows in BoardEditor. Replaces the
+   prior 2-row table layout; detail editing is in the right rail. */
+.component-list {
+  list-style: none;
+  margin: 4px 0;
+  padding: 0;
+}
+.component-list__row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px;
+  border-bottom: 1px solid var(--cm-color-outline-variant);
+}
+.component-list__row--selected {
+  background: var(--cm-color-surface-bright);
+  border-left: 2px solid var(--cm-color-primary);
+}
+.component-list__select {
+  flex: 1;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--cm-color-on-surface);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 4px 0;
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+.component-list__select:hover {
+  color: var(--cm-color-primary);
+}
+.component-list__id {
+  font-family: var(--cm-font-mono);
+  font-weight: 600;
+  color: var(--cm-color-on-surface-variant);
+}
+.component-list__meta {
+  font-size: 10px;
+  color: var(--cm-color-on-surface-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
 .port-editor-row__body {
   padding: 4px 0 6px 22px;
   font-size: 11px;

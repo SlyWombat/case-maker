@@ -1,11 +1,10 @@
 import { useProjectStore } from '@/store/projectStore';
+import { useViewportStore } from '@/store/viewportStore';
 import { listBuiltinDisplayIds } from '@/library/displays';
 import { newId } from '@/utils/id';
 import type { AntennaType } from '@/types/antenna';
 import type { FanSize, CaseFace, FanGrille } from '@/types/fan';
 import type { TextLabel } from '@/types/textLabel';
-import type { SnapWall, BarbType } from '@/types/snap';
-import { BARB_TYPES } from '@/types/snap';
 import type { DisplayFraming } from '@/types/display';
 
 /**
@@ -27,7 +26,8 @@ const FAN_SIZES: FanSize[] = ['30x30x10', '40x40x10', '40x40x20', '50x50x10', '6
 const CASE_FACES: CaseFace[] = ['+x', '-x', '+y', '-y', '+z', '-z'];
 const FAN_GRILLES: FanGrille[] = ['cross', 'spiral', 'honeycomb', 'concentric', 'open'];
 const ANTENNA_TYPES: AntennaType[] = ['internal', 'rpi-external', 'external-mount'];
-const SNAP_WALLS: SnapWall[] = ['+x', '-x', '+y', '-y'];
+// Issue #95 (Phase 4c) — SNAP_WALLS / BARB_TYPES moved to SnapCatchDetail
+// in SelectionPanel since the row no longer renders inline editors.
 const DISPLAY_FRAMINGS: DisplayFraming[] = ['top-window', 'recessed-bezel'];
 
 // Stable empty-array constants to avoid Zustand snapshot churn — selectors
@@ -354,6 +354,10 @@ function MountingSection() {
   const applyPreset = useProjectStore((s) => s.applyMountingPreset);
   const removeFeature = useProjectStore((s) => s.removeMountingFeature);
   const patchFeature = useProjectStore((s) => s.patchMountingFeature);
+  const setSelection = useViewportStore((s) => s.setSelection);
+  const selectedFeatureId = useViewportStore((s) =>
+    s.selection?.kind === 'mounting-feature' ? s.selection.featureId : null,
+  );
 
   return (
     <section className="features-section">
@@ -387,8 +391,13 @@ function MountingSection() {
         </button>
       </div>
       {features.length === 0 && <p className="features-empty">No mounting features.</p>}
+      {/* Issue #96 (Phase 4d) — rows are compact summaries; click selects
+          and the right-rail ContextPanel renders the type-aware detail. */}
       {features.map((f) => (
-        <div key={f.id} className="features-row">
+        <div
+          key={f.id}
+          className={`features-row${selectedFeatureId === f.id ? ' features-row--selected' : ''}`}
+        >
           <input
             type="checkbox"
             checked={f.enabled}
@@ -396,9 +405,16 @@ function MountingSection() {
             aria-label={`Mounting feature ${f.id} enabled`}
             title="Toggle this mounting feature on/off."
           />
-          <span style={{ flex: 1 }}>
-            {f.type} ({f.face})
-          </span>
+          <button
+            type="button"
+            className="features-row__select"
+            onClick={() => setSelection({ kind: 'mounting-feature', featureId: f.id })}
+            aria-pressed={selectedFeatureId === f.id}
+            data-testid={`feature-${f.id}-select`}
+            title="Edit feature parameters in the right rail"
+          >
+            {f.type} · {f.face} · u={f.position.u} v={f.position.v}
+          </button>
           <button
             onClick={() => removeFeature(f.id)}
             title="Remove this mounting feature"
@@ -560,6 +576,10 @@ function SnapCatchesSection() {
   const addSnapCatch = useProjectStore((s) => s.addSnapCatch);
   const removeSnapCatch = useProjectStore((s) => s.removeSnapCatch);
   const patchSnapCatch = useProjectStore((s) => s.patchSnapCatch);
+  const setSelection = useViewportStore((s) => s.setSelection);
+  const selectedCatchId = useViewportStore((s) =>
+    s.selection?.kind === 'snap-catch' ? s.selection.catchId : null,
+  );
 
   if (joint !== 'snap-fit') return null;
 
@@ -577,89 +597,45 @@ function SnapCatchesSection() {
         </button>
       </h4>
       {catches.length === 0 && <p className="features-empty">No catches.</p>}
-      {catches.map((c) => (
-        <div key={c.id} className="features-row" title={`Catch ${c.id} on wall ${c.wall}`}>
-          <label className="cell-label" title="Toggle this snap catch on/off.">
-            <span className="cell-label__axis">on</span>
-            <input
-              type="checkbox"
-              checked={c.enabled}
-              onChange={(e) => patchSnapCatch(c.id, { enabled: e.target.checked })}
-              aria-label={`Snap catch ${c.id} enabled`}
-            />
-          </label>
-          <label className="cell-label">
-            <span className="cell-label__axis">wall</span>
-            <select
-              value={c.wall}
-              onChange={(e) => patchSnapCatch(c.id, { wall: e.target.value as SnapWall })}
-              aria-label={`Snap catch ${c.id} wall`}
-              title="Which wall the catch is on (±X / ±Y)."
-            >
-              {SNAP_WALLS.map((w) => (
-                <option key={w} value={w}>
-                  {w}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="cell-label">
-            <span className="cell-label__axis">u (mm)</span>
-            <input
-              type="number"
-              value={c.uPosition}
-              step={1}
-              onChange={(e) => patchSnapCatch(c.id, { uPosition: Number(e.target.value) })}
-              style={{ width: 60 }}
-              className="numeric-input"
-              aria-label={`Snap catch ${c.id} U position (mm)`}
-              title="U position along the wall (mm) — distance from the wall's start corner."
-            />
-          </label>
-          {/* Issue #69 — barb cross-section selector. */}
-          <label className="cell-label">
-            <span className="cell-label__axis">barb</span>
-            <select
-              value={c.barbType ?? 'hook'}
-              onChange={(e) => patchSnapCatch(c.id, { barbType: e.target.value as BarbType })}
-              data-testid={`snap-barb-type-${c.id}`}
-              aria-label={`Snap catch ${c.id} barb type`}
-              title="Barb cross-section — 'hook' is the classic engagement profile, others vary in retention force."
-            >
-              {BARB_TYPES.map((b) => (
-                <option key={b} value={b}>
-                  {b}
-                </option>
-              ))}
-            </select>
-          </label>
-          {/* Issue #64 — which part holds the flexing cantilever. */}
-          <label className="cell-label">
-            <span className="cell-label__axis">arm</span>
-            <select
-              value={c.cantileverOn ?? 'lid'}
-              onChange={(e) =>
-                patchSnapCatch(c.id, {
-                  cantileverOn: e.target.value as 'lid' | 'case',
-                })
-              }
-              data-testid={`snap-cantilever-on-${c.id}`}
-              aria-label={`Snap catch ${c.id} cantilever location`}
-              title="Which part flexes — lid or case. Tradeoff: lid-arm hides better; case-arm is stronger."
-            >
-              <option value="lid">on lid</option>
-              <option value="case">on case</option>
-            </select>
-          </label>
-          <button
-            onClick={() => removeSnapCatch(c.id)}
-            title="Remove this snap catch"
-            aria-label={`Remove snap catch ${c.id}`}
+      {/* Issue #95 (Phase 4c) — rows are compact summaries; click selects
+          and the right-rail ContextPanel renders the detail editor. */}
+      {catches.map((c) => {
+        const isSelected = selectedCatchId === c.id;
+        return (
+          <div
+            key={c.id}
+            className={`features-row${isSelected ? ' features-row--selected' : ''}`}
+            title={`Catch ${c.id} on wall ${c.wall} at u=${c.uPosition} mm`}
           >
-            ✕
-          </button>
-        </div>
-      ))}
+            <label className="cell-label" title="Toggle this snap catch on/off.">
+              <span className="cell-label__axis">on</span>
+              <input
+                type="checkbox"
+                checked={c.enabled}
+                onChange={(e) => patchSnapCatch(c.id, { enabled: e.target.checked })}
+                aria-label={`Snap catch ${c.id} enabled`}
+              />
+            </label>
+            <button
+              type="button"
+              className="features-row__select"
+              onClick={() => setSelection({ kind: 'snap-catch', catchId: c.id })}
+              aria-pressed={isSelected}
+              data-testid={`snap-catch-${c.id}-select`}
+              title="Edit catch details in the right rail"
+            >
+              {c.wall} · u={c.uPosition} · {c.barbType ?? 'hook'} · arm on {c.cantileverOn ?? 'lid'}
+            </button>
+            <button
+              onClick={() => removeSnapCatch(c.id)}
+              title="Remove this snap catch"
+              aria-label={`Remove snap catch ${c.id}`}
+            >
+              ✕
+            </button>
+          </div>
+        );
+      })}
     </section>
   );
 }

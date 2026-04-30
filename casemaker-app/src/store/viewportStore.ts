@@ -28,6 +28,9 @@ export type ViewportSelection =
   | { kind: 'host' }
   | { kind: 'hat'; hatPlacementId: string }
   | { kind: 'port'; portId: string }
+  | { kind: 'snap-catch'; catchId: string }      // Phase 4c (#95)
+  | { kind: 'mounting-feature'; featureId: string } // Phase 4d (#96)
+  | { kind: 'component'; componentId: string }   // Phase 4e (#97)
   | null;
 
 // Issue #91 — 4-way view-mode picker that drives lid lift + per-mesh

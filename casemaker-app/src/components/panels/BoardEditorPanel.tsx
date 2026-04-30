@@ -1,22 +1,9 @@
 import { useProjectStore } from '@/store/projectStore';
-import type { ComponentKind, Facing } from '@/types';
+import { useViewportStore } from '@/store/viewportStore';
 import { LabelledField } from '@/components/ui/LabelledField';
-
-const KIND_OPTIONS: ComponentKind[] = [
-  'usb-c',
-  'usb-a',
-  'usb-b',
-  'micro-usb',
-  'hdmi',
-  'micro-hdmi',
-  'barrel-jack',
-  'ethernet-rj45',
-  'gpio-header',
-  'sd-card',
-  'custom',
-];
-
-const FACING_OPTIONS: Facing[] = ['+x', '-x', '+y', '-y', '+z'];
+// Issue #97 (Phase 4e) — KIND_OPTIONS / FACING_OPTIONS lists moved to
+// SelectionPanel.ComponentDetail (right-rail editor) since the inline
+// kind/facing selects were removed from this panel.
 
 interface NumInputProps {
   value: number;
@@ -71,7 +58,11 @@ export function BoardEditorPanel() {
   const patchHole = useProjectStore((s) => s.patchMountingHole);
   const addComponent = useProjectStore((s) => s.addComponent);
   const removeComponent = useProjectStore((s) => s.removeComponent);
-  const patchComponent = useProjectStore((s) => s.patchComponent);
+  // patchComponent moved to SelectionPanel.ComponentDetail (right rail).
+  const setSelection = useViewportStore((s) => s.setSelection);
+  const selectedComponentId = useViewportStore((s) =>
+    s.selection?.kind === 'component' ? s.selection.componentId : null,
+  );
 
   if (board.builtin) {
     return (
@@ -294,150 +285,41 @@ export function BoardEditorPanel() {
           + add
         </button>
       </h4>
-      <table className="hole-table">
-        <thead>
-          <tr>
-            <th title="Component kind (USB-C, HDMI, etc.)">Kind</th>
-            <th title="Which face the connector points out of">Facing</th>
-            <th colSpan={2} title="Position + size, edited in the row below">Pos / Size (mm)</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {board.components.flatMap((c) => [
-            <tr key={`${c.id}-head`}>
-              <td>
-                <label className="cell-label">
-                  <span className="cell-label__row">{c.id}</span>
-                  <span className="cell-label__axis">kind</span>
-                  <select
-                    value={c.kind}
-                    onChange={(e) =>
-                      patchComponent(c.id, { kind: e.target.value as ComponentKind })
-                    }
-                    data-testid={`component-${c.id}-kind`}
-                    aria-label={`Component ${c.id} kind`}
-                    title="Connector kind. Drives the default cutout shape and port group."
-                    style={{ width: '100%' }}
-                  >
-                    {KIND_OPTIONS.map((k) => (
-                      <option key={k} value={k}>
-                        {k}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </td>
-              <td>
-                <label className="cell-label">
-                  <span className="cell-label__axis">facing</span>
-                  <select
-                    value={c.facing ?? '+y'}
-                    onChange={(e) =>
-                      patchComponent(c.id, { facing: e.target.value as Facing })
-                    }
-                    data-testid={`component-${c.id}-facing`}
-                    aria-label={`Component ${c.id} facing`}
-                    title="Which case face the connector points out of (e.g. +y = back wall)."
-                    style={{ width: '100%' }}
-                  >
-                    {FACING_OPTIONS.map((f) => (
-                      <option key={f} value={f}>
-                        {f}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </td>
-              <td colSpan={2} style={{ color: '#8a94a4', fontSize: 11 }}>
-                pos / size below
-              </td>
-              <td>
-                <button
-                  onClick={() => removeComponent(c.id)}
-                  data-testid={`remove-component-${c.id}`}
-                  title="Remove this component"
-                  aria-label={`Remove component ${c.id}`}
-                >
-                  ✕
-                </button>
-              </td>
-            </tr>,
-            <tr key={`${c.id}-body`}>
-              <td colSpan={5} style={{ paddingBottom: 8 }}>
-                <div className="comp-coord-grid">
-                  <span className="coord-label" />
-                  <span className="coord-axis-header">X</span>
-                  <span className="coord-axis-header">Y</span>
-                  <span className="coord-axis-header">Z</span>
-                  <span className="coord-label">pos</span>
-                  <label className="cell-label">
-                    <span className="cell-label__axis cell-label__axis--xs">X</span>
-                    <NumInput
-                      value={c.position.x}
-                      onChange={(v) => patchComponent(c.id, { position: { x: v } })}
-                      testId={`component-${c.id}-pos-x`}
-                      ariaLabel={`Component ${c.id} position X (mm)`}
-                      title={`Component ${c.id} — position X (mm), measured from the PCB origin.`}
-                    />
-                  </label>
-                  <label className="cell-label">
-                    <span className="cell-label__axis cell-label__axis--xs">Y</span>
-                    <NumInput
-                      value={c.position.y}
-                      onChange={(v) => patchComponent(c.id, { position: { y: v } })}
-                      testId={`component-${c.id}-pos-y`}
-                      ariaLabel={`Component ${c.id} position Y (mm)`}
-                      title={`Component ${c.id} — position Y (mm), measured from the PCB origin.`}
-                    />
-                  </label>
-                  <label className="cell-label">
-                    <span className="cell-label__axis cell-label__axis--xs">Z</span>
-                    <NumInput
-                      value={c.position.z}
-                      onChange={(v) => patchComponent(c.id, { position: { z: v } })}
-                      testId={`component-${c.id}-pos-z`}
-                      ariaLabel={`Component ${c.id} position Z (mm)`}
-                      title={`Component ${c.id} — position Z (mm), measured from the top of the PCB.`}
-                    />
-                  </label>
-                  <span className="coord-label">size</span>
-                  <label className="cell-label">
-                    <span className="cell-label__axis cell-label__axis--xs">X</span>
-                    <NumInput
-                      value={c.size.x}
-                      onChange={(v) => patchComponent(c.id, { size: { x: v } })}
-                      testId={`component-${c.id}-size-x`}
-                      ariaLabel={`Component ${c.id} size X (mm)`}
-                      title={`Component ${c.id} — size X (mm). For side-facing connectors this is the depth into the wall.`}
-                    />
-                  </label>
-                  <label className="cell-label">
-                    <span className="cell-label__axis cell-label__axis--xs">Y</span>
-                    <NumInput
-                      value={c.size.y}
-                      onChange={(v) => patchComponent(c.id, { size: { y: v } })}
-                      testId={`component-${c.id}-size-y`}
-                      ariaLabel={`Component ${c.id} size Y (mm)`}
-                      title={`Component ${c.id} — size Y (mm).`}
-                    />
-                  </label>
-                  <label className="cell-label">
-                    <span className="cell-label__axis cell-label__axis--xs">Z</span>
-                    <NumInput
-                      value={c.size.z}
-                      onChange={(v) => patchComponent(c.id, { size: { z: v } })}
-                      testId={`component-${c.id}-size-z`}
-                      ariaLabel={`Component ${c.id} size Z (mm)`}
-                      title={`Component ${c.id} — size Z (mm).`}
-                    />
-                  </label>
-                </div>
-              </td>
-            </tr>,
-          ])}
-        </tbody>
-      </table>
+      {/* Issue #97 (Phase 4e) — components are now compact one-liners.
+          Detail editing (kind / facing / pos XYZ / size XYZ / cutout
+          margin / shape / fixture id) lives in the right-rail
+          ContextPanel and is reached by clicking the row. */}
+      <ul className="component-list">
+        {board.components.map((c) => {
+          const isSelected = selectedComponentId === c.id;
+          return (
+            <li
+              key={c.id}
+              className={`component-list__row${isSelected ? ' component-list__row--selected' : ''}`}
+            >
+              <button
+                type="button"
+                className="component-list__select"
+                onClick={() => setSelection({ kind: 'component', componentId: c.id })}
+                aria-pressed={isSelected}
+                data-testid={`component-${c.id}-select`}
+                title="Edit this component's kind / facing / position / size in the right rail"
+              >
+                <span className="component-list__id">{c.id}</span>
+                <span className="component-list__meta">{c.kind} · {c.facing ?? '+y'}</span>
+              </button>
+              <button
+                onClick={() => removeComponent(c.id)}
+                data-testid={`remove-component-${c.id}`}
+                title="Remove this component"
+                aria-label={`Remove component ${c.id}`}
+              >
+                ✕
+              </button>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }

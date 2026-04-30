@@ -45,4 +45,26 @@ describe('port selection routing (#94 Phase 4b)', () => {
       expect(parsed.selection).toBeUndefined();
     }
   });
+
+  it("snap-catch / mounting-feature / component selection kinds round-trip (#95 / #96 / #97)", () => {
+    useViewportStore.getState().setSelection({ kind: 'snap-catch', catchId: 'snap-mx' });
+    expect(useViewportStore.getState().selection).toEqual({
+      kind: 'snap-catch',
+      catchId: 'snap-mx',
+    });
+    useViewportStore
+      .getState()
+      .setSelection({ kind: 'mounting-feature', featureId: 'flange-1' });
+    expect(useViewportStore.getState().selection).toEqual({
+      kind: 'mounting-feature',
+      featureId: 'flange-1',
+    });
+    useViewportStore
+      .getState()
+      .setSelection({ kind: 'component', componentId: 'usb-c-power' });
+    expect(useViewportStore.getState().selection).toEqual({
+      kind: 'component',
+      componentId: 'usb-c-power',
+    });
+  });
 });

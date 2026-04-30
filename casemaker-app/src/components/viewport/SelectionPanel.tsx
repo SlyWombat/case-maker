@@ -4,6 +4,10 @@ import { useViewportStore } from '@/store/viewportStore';
 import { getBuiltinBoard } from '@/library';
 import { getBuiltinHat } from '@/library/hats';
 import type { CutoutShape, PortPlacement } from '@/types';
+import type { SnapCatch, SnapWall, BarbType } from '@/types/snap';
+import { BARB_TYPES } from '@/types/snap';
+import type { MountingFeature } from '@/types/mounting';
+import type { BoardComponent, Facing } from '@/types/board';
 
 /**
  * Issue #83 — floating panel that surfaces the active in-viewport selection
@@ -42,6 +46,9 @@ export function SelectionPanel() {
   const patchHat = useProjectStore((s) => s.patchHat);
   const patchPort = useProjectStore((s) => s.patchPort);
   const resetPort = useProjectStore((s) => s.resetPortToDefault);
+  const patchSnapCatch = useProjectStore((s) => s.patchSnapCatch);
+  const patchMountingFeature = useProjectStore((s) => s.patchMountingFeature);
+  const patchComponent = useProjectStore((s) => s.patchComponent);
 
   // Track whether we've already warned about host X/Y nudge being a no-op
   // in v1 — log once per page session.
@@ -119,6 +126,15 @@ export function SelectionPanel() {
         // keyboard handler (axis-locked + facing-aware via
         // nudgeVectorsForFacing). Skip here to avoid double-firing.
         return;
+      } else if (
+        selection.kind === 'snap-catch' ||
+        selection.kind === 'mounting-feature' ||
+        selection.kind === 'component'
+      ) {
+        // Issue #95 / #96 / #97 — these selections don't have a 3D
+        // pivot to nudge yet; arrow keys reach the right-rail form
+        // through native input focus instead.
+        return;
       } else if (selection.kind === 'hat') {
         const placement = project.hats?.find((h) => h.id === selection.hatPlacementId);
         if (!placement) return;
@@ -153,6 +169,42 @@ export function SelectionPanel() {
         onClose={() => setSelection(null)}
         onPatch={(patch) => patchPort(port.id, patch)}
         onReset={port.sourceComponentId ? () => resetPort(port.id) : undefined}
+      />
+    );
+  }
+
+  if (selection.kind === 'snap-catch') {
+    const c = project.case.snapCatches?.find((x) => x.id === selection.catchId);
+    if (!c) return null;
+    return (
+      <SnapCatchDetail
+        catch_={c}
+        onClose={() => setSelection(null)}
+        onPatch={(patch) => patchSnapCatch(c.id, patch)}
+      />
+    );
+  }
+
+  if (selection.kind === 'mounting-feature') {
+    const f = project.mountingFeatures?.find((x) => x.id === selection.featureId);
+    if (!f) return null;
+    return (
+      <MountingFeatureDetail
+        feature={f}
+        onClose={() => setSelection(null)}
+        onPatch={(patch) => patchMountingFeature(f.id, patch)}
+      />
+    );
+  }
+
+  if (selection.kind === 'component') {
+    const comp = project.board.components.find((c) => c.id === selection.componentId);
+    if (!comp) return null;
+    return (
+      <ComponentDetail
+        component={comp}
+        onClose={() => setSelection(null)}
+        onPatch={(patch) => patchComponent(comp.id, patch)}
       />
     );
   }
@@ -491,5 +543,387 @@ function PortNum({
       className="port-num numeric-input"
       style={{ width: '100%' }}
     />
+  );
+}
+
+const SNAP_WALLS_LIST: SnapWall[] = ['+x', '-x', '+y', '-y'];
+
+/**
+ * Issue #95 (Phase 4c) — snap-catch detail form. Wall, uPosition,
+ * barbType, cantileverOn, plus enable/disable. The full set of editable
+ * fields that used to live as cell-label chips in the left rail.
+ */
+function SnapCatchDetail({
+  catch_,
+  onClose,
+  onPatch,
+}: {
+  catch_: SnapCatch;
+  onClose: () => void;
+  onPatch: (patch: Partial<SnapCatch>) => void;
+}) {
+  return (
+    <div className="selection-panel" data-testid="selection-panel-catch">
+      <div className="selection-panel__header">
+        <span className="selection-panel__title">Snap catch</span>
+        <button
+          type="button"
+          className="selection-panel__close"
+          onClick={onClose}
+          aria-label="Close selection"
+          title="Close (Esc)"
+        >
+          ×
+        </button>
+      </div>
+      <div className="selection-panel__subtitle">{catch_.id}</div>
+
+      <FieldRow label="Enabled">
+        <input
+          type="checkbox"
+          checked={catch_.enabled}
+          onChange={(e) => onPatch({ enabled: e.target.checked })}
+          data-testid={`catch-${catch_.id}-enabled`}
+          aria-label="Catch enabled"
+        />
+      </FieldRow>
+      <FieldRow label="Wall">
+        <select
+          className="selection-panel__input"
+          value={catch_.wall}
+          onChange={(e) => onPatch({ wall: e.target.value as SnapWall })}
+          data-testid={`catch-${catch_.id}-wall`}
+          aria-label="Catch wall"
+          title="Which wall the catch is on (±x / ±y)."
+        >
+          {SNAP_WALLS_LIST.map((w) => (
+            <option key={w} value={w}>{w}</option>
+          ))}
+        </select>
+      </FieldRow>
+      <FieldRow label="U position (mm)">
+        <input
+          type="number"
+          step={0.5}
+          className="numeric-input selection-panel__input"
+          value={catch_.uPosition}
+          onChange={(e) => {
+            const v = Number(e.target.value);
+            if (Number.isFinite(v)) onPatch({ uPosition: v });
+          }}
+          data-testid={`catch-${catch_.id}-u`}
+          aria-label="Catch U position (mm)"
+          title="Distance along the wall from the wall's start corner (mm)."
+        />
+      </FieldRow>
+      <FieldRow label="Barb cross-section">
+        <select
+          className="selection-panel__input"
+          value={catch_.barbType ?? 'hook'}
+          onChange={(e) => onPatch({ barbType: e.target.value as BarbType })}
+          data-testid={`catch-${catch_.id}-barb`}
+          aria-label="Barb cross-section"
+          title="Barb cross-section: hook = classic; symmetric = service-friendly; ball-socket = detent."
+        >
+          {BARB_TYPES.map((b) => (
+            <option key={b} value={b}>{b}</option>
+          ))}
+        </select>
+      </FieldRow>
+      <FieldRow label="Cantilever on">
+        <select
+          className="selection-panel__input"
+          value={catch_.cantileverOn ?? 'lid'}
+          onChange={(e) => onPatch({ cantileverOn: e.target.value as 'lid' | 'case' })}
+          data-testid={`catch-${catch_.id}-arm`}
+          aria-label="Cantilever location"
+          title="Which part flexes — lid (default) or case."
+        >
+          <option value="lid">on lid</option>
+          <option value="case">on case</option>
+        </select>
+      </FieldRow>
+    </div>
+  );
+}
+
+/**
+ * Issue #96 (Phase 4d) — mounting-feature detail form. Type-aware: shows
+ * only the params relevant to the selected feature.type.
+ */
+function MountingFeatureDetail({
+  feature,
+  onClose,
+  onPatch,
+}: {
+  feature: MountingFeature;
+  onClose: () => void;
+  onPatch: (patch: Partial<MountingFeature>) => void;
+}) {
+  const params = feature.params ?? {};
+  function patchParam(key: string, value: number | string): void {
+    onPatch({ params: { ...params, [key]: value } });
+  }
+  function getNum(key: string, fallback: number): number {
+    const v = params[key];
+    return typeof v === 'number' && Number.isFinite(v) ? v : fallback;
+  }
+  return (
+    <div className="selection-panel" data-testid="selection-panel-feature">
+      <div className="selection-panel__header">
+        <span className="selection-panel__title">{feature.type}</span>
+        <button
+          type="button"
+          className="selection-panel__close"
+          onClick={onClose}
+          aria-label="Close selection"
+          title="Close (Esc)"
+        >
+          ×
+        </button>
+      </div>
+      <div className="selection-panel__subtitle">
+        {feature.id} · face {feature.face}
+      </div>
+
+      <FieldRow label="Enabled">
+        <input
+          type="checkbox"
+          checked={feature.enabled}
+          onChange={(e) => onPatch({ enabled: e.target.checked })}
+          data-testid={`feature-${feature.id}-enabled`}
+          aria-label="Feature enabled"
+        />
+      </FieldRow>
+      <FieldRow label="Position u (mm)">
+        <input
+          type="number"
+          step={0.5}
+          className="numeric-input selection-panel__input"
+          value={feature.position.u}
+          onChange={(e) => {
+            const v = Number(e.target.value);
+            if (Number.isFinite(v))
+              onPatch({ position: { u: v, v: feature.position.v } });
+          }}
+          data-testid={`feature-${feature.id}-u`}
+          aria-label="Feature u position (mm)"
+        />
+      </FieldRow>
+      <FieldRow label="Position v (mm)">
+        <input
+          type="number"
+          step={0.5}
+          className="numeric-input selection-panel__input"
+          value={feature.position.v}
+          onChange={(e) => {
+            const v = Number(e.target.value);
+            if (Number.isFinite(v))
+              onPatch({ position: { u: feature.position.u, v } });
+          }}
+          data-testid={`feature-${feature.id}-v`}
+          aria-label="Feature v position (mm)"
+        />
+      </FieldRow>
+
+      {feature.type === 'screw-tab' && (
+        <>
+          <FieldRow label="Tab length (mm)">
+            <input type="number" step={0.5} className="numeric-input selection-panel__input" value={getNum('tabLength', 12)} onChange={(e) => patchParam('tabLength', Number(e.target.value))} aria-label="Tab length (mm)" />
+          </FieldRow>
+          <FieldRow label="Tab width (mm)">
+            <input type="number" step={0.5} className="numeric-input selection-panel__input" value={getNum('tabWidth', 14)} onChange={(e) => patchParam('tabWidth', Number(e.target.value))} aria-label="Tab width (mm)" />
+          </FieldRow>
+          <FieldRow label="Tab thickness (mm)">
+            <input type="number" step={0.1} className="numeric-input selection-panel__input" value={getNum('tabThickness', 3)} onChange={(e) => patchParam('tabThickness', Number(e.target.value))} aria-label="Tab thickness (mm)" />
+          </FieldRow>
+          <FieldRow label="Hole Ø (mm)">
+            <input type="number" step={0.1} className="numeric-input selection-panel__input" value={getNum('holeDiameter', 4.2)} onChange={(e) => patchParam('holeDiameter', Number(e.target.value))} aria-label="Hole diameter (mm)" />
+          </FieldRow>
+        </>
+      )}
+
+      {feature.type === 'end-flange' && (
+        <>
+          <FieldRow label="Projection (mm)">
+            <input type="number" step={0.5} className="numeric-input selection-panel__input" value={getNum('projection', 12)} onChange={(e) => patchParam('projection', Number(e.target.value))} aria-label="Flange projection (mm)" />
+          </FieldRow>
+          <FieldRow label="Width (mm)">
+            <input type="number" step={0.5} className="numeric-input selection-panel__input" value={getNum('width', 12)} onChange={(e) => patchParam('width', Number(e.target.value))} aria-label="Flange width (mm)" />
+          </FieldRow>
+          <FieldRow label="Thickness (mm)">
+            <input type="number" step={0.1} className="numeric-input selection-panel__input" value={getNum('thickness', 3)} onChange={(e) => patchParam('thickness', Number(e.target.value))} aria-label="Flange thickness (mm)" />
+          </FieldRow>
+          <FieldRow label="Hole Ø (mm)">
+            <input type="number" step={0.1} className="numeric-input selection-panel__input" value={getNum('holeDiameter', 3.4)} onChange={(e) => patchParam('holeDiameter', Number(e.target.value))} aria-label="Bolt hole diameter (mm)" />
+          </FieldRow>
+          <FieldRow label="Rib enabled">
+            <input
+              type="checkbox"
+              checked={getNum('ribEnabled', 1) !== 0}
+              onChange={(e) => patchParam('ribEnabled', e.target.checked ? 1 : 0)}
+              aria-label="Reinforcing rib enabled"
+              title="Toggle the triangular reinforcing rib gusset on top of the flange."
+            />
+          </FieldRow>
+          <FieldRow label="Rib length (mm)">
+            <input type="number" step={0.5} className="numeric-input selection-panel__input" value={getNum('ribLength', 8)} onChange={(e) => patchParam('ribLength', Number(e.target.value))} aria-label="Rib length (mm)" />
+          </FieldRow>
+          <FieldRow label="Rib height (mm)">
+            <input type="number" step={0.5} className="numeric-input selection-panel__input" value={getNum('ribHeight', 6)} onChange={(e) => patchParam('ribHeight', Number(e.target.value))} aria-label="Rib height (mm)" />
+          </FieldRow>
+          <FieldRow label="Rib thickness (mm)">
+            <input type="number" step={0.1} className="numeric-input selection-panel__input" value={getNum('ribThickness', 2)} onChange={(e) => patchParam('ribThickness', Number(e.target.value))} aria-label="Rib thickness (mm)" />
+          </FieldRow>
+        </>
+      )}
+
+      {feature.type === 'zip-tie-slot' && (
+        <>
+          <FieldRow label="Slot length (mm)">
+            <input type="number" step={0.5} className="numeric-input selection-panel__input" value={getNum('slotLength', 15)} onChange={(e) => patchParam('slotLength', Number(e.target.value))} aria-label="Slot length (mm)" />
+          </FieldRow>
+          <FieldRow label="Slot width (mm)">
+            <input type="number" step={0.5} className="numeric-input selection-panel__input" value={getNum('slotWidth', 4)} onChange={(e) => patchParam('slotWidth', Number(e.target.value))} aria-label="Slot width (mm)" />
+          </FieldRow>
+        </>
+      )}
+
+      {feature.type === 'vesa-mount' && (
+        <>
+          <FieldRow label="Pattern (mm)">
+            <select
+              className="selection-panel__input"
+              value={getNum('patternSize', 75)}
+              onChange={(e) => patchParam('patternSize', Number(e.target.value))}
+              aria-label="VESA pattern (mm)"
+            >
+              <option value={75}>VESA 75</option>
+              <option value={100}>VESA 100</option>
+            </select>
+          </FieldRow>
+          <FieldRow label="Hole Ø (mm)">
+            <input type="number" step={0.1} className="numeric-input selection-panel__input" value={getNum('holeDiameter', 5)} onChange={(e) => patchParam('holeDiameter', Number(e.target.value))} aria-label="Hole diameter (mm)" />
+          </FieldRow>
+        </>
+      )}
+
+      {(feature.type === 'aligned-standoff' || feature.type === 'saddle') && (
+        <p className="selection-panel__hint">
+          Internal-mount geometry is a follow-up (#80 slice 4 deferred). The
+          schema records this feature type but no geometry is emitted yet.
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Issue #97 (Phase 4e) — board component detail form. Used for the
+ * BoardEditor components table — full-width detail editor when a row
+ * is selected.
+ */
+function ComponentDetail({
+  component,
+  onClose,
+  onPatch,
+}: {
+  component: BoardComponent;
+  onClose: () => void;
+  onPatch: (patch: Partial<BoardComponent>) => void;
+}) {
+  return (
+    <div className="selection-panel" data-testid="selection-panel-component">
+      <div className="selection-panel__header">
+        <span className="selection-panel__title">{component.kind}</span>
+        <button
+          type="button"
+          className="selection-panel__close"
+          onClick={onClose}
+          aria-label="Close selection"
+          title="Close (Esc)"
+        >
+          ×
+        </button>
+      </div>
+      <div className="selection-panel__subtitle">{component.id}</div>
+
+      <FieldRow label="Kind">
+        <select
+          className="selection-panel__input"
+          value={component.kind}
+          onChange={(e) => onPatch({ kind: e.target.value as BoardComponent['kind'] })}
+          data-testid={`component-detail-${component.id}-kind`}
+          aria-label="Component kind"
+        >
+          {(['usb-c', 'usb-a', 'usb-b', 'micro-usb', 'hdmi', 'micro-hdmi', 'barrel-jack', 'ethernet-rj45', 'gpio-header', 'sd-card', 'flat-cable', 'fan-mount', 'text-label', 'antenna-connector', 'custom'] as const).map((k) => (
+            <option key={k} value={k}>{k}</option>
+          ))}
+        </select>
+      </FieldRow>
+      <FieldRow label="Facing">
+        <select
+          className="selection-panel__input"
+          value={component.facing ?? '+y'}
+          onChange={(e) => onPatch({ facing: e.target.value as Facing })}
+          data-testid={`component-detail-${component.id}-facing`}
+          aria-label="Component facing"
+        >
+          {(['+x', '-x', '+y', '-y', '+z'] as const).map((f) => (
+            <option key={f} value={f}>{f}</option>
+          ))}
+        </select>
+      </FieldRow>
+
+      <div className="port-coord-grid">
+        <span className="coord-label" />
+        <span className="coord-axis">x</span>
+        <span className="coord-axis">y</span>
+        <span className="coord-axis">z</span>
+        <span className="coord-label">pos</span>
+        <PortNum value={component.position.x} onChange={(v) => onPatch({ position: { ...component.position, x: v } })} testId={`component-detail-${component.id}-pos-x`} ariaLabel="Position X (mm)" />
+        <PortNum value={component.position.y} onChange={(v) => onPatch({ position: { ...component.position, y: v } })} testId={`component-detail-${component.id}-pos-y`} ariaLabel="Position Y (mm)" />
+        <PortNum value={component.position.z} onChange={(v) => onPatch({ position: { ...component.position, z: v } })} testId={`component-detail-${component.id}-pos-z`} ariaLabel="Position Z (mm)" />
+        <span className="coord-label">size</span>
+        <PortNum value={component.size.x} onChange={(v) => onPatch({ size: { ...component.size, x: v } })} testId={`component-detail-${component.id}-size-x`} ariaLabel="Size X (mm)" />
+        <PortNum value={component.size.y} onChange={(v) => onPatch({ size: { ...component.size, y: v } })} testId={`component-detail-${component.id}-size-y`} ariaLabel="Size Y (mm)" />
+        <PortNum value={component.size.z} onChange={(v) => onPatch({ size: { ...component.size, z: v } })} testId={`component-detail-${component.id}-size-z`} ariaLabel="Size Z (mm)" />
+      </div>
+
+      <FieldRow label="Cutout margin (mm)">
+        <input
+          type="number"
+          step={0.1}
+          className="numeric-input selection-panel__input"
+          value={component.cutoutMargin ?? 0.5}
+          onChange={(e) => {
+            const v = Number(e.target.value);
+            if (Number.isFinite(v)) onPatch({ cutoutMargin: v });
+          }}
+          aria-label="Cutout margin (mm)"
+        />
+      </FieldRow>
+      <FieldRow label="Cutout shape">
+        <select
+          className="selection-panel__input"
+          value={component.cutoutShape ?? 'rect'}
+          onChange={(e) => onPatch({ cutoutShape: e.target.value as 'rect' | 'round' })}
+          aria-label="Cutout shape"
+        >
+          <option value="rect">rect</option>
+          <option value="round">round</option>
+        </select>
+      </FieldRow>
+      <FieldRow label="Fixture id">
+        <input
+          type="text"
+          className="selection-panel__input"
+          value={component.fixtureId ?? ''}
+          onChange={(e) => onPatch({ fixtureId: e.target.value || undefined })}
+          aria-label="Fixture id"
+          placeholder="(optional)"
+        />
+      </FieldRow>
+    </div>
   );
 }
