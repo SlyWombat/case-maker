@@ -710,21 +710,26 @@ function MountingFeatureDetail({
           aria-label="Feature u position (mm)"
         />
       </FieldRow>
-      <FieldRow label="Position v (mm)">
-        <input
-          type="number"
-          step={0.5}
-          className="numeric-input selection-panel__input"
-          value={feature.position.v}
-          onChange={(e) => {
-            const v = Number(e.target.value);
-            if (Number.isFinite(v))
-              onPatch({ position: { u: feature.position.u, v } });
-          }}
-          data-testid={`feature-${feature.id}-v`}
-          aria-label="Feature v position (mm)"
-        />
-      </FieldRow>
+      {/* Issue #101 — end-flanges are always flush with the case bottom; the
+          compiler overrides v. Hide the input to avoid the user setting a
+          value that gets silently ignored. */}
+      {feature.type !== 'end-flange' && (
+        <FieldRow label="Position v (mm)">
+          <input
+            type="number"
+            step={0.5}
+            className="numeric-input selection-panel__input"
+            value={feature.position.v}
+            onChange={(e) => {
+              const v = Number(e.target.value);
+              if (Number.isFinite(v))
+                onPatch({ position: { u: feature.position.u, v } });
+            }}
+            data-testid={`feature-${feature.id}-v`}
+            aria-label="Feature v position (mm)"
+          />
+        </FieldRow>
+      )}
 
       {feature.type === 'screw-tab' && (
         <>

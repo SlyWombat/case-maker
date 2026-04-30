@@ -303,21 +303,28 @@ function generateEndFlange(
     return [sx, sy, sz];
   }
 
-  // Plate center in world coords: frame.origin + uAxis * u + vAxis * v +
-  // outwardAxis * (rectLen / 2).
+  // Issue #101 — end-flanges are always FLUSH WITH THE CASE BOTTOM. The
+  // plate underside sits at world z=0 (= floor underside) so the case can
+  // sit flat on a panel and the flange is single-pass on the build plate
+  // alongside the case wall (no support material). Ignore the user-supplied
+  // feature.position.v for this feature type; v anchor = thickness/2 so the
+  // plate center is at z = thickness/2 → underside at z=0.
+  // For ±x or ±y walls, frame.vAxis is +z and frame.origin.z is 0, so the
+  // anchor in face-local v coords is exactly thickness/2.
+  const vAnchor = thickness / 2;
   function localToWorld(uOff: number, nOff: number, vOff: number): [number, number, number] {
     return [
       frame.origin[0] +
         frame.uAxis[0] * (feature.position.u + uOff) +
-        frame.vAxis[0] * (feature.position.v + vOff) +
+        frame.vAxis[0] * (vAnchor + vOff) +
         frame.outwardAxis[0] * nOff,
       frame.origin[1] +
         frame.uAxis[1] * (feature.position.u + uOff) +
-        frame.vAxis[1] * (feature.position.v + vOff) +
+        frame.vAxis[1] * (vAnchor + vOff) +
         frame.outwardAxis[1] * nOff,
       frame.origin[2] +
         frame.uAxis[2] * (feature.position.u + uOff) +
-        frame.vAxis[2] * (feature.position.v + vOff) +
+        frame.vAxis[2] * (vAnchor + vOff) +
         frame.outwardAxis[2] * nOff,
     ];
   }
@@ -371,19 +378,45 @@ function generateEndFlange(
   void outLetter;
   void outSign;
 
-  // Issue #80 (slice 4) — optional reinforcing rib on top of the plate. The
-  // rib is a triangular prism: vertical leg along the wall (height = ribH),
-  // horizontal leg along the plate top (length = ribL), hypotenuse running
-  // from the outboard end at plate-top up to the wall at plate-top+ribH.
-  // Default ribEnabled=true so the user gets stiffer flanges without opting
-  // in; pass `ribEnabled: 0` (or any falsy number) in params to disable.
+  // Issue #80 / #102 — reinforcing ribs on top of the plate.
+  // Each rib is a triangular prism: vertical leg along the wall (h=ribH),
+  // horizontal leg along the plate top (length=ribL), hypotenuse from the
+  // outboard rib end at plate-top up to the wall at plate-top+ribH.
+  //
+  // #102 — ribs MUST NOT cross the screw hole. The hole sits at u=0 with
+  // radius holeDiameter/2, so a single centered rib (the previous design)
+  // covered the hole and blocked the fastener seat. We now place TWO ribs,
+  // one on each side of the hole along the u-axis, with a clearance gap.
+  // If the flange is too narrow for two ribs we fall back to one single
+  // rib OFFSET to the side of the hole (still no overlap with the bore).
   const ribEnabled = num(feature.params, 'ribEnabled', 1) !== 0;
   const additive: BuildOp[] = [rect, cap];
   if (ribEnabled) {
     const ribL = num(feature.params, 'ribLength', projection * 0.7);
     const ribH = num(feature.params, 'ribHeight', projection * 0.5);
     const ribT = num(feature.params, 'ribThickness', Math.max(2, caseParams.wallThickness));
-    additive.push(buildRibGusset(frame, feature, ribL, ribH, ribT, thickness));
+    const RIB_HOLE_CLEARANCE = 0.5;
+    // Each rib occupies u ∈ [uCenter - ribT/2, uCenter + ribT/2]. To clear
+    // the hole circle (centered u=0, radius holeDiameter/2) we need
+    //   |uCenter| - ribT/2  ≥  holeDiameter/2 + RIB_HOLE_CLEARANCE
+    // and the rib stays within the plate u extent [-width/2, +width/2]:
+    //   |uCenter| + ribT/2  ≤  width/2.
+    const uMin = holeDiameter / 2 + RIB_HOLE_CLEARANCE + ribT / 2;
+    const uMax = width / 2 - ribT / 2;
+    if (uMax >= uMin) {
+      // Two-rib layout — one on each side of the hole, midway between the
+      // hole-clearance edge and the plate edge.
+      const uCenter = (uMin + uMax) / 2;
+      additive.push(buildRibGusset(frame, feature, +uCenter, ribL, ribH, ribT, thickness));
+      additive.push(buildRibGusset(frame, feature, -uCenter, ribL, ribH, ribT, thickness));
+    } else if (width / 2 - ribT / 2 >= holeDiameter / 2 + RIB_HOLE_CLEARANCE + ribT / 2) {
+      // Tight flange — only fits a single rib offset to one side of the hole.
+      const uCenter = (uMin + width / 2 - ribT / 2) / 2;
+      additive.push(buildRibGusset(frame, feature, +uCenter, ribL, ribH, ribT, thickness));
+    }
+    // else: flange is too narrow for any rib that clears the bore — emit
+    // none. Better to skip the gusset than to print a rib stub blocking
+    // the fastener.
   }
 
   return {
@@ -400,35 +433,45 @@ function generateEndFlange(
 function buildRibGusset(
   frame: FaceFrame,
   feature: MountingFeature,
+  uCenter: number,
   ribLength: number,
   ribHeight: number,
   ribThickness: number,
   plateThickness: number,
 ): BuildOp {
   // Face-local triangular prism profile (in n-v plane), extruded along u
-  // by ribThickness, centered at u=0 (the plate's u-axis center).
+  // by ribThickness, centered at uCenter (#102 — ribs offset to clear the
+  // screw hole at u=0; multiple ribs sit on either side of the bore).
   // Triangle vertices (n, v):
   //   A: (0, vTop)             — wall, at plate-top level
   //   B: (ribLength, vTop)     — outboard end, at plate-top level
   //   C: (0, vTop + ribHeight) — wall, top of rib
-  // Where vTop = plateThickness / 2 (top face of plate above plate center).
+  // The plate's underside is anchored to the case bottom (z=0) per #101,
+  // so the rib's vTop reference must match — vTop is plate-thickness above
+  // z=0 in world coords, i.e. vTop = plateThickness in v-axis units (the
+  // localToWorld in generateEndFlange uses vAnchor=plateThickness/2 already
+  // so adding plateThickness/2 puts us at the plate top face).
   const vTop = plateThickness / 2;
   const tu = ribThickness / 2;
   const positions: number[] = [];
+  // Mirror the flush-bottom anchor used in generateEndFlange — ignore
+  // feature.position.v entirely so the rib sits on the plate top regardless
+  // of saved feature position.
+  const vAnchor = plateThickness / 2;
   function pushVert(uOff: number, nOff: number, vOff: number): void {
     positions.push(
       frame.origin[0] +
-        frame.uAxis[0] * (feature.position.u + uOff) +
+        frame.uAxis[0] * (feature.position.u + uCenter + uOff) +
         frame.outwardAxis[0] * nOff +
-        frame.vAxis[0] * (feature.position.v + vOff),
+        frame.vAxis[0] * (vAnchor + vOff),
       frame.origin[1] +
-        frame.uAxis[1] * (feature.position.u + uOff) +
+        frame.uAxis[1] * (feature.position.u + uCenter + uOff) +
         frame.outwardAxis[1] * nOff +
-        frame.vAxis[1] * (feature.position.v + vOff),
+        frame.vAxis[1] * (vAnchor + vOff),
       frame.origin[2] +
-        frame.uAxis[2] * (feature.position.u + uOff) +
+        frame.uAxis[2] * (feature.position.u + uCenter + uOff) +
         frame.outwardAxis[2] * nOff +
-        frame.vAxis[2] * (feature.position.v + vOff),
+        frame.vAxis[2] * (vAnchor + vOff),
     );
   }
   // Front cap (u = -tu): A=0, B=1, C=2
@@ -475,7 +518,12 @@ export function endFlangesPreset(
   presetId = 'pair-end-flanges',
 ): MountingFeature[] {
   const features: MountingFeature[] = [];
-  const midV = outerZ / 2;
+  // Issue #101 — flanges sit FLUSH WITH THE BOTTOM. The plate underside is
+  // pinned to z=0 by generateEndFlange regardless of this v value, but
+  // emit thickness/2 here so the saved position matches what gets rendered.
+  const flangeThickness = 3;
+  const flushV = flangeThickness / 2;
+  void outerZ;
   for (const wall of walls) {
     const wallLen = wall === '+x' || wall === '-x' ? outerY : outerX;
     // Place flanges 1/4 and 3/4 along the wall length so they sit roughly at
@@ -486,12 +534,12 @@ export function endFlangesPreset(
         type: 'end-flange',
         mountClass: 'external',
         face: wall,
-        position: { u, v: midV },
+        position: { u, v: flushV },
         rotation: 0,
         params: {
           projection: 12,
           width: 12,
-          thickness: 3,
+          thickness: flangeThickness,
           holeDiameter: 3.4,
         },
         enabled: true,

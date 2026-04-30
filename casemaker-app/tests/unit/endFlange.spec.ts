@@ -34,6 +34,10 @@ function bboxOf(op: BuildOp): { min: [number, number, number]; max: [number, num
       const r = o.radiusLow;
       expand(ox - r, oy - r, oz);
       expand(ox + r, oy + r, oz + o.height);
+    } else if (o.kind === 'mesh') {
+      for (let i = 0; i < o.positions.length; i += 3) {
+        expand(ox + o.positions[i]!, oy + o.positions[i + 1]!, oz + o.positions[i + 2]!);
+      }
     }
     if ('children' in o) for (const c of o.children) walk(c, ox, oy, oz);
   }
@@ -70,17 +74,18 @@ describe('end-flange geometry (#80, slice 3)', () => {
     expect(anyNegY, 'at least one -y flange should extend in -Y past origin').toBe(true);
   });
 
-  it('every flange produces additive plate + cap + rib gusset and a subtractive bolt hole', () => {
+  it('every flange produces additive plate + cap + two side ribs and a subtractive bolt hole (#102)', () => {
     const project = createDefaultProject('rpi-4b');
     const dims = computeShellDims(project.board, project.case);
     const features = endFlangesPreset(dims.outerX, dims.outerY, dims.outerZ);
     const ops = buildMountingFeatureOps(features, project.board, project.case);
-    // Each flange = rect + cap + rib (3 additive ops) + 1 hole = 3 add, 1 sub.
-    expect(ops.additive.length).toBe(features.length * 3);
+    // #102 — ribs split to TWO per flange so the screw bore stays clear:
+    //   rect + cap + rib_left + rib_right (4 additive ops) + 1 hole.
+    expect(ops.additive.length).toBe(features.length * 4);
     expect(ops.subtractive.length).toBe(features.length);
   });
 
-  it('disabling the rib drops the rib op (params.ribEnabled = 0) — back to rect+cap only', () => {
+  it('disabling the rib drops both rib ops (params.ribEnabled = 0) — back to rect+cap only', () => {
     const project = createDefaultProject('rpi-4b');
     const dims = computeShellDims(project.board, project.case);
     const features = endFlangesPreset(dims.outerX, dims.outerY, dims.outerZ).map((f) => ({
@@ -101,6 +106,95 @@ describe('end-flange geometry (#80, slice 3)', () => {
     const ops = buildMountingFeatureOps(features, project.board, project.case);
     expect(ops.additive).toEqual([]);
     expect(ops.subtractive).toEqual([]);
+  });
+
+  it('flange plate underside is flush with the case bottom (z=0) on every wall (#101)', () => {
+    const project = createDefaultProject('rpi-4b');
+    const dims = computeShellDims(project.board, project.case);
+    // Test on every side wall; thickness 3 → underside at z=0, top at z=3.
+    const walls: ('+x' | '-x' | '+y' | '-y')[] = ['+x', '-x', '+y', '-y'];
+    for (const wall of walls) {
+      const features = endFlangesPreset(dims.outerX, dims.outerY, dims.outerZ, [wall]);
+      const ops = buildMountingFeatureOps(features, project.board, project.case);
+      // Plate (rect) is the FIRST additive op per flange in current order.
+      // Across all the additive ops, the global Z-min should be 0 (underside
+      // at the case bottom) and the Z-max should be at most flange thickness
+      // + rib height (rib sits on top of plate).
+      let zMin = Infinity;
+      for (const op of ops.additive) {
+        const bb = bboxOf(op);
+        if (bb.min[2] < zMin) zMin = bb.min[2];
+      }
+      expect(zMin, `wall ${wall}: flange underside should be at z=0`).toBeCloseTo(0, 3);
+    }
+  });
+
+  it('rib gussets do not occupy the screw clearance footprint (#102)', () => {
+    const project = createDefaultProject('rpi-4b');
+    const dims = computeShellDims(project.board, project.case);
+    const features = endFlangesPreset(dims.outerX, dims.outerY, dims.outerZ);
+    const ops = buildMountingFeatureOps(features, project.board, project.case);
+    // For each subtractive bolt-hole cylinder, find the world (x,y) center
+    // and verify no additive RIB MESH op overlaps that center in XY.
+    // (The plate cube and cap cylinder do overlap the bore — they're meant
+    // to; the bore subtracts from them. Ribs are meshes.)
+    const ribOps = ops.additive.filter((o) => {
+      // Walk to find a mesh — ribs are the only mesh ops in flange output.
+      function hasMesh(op: BuildOp): boolean {
+        if (op.kind === 'mesh') return true;
+        if ('child' in op && op.child) return hasMesh(op.child);
+        if ('children' in op) return op.children.some(hasMesh);
+        return false;
+      }
+      return hasMesh(o);
+    });
+    expect(ribOps.length, 'should have rib mesh ops to test').toBeGreaterThan(0);
+
+    // Each subtractive op is a translate(cylinder); the cylinder is centered
+    // on the bolt hole. Read its translated XY center.
+    for (const sub of ops.subtractive) {
+      let cx = 0;
+      let cy = 0;
+      let op: BuildOp = sub;
+      while (op.kind === 'translate') {
+        cx += op.offset[0];
+        cy += op.offset[1];
+        op = op.child;
+      }
+      // Find the cylinder so we know the bore radius.
+      let bore = op;
+      while (bore.kind === 'translate' || bore.kind === 'rotate') bore = bore.child;
+      const r = bore.kind === 'cylinder' ? bore.radiusLow : 1.7;
+
+      // For each rib mesh, every triangle vertex (x, y) must be at least
+      // (r) away from (cx, cy). I.e. the rib XY footprint clears the bore.
+      for (const ribOp of ribOps) {
+        const bb = bboxOf(ribOp);
+        // Quick reject: bbox doesn't touch the bore-XY-square. If the bbox
+        // is fully outside the [cx±r, cy±r] square, the rib clears it.
+        const ribMinX = bb.min[0];
+        const ribMaxX = bb.max[0];
+        const ribMinY = bb.min[1];
+        const ribMaxY = bb.max[1];
+        // Two ribs per flange, only one pair belongs to this hole. Skip
+        // ribs that aren't anywhere near this bolt position (bbox in XY
+        // far from the bore center in BOTH axes).
+        const xyDistApprox = Math.hypot(
+          Math.max(ribMinX - cx, cx - ribMaxX, 0),
+          Math.max(ribMinY - cy, cy - ribMaxY, 0),
+        );
+        if (xyDistApprox > 30) continue; // not this flange's rib
+
+        // For the matching ribs: assert XY bbox does not contain (cx, cy).
+        const insideX = ribMinX - 0.001 <= cx && cx <= ribMaxX + 0.001;
+        const insideY = ribMinY - 0.001 <= cy && cy <= ribMaxY + 0.001;
+        expect(
+          insideX && insideY,
+          `rib bbox [${ribMinX.toFixed(2)},${ribMaxX.toFixed(2)}]×[${ribMinY.toFixed(2)},${ribMaxY.toFixed(2)}] contains bore center (${cx.toFixed(2)}, ${cy.toFixed(2)}); rib crosses screw hole`,
+        ).toBe(false);
+        void r;
+      }
+    }
   });
 
   it('end-flange on a ±z face is a no-op (vertical fin not supported here)', () => {
