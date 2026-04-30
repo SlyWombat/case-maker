@@ -97,13 +97,52 @@ describe('Issue #92 — barrel-hinge geometry compiler', () => {
     expect(ops.lidAdditive.length).toBe(3);
   });
 
-  it('print-in-place style adds a pin solid; external-pin does not', () => {
+  it('print-in-place style emits a separate pin node; external-pin does not', () => {
     const board = makeBoard(80, 60);
     const ext = buildHingeOps(defaultHinge({ style: 'external-pin' }), board, baseCase);
     const pip = buildHingeOps(defaultHinge({ style: 'print-in-place' }), board, baseCase);
-    // print-in-place adds one extra additive (the pin) on the case side
-    // beyond the case knuckles.
-    expect(pip.caseAdditive.length).toBe(ext.caseAdditive.length + 1);
+    // External-pin: no pin node, no extra case additives beyond knuckles.
+    expect(ext.pinNode).toBeNull();
+    expect(ext.caseAdditive.length).toBe(pip.caseAdditive.length);
+    // Print-in-place: pin lives as its own node so the shell's through-hole
+    // cutout doesn't drill it out — see HingeOps.pinNode docstring.
+    expect(pip.pinNode).not.toBeNull();
+    // Pin radius is pinDiameter/2 - knuckleClearance/2 = 1.5 - 0.2 = 1.3.
+    let cur: BuildOp = pip.pinNode!;
+    while (cur.kind === 'translate' || cur.kind === 'rotate') cur = cur.child;
+    expect(cur.kind).toBe('cylinder');
+    if (cur.kind === 'cylinder') {
+      expect(cur.radiusLow).toBeCloseTo(1.3, 3);
+      expect(cur.height).toBeCloseTo(60, 3);
+    }
+  });
+
+  it('compileProject emits a separate hinge-pin node for print-in-place style only', () => {
+    const projectExt = createDefaultProject('rpi-4b');
+    projectExt.case.joint = 'flat-lid';
+    projectExt.case.hinge = defaultHinge({ style: 'external-pin' });
+    const planExt = compileProject(projectExt);
+    expect(planExt.nodes.find((n) => n.id === 'hinge-pin')).toBeUndefined();
+
+    const projectPip = createDefaultProject('rpi-4b');
+    projectPip.case.joint = 'flat-lid';
+    projectPip.case.hinge = defaultHinge({ style: 'print-in-place' });
+    const planPip = compileProject(projectPip);
+    const pinNode = planPip.nodes.find((n) => n.id === 'hinge-pin');
+    expect(pinNode).toBeDefined();
+    // Pin bbox: cylinder length = hingeLength = 60 mm along the face's u
+    // (world X for ±y faces). Radius = 1.3 mm. The bbox helper conservatively
+    // expands rotated cylinders to an L∞ envelope, but the volume must be
+    // non-degenerate.
+    const bb = bboxOfOp(pinNode!.op)!;
+    const dx = bb.max[0] - bb.min[0];
+    const dy = bb.max[1] - bb.min[1];
+    const dz = bb.max[2] - bb.min[2];
+    // At least the pin diameter on every axis (the bbox helper for rotated
+    // cylinders is conservative; we just need a non-zero solid).
+    expect(dx).toBeGreaterThan(2);
+    expect(dy).toBeGreaterThan(2);
+    expect(dz).toBeGreaterThan(2);
   });
 
   it('through-hole subtractive cylinder length spans hingeLength + 1 mm overshoot', () => {

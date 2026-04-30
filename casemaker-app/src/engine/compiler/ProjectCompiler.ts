@@ -134,6 +134,14 @@ export function compileProject(project: Project): BuildPlan {
     op: translate([0, 0, lidDims.zPosition], lidOp),
   });
 
+  // Issue #92 — print-in-place pin lives as its own top-level node so the
+  // shell's cutoutOps difference can't drill it back out. Slicers print it
+  // as a free body captured by the surrounding knuckles (the bore is wider
+  // than the pin by knuckleClearance/2 + 0.1 mm of slop).
+  if (hingeOps.pinNode) {
+    nodes.push({ id: 'hinge-pin', op: hingeOps.pinNode });
+  }
+
   const placementReport = validatePlacements(project);
   return { nodes, placementReport, smartCutoutDecisions: smartLayout.decisions };
 }

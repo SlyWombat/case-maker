@@ -57,9 +57,28 @@ export interface HingeOps {
   caseAdditive: BuildOp[];
   lidAdditive: BuildOp[];
   subtractive: BuildOp[];
+  /**
+   * Print-in-place pin solid. Emitted as a SEPARATE top-level node so the
+   * shell's `difference([shellOp, ...cutoutOps])` doesn't drill it back out.
+   *
+   * Why a separate node and not union-after-cutout: the pin physically IS a
+   * third part — the slicer treats it as a floating cylinder captured by the
+   * surrounding knuckles once the case + lid + pin assembly is joined by the
+   * print-in-place process. Modeling it as its own node mirrors that reality
+   * and keeps the compile pipeline composable (no special "post-cutout
+   * additive" lane needed).
+   *
+   * null when the hinge is disabled or style is 'external-pin'.
+   */
+  pinNode: BuildOp | null;
 }
 
-const EMPTY_OPS: HingeOps = { caseAdditive: [], lidAdditive: [], subtractive: [] };
+const EMPTY_OPS: HingeOps = {
+  caseAdditive: [],
+  lidAdditive: [],
+  subtractive: [],
+  pinNode: null,
+};
 
 /** Tolerance added to the through-hole radius beyond pinDiameter/2 (mm). */
 const PIN_HOLE_TOLERANCE = 0.1;
@@ -232,6 +251,7 @@ export function buildHingeOps(
   const caseAdditive: BuildOp[] = [];
   const lidAdditive: BuildOp[] = [];
   const subtractive: BuildOp[] = [];
+  let pinNode: BuildOp | null = null;
   const N = Math.max(3, Math.floor(hinge.numKnuckles));
 
   // Single shared through-hole world-space anchor (used by both the shell
@@ -278,12 +298,14 @@ export function buildHingeOps(
   subtractive.push(buildThroughHole(hinge, [holeStartX, holeStartY, axisZ]));
 
   if (hinge.style === 'print-in-place') {
-    // Centered pin solid threads through both case and lid knuckles. Emit on
-    // the case side: the lid knuckle clearance hole lets the pin pass freely
-    // (pin radius = pinDiameter/2 - knuckleClearance/2; hole radius =
-    // pinDiameter/2 + 0.1 mm; gap is knuckleClearance/2 + 0.1 mm).
-    caseAdditive.push(buildPrintInPlacePin(hinge, [holeStartX, holeStartY, axisZ]));
+    // Centered pin solid threads through both case and lid knuckles. Emit
+    // it as a SEPARATE TOP-LEVEL NODE — see the HingeOps comment for the
+    // rationale. Putting it in caseAdditive would let the shell's
+    // through-hole difference drill the pin out (hole radius = pinD/2 + 0.1
+    // exceeds pin radius = pinD/2 - clearance/2 by clearance/2 + 0.1 mm),
+    // which is what we WANT for the surrounding knuckle but NOT the pin.
+    pinNode = buildPrintInPlacePin(hinge, [holeStartX, holeStartY, axisZ]);
   }
 
-  return { caseAdditive, lidAdditive, subtractive };
+  return { caseAdditive, lidAdditive, subtractive, pinNode };
 }
