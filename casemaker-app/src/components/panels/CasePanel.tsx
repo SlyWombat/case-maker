@@ -1,19 +1,31 @@
-import type { ChangeEvent } from 'react';
+import { useId, type ChangeEvent } from 'react';
 import { useProjectStore } from '@/store/projectStore';
 import type { CaseParameters, JointType, InsertType, SnapType } from '@/types';
 import { VENT_SURFACES } from '@/types';
 
-const JOINT_OPTIONS: { value: JointType; label: string }[] = [
-  { value: 'flat-lid', label: 'Flat lid' },
-  { value: 'snap-fit', label: 'Snap-fit' },
-  { value: 'screw-down', label: 'Screw-down' },
+const JOINT_OPTIONS: { value: JointType; label: string; hint: string }[] = [
+  {
+    value: 'flat-lid',
+    label: 'Flat lid',
+    hint: 'Lid sits flat on top of the rim. Easiest to print, no recess.',
+  },
+  {
+    value: 'snap-fit',
+    label: 'Snap-fit',
+    hint: 'Cantilever barbs flex into a catch on the case wall — no fasteners needed.',
+  },
+  {
+    value: 'screw-down',
+    label: 'Screw-down',
+    hint: 'Lid is fastened to the case via screws that engage corner bosses.',
+  },
 ];
 
-const INSERT_OPTIONS: { value: InsertType; label: string }[] = [
-  { value: 'self-tap', label: 'Self-tap M2.5' },
-  { value: 'heat-set-m2.5', label: 'Heat-set M2.5' },
-  { value: 'heat-set-m3', label: 'Heat-set M3' },
-  { value: 'pass-through', label: 'Pass-through' },
+const INSERT_OPTIONS: { value: InsertType; label: string; hint: string }[] = [
+  { value: 'self-tap', label: 'Self-tap M2.5', hint: 'Self-tapping M2.5 screw threading directly into the plastic boss.' },
+  { value: 'heat-set-m2.5', label: 'Heat-set M2.5', hint: 'Heat-set M2.5 brass insert melted into the boss for stronger threads.' },
+  { value: 'heat-set-m3', label: 'Heat-set M3', hint: 'Heat-set M3 brass insert melted into the boss.' },
+  { value: 'pass-through', label: 'Pass-through', hint: 'Open hole sized for an M2.5 screw shaft — no thread engagement.' },
 ];
 
 interface SliderProps {
@@ -24,14 +36,22 @@ interface SliderProps {
   step: number;
   onChange: (v: number) => void;
   testId?: string;
+  /** Issue #89 — full description shown via title= and aria-describedby. */
+  hint?: string;
+  /** Issue #89 — unit chip shown in the label row, e.g. "mm" / "deg". */
+  unit?: string;
 }
 
-function Slider({ label, value, min, max, step, onChange, testId }: SliderProps) {
+function Slider({ label, value, min, max, step, onChange, testId, hint, unit }: SliderProps) {
   const handle = (e: ChangeEvent<HTMLInputElement>): void => onChange(Number(e.target.value));
+  const hintId = useId();
   return (
     <label className="slider-row">
       <div className="slider-label">
-        <span>{label}</span>
+        <span>
+          {label}
+          {unit && <span className="slider-unit">{unit}</span>}
+        </span>
         <span className="slider-value">{value}</span>
       </div>
       <input
@@ -42,6 +62,9 @@ function Slider({ label, value, min, max, step, onChange, testId }: SliderProps)
         value={value}
         onChange={handle}
         data-testid={testId}
+        title={hint ?? label}
+        aria-label={label}
+        aria-describedby={hint ? hintId : undefined}
       />
       <input
         type="number"
@@ -50,9 +73,17 @@ function Slider({ label, value, min, max, step, onChange, testId }: SliderProps)
         step={step}
         value={value}
         onChange={handle}
-        className="slider-num"
+        className="slider-num numeric-input"
         data-testid={testId ? `${testId}-num` : undefined}
+        title={hint ?? label}
+        aria-label={`${label} (numeric)`}
+        aria-describedby={hint ? hintId : undefined}
       />
+      {hint && (
+        <span id={hintId} className="labelled-field__hint-sr">
+          {hint}
+        </span>
+      )}
     </label>
   );
 }
@@ -66,7 +97,9 @@ export function CasePanel() {
     <div className="panel">
       <h3>Case Parameters</h3>
       <Slider
-        label="Wall thickness (mm)"
+        label="Wall thickness"
+        unit="mm"
+        hint="Outer-shell wall thickness. Thicker = stiffer but more material; the outer XY footprint grows by 2 × this value."
         value={params.wallThickness}
         min={1}
         max={6}
@@ -75,7 +108,9 @@ export function CasePanel() {
         testId="wall-thickness"
       />
       <Slider
-        label="Floor thickness (mm)"
+        label="Floor thickness"
+        unit="mm"
+        hint="Bottom-floor thickness under the PCB. Floor is added below the cavity, so total Z grows by this value."
         value={params.floorThickness}
         min={1}
         max={6}
@@ -84,7 +119,9 @@ export function CasePanel() {
         testId="floor-thickness"
       />
       <Slider
-        label="Lid thickness (mm)"
+        label="Lid thickness"
+        unit="mm"
+        hint="Top-lid thickness. Lid is added above the cavity, so total Z grows by this value (or by lid − recess if 'Recessed lid' is enabled)."
         value={params.lidThickness}
         min={1}
         max={6}
@@ -93,7 +130,9 @@ export function CasePanel() {
         testId="lid-thickness"
       />
       <Slider
-        label="Corner radius (mm)"
+        label="Corner radius"
+        unit="mm"
+        hint="Outer XY corner radius. 0 = sharp corners; values up to ~10 mm produce nicely-rounded edges."
         value={params.cornerRadius}
         min={0}
         max={10}
@@ -102,7 +141,9 @@ export function CasePanel() {
         testId="corner-radius"
       />
       <Slider
-        label="Internal clearance (mm)"
+        label="Internal clearance"
+        unit="mm"
+        hint="XY clearance added between the PCB edge and the inside of the wall. Increase if the PCB rocks or doesn't drop in."
         value={params.internalClearance}
         min={0}
         max={3}
@@ -111,7 +152,9 @@ export function CasePanel() {
         testId="internal-clearance"
       />
       <Slider
-        label="Z-clearance (mm)"
+        label="Z-clearance"
+        unit="mm"
+        hint="Headroom above the tallest component before the lid. Outer Z grows by this value."
         value={params.zClearance}
         min={0}
         max={50}
@@ -120,7 +163,9 @@ export function CasePanel() {
         testId="z-clearance"
       />
       <Slider
-        label="Extra cavity height (mm)"
+        label="Extra cavity height"
+        unit="mm"
+        hint="Additional internal cavity height beyond the PCB + Z-clearance — useful for stuffing wiring, batteries, or extra modules under the lid."
         value={params.extraCavityZ ?? 0}
         min={0}
         max={100}
@@ -129,10 +174,12 @@ export function CasePanel() {
         testId="extra-cavity-z"
       />
       <div className="joint-row">
-        <span className="joint-label">Joint type</span>
-        <div className="joint-buttons" role="radiogroup" aria-label="Joint type">
+        <span className="joint-label" id="joint-type-label">
+          Joint type
+        </span>
+        <div className="joint-buttons" role="radiogroup" aria-labelledby="joint-type-label">
           {JOINT_OPTIONS.map((opt) => (
-            <label key={opt.value}>
+            <label key={opt.value} title={opt.hint}>
               <input
                 type="radio"
                 name="joint"
@@ -140,6 +187,8 @@ export function CasePanel() {
                 checked={params.joint === opt.value}
                 onChange={() => patch({ joint: opt.value })}
                 data-testid={`joint-${opt.value}`}
+                title={opt.hint}
+                aria-label={`${opt.label} — ${opt.hint}`}
               />
               <span>{opt.label}</span>
             </label>
@@ -148,15 +197,25 @@ export function CasePanel() {
       </div>
       {params.joint === 'snap-fit' && (
         <div className="joint-row">
-          <span className="joint-label">Snap type</span>
-          <div className="joint-buttons" role="radiogroup" aria-label="Snap type">
+          <span className="joint-label" id="snap-type-label">
+            Snap type
+          </span>
+          <div className="joint-buttons" role="radiogroup" aria-labelledby="snap-type-label">
             {(
               [
-                { value: 'barb', label: 'Barb Lid' },
-                { value: 'full-lid', label: 'Full Lid' },
-              ] as { value: SnapType; label: string }[]
+                {
+                  value: 'barb',
+                  label: 'Barb Lid',
+                  hint: 'Cantilever barb on the lid engages a catch shelf in the case wall — easy to remove with a fingernail.',
+                },
+                {
+                  value: 'full-lid',
+                  label: 'Full Lid',
+                  hint: 'Full-perimeter lid lip drops past a continuous catch — strongest grip, hardest to open.',
+                },
+              ] as { value: SnapType; label: string; hint: string }[]
             ).map((opt) => (
-              <label key={opt.value}>
+              <label key={opt.value} title={opt.hint}>
                 <input
                   type="radio"
                   name="snap-type"
@@ -164,6 +223,8 @@ export function CasePanel() {
                   checked={(params.snapType ?? 'barb') === opt.value}
                   onChange={() => patch({ snapType: opt.value })}
                   data-testid={`snap-type-${opt.value}`}
+                  title={opt.hint}
+                  aria-label={`${opt.label} — ${opt.hint}`}
                 />
                 <span>{opt.label}</span>
               </label>
@@ -171,32 +232,42 @@ export function CasePanel() {
           </div>
         </div>
       )}
-      <label className="vent-row">
+      <label className="vent-row" title="If enabled, the lid drops into a pocket flush with the rim — gives a cleaner look but uses more material.">
         <input
           type="checkbox"
           checked={params.lidRecess ?? false}
           onChange={(e) => patch({ lidRecess: e.target.checked })}
           data-testid="lid-recess"
+          aria-label="Recessed lid"
+          title="If enabled, the lid drops into a pocket flush with the rim."
         />
         <span>Recessed lid (drops into a pocket flush with the rim)</span>
       </label>
       <div className="joint-row">
-        <span className="joint-label">Boss insert type</span>
+        <label className="joint-label" htmlFor="case-insert-type">
+          Boss insert type
+        </label>
         <select
+          id="case-insert-type"
           value={params.bosses.insertType}
           onChange={(e) =>
             patch({ bosses: { ...params.bosses, insertType: e.target.value as InsertType } })
           }
           data-testid="insert-type"
+          title="What kind of fastener anchors into the corner bosses (only used when Joint type = Screw-down)."
+          aria-label="Boss insert type"
         >
           {INSERT_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
+            <option key={o.value} value={o.value} title={o.hint}>
               {o.label}
             </option>
           ))}
         </select>
       </div>
-      <label className="vent-row">
+      <label
+        className="vent-row"
+        title="Add ventilation cutouts to the selected case faces."
+      >
         <input
           type="checkbox"
           checked={params.ventilation.enabled}
@@ -210,19 +281,23 @@ export function CasePanel() {
             })
           }
           data-testid="ventilation-toggle"
+          aria-label="Ventilation enabled"
+          title="Enable ventilation cutouts on the case."
         />
         <span>Ventilation</span>
       </label>
       {params.ventilation.enabled && (
         <>
           <div className="joint-row">
-            <span className="joint-label">Surfaces</span>
-            <div className="joint-buttons" role="group" aria-label="Vent surfaces">
+            <span className="joint-label" id="vent-surfaces-label">
+              Surfaces
+            </span>
+            <div className="joint-buttons" role="group" aria-labelledby="vent-surfaces-label">
               {VENT_SURFACES.map((s) => {
                 const current = params.ventilation.surfaces ?? ['back'];
                 const checked = current.includes(s);
                 return (
-                  <label key={s}>
+                  <label key={s} title={`Toggle ventilation on the ${s} face.`}>
                     <input
                       type="checkbox"
                       checked={checked}
@@ -235,6 +310,8 @@ export function CasePanel() {
                         });
                       }}
                       data-testid={`vent-surface-${s}`}
+                      aria-label={`Vent surface ${s}`}
+                      title={`Vent on the ${s} face`}
                     />
                     <span>{s}</span>
                   </label>
@@ -243,25 +320,36 @@ export function CasePanel() {
             </div>
           </div>
           <div className="joint-row">
-            <span className="joint-label">Pattern</span>
-            <div className="joint-buttons" role="radiogroup" aria-label="Ventilation pattern">
-              {(['slots', 'hex'] as const).map((p) => (
-                <label key={p}>
+            <span className="joint-label" id="vent-pattern-label">
+              Pattern
+            </span>
+            <div className="joint-buttons" role="radiogroup" aria-labelledby="vent-pattern-label">
+              {(
+                [
+                  { value: 'slots', hint: 'Vertical-slot pattern — fastest to print, easiest to clean.' },
+                  { value: 'hex', hint: 'Hexagonal honeycomb pattern — strong, more decorative.' },
+                ] as const
+              ).map((p) => (
+                <label key={p.value} title={p.hint}>
                   <input
                     type="radio"
                     name="vent-pattern"
-                    value={p}
-                    checked={params.ventilation.pattern === p}
-                    onChange={() => patch({ ventilation: { ...params.ventilation, pattern: p } })}
-                    data-testid={`vent-pattern-${p}`}
+                    value={p.value}
+                    checked={params.ventilation.pattern === p.value}
+                    onChange={() => patch({ ventilation: { ...params.ventilation, pattern: p.value } })}
+                    data-testid={`vent-pattern-${p.value}`}
+                    aria-label={`Ventilation pattern ${p.value}`}
+                    title={p.hint}
                   />
-                  <span>{p}</span>
+                  <span>{p.value}</span>
                 </label>
               ))}
             </div>
           </div>
           <Slider
             label="Vent coverage"
+            unit="0–1"
+            hint="Fraction of the vent area that is open. 0 = solid wall, 1 = maximum open area."
             value={params.ventilation.coverage}
             min={0}
             max={1}

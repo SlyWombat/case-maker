@@ -30,7 +30,11 @@ export function AssetsPanel() {
   return (
     <div className="panel">
       <h3>External assets</h3>
-      <button onClick={() => fileRef.current?.click()} data-testid="import-asset">
+      <button
+        onClick={() => fileRef.current?.click()}
+        data-testid="import-asset"
+        title="Import an STL or 3MF mesh as a reference, subtraction, or union asset."
+      >
         Import STL or 3MF
       </button>
       <input
@@ -40,6 +44,8 @@ export function AssetsPanel() {
         onChange={onFile}
         style={{ display: 'none' }}
         data-testid="import-asset-input"
+        aria-label="Import asset file"
+        title="Pick an STL or 3MF file to import."
       />
       {error && <p style={{ color: '#ff8888', fontSize: 11 }}>{error}</p>}
       {assets.length === 0 ? (
@@ -58,6 +64,8 @@ export function AssetsPanel() {
                   patch(a.id, { visibility: e.target.value as ExternalAsset['visibility'] })
                 }
                 data-testid={`asset-visibility-${a.id}`}
+                aria-label={`Asset ${a.name} visibility`}
+                title="reference = ghosted preview only; subtract = boolean-subtract from case; union = boolean-add to case."
               >
                 {VISIBILITY_OPTIONS.map((v) => (
                   <option key={v} value={v}>
@@ -65,7 +73,12 @@ export function AssetsPanel() {
                   </option>
                 ))}
               </select>
-              <button onClick={() => remove(a.id)} data-testid={`remove-asset-${a.id}`}>
+              <button
+                onClick={() => remove(a.id)}
+                data-testid={`remove-asset-${a.id}`}
+                title={`Remove asset ${a.name}`}
+                aria-label={`Remove asset ${a.name}`}
+              >
                 ✕
               </button>
             </li>

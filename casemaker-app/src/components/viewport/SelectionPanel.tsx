@@ -170,6 +170,8 @@ export function SelectionPanel() {
               }
             }}
             data-testid="selection-host-standoff"
+            aria-label="Host PCB standoff Z (mm)"
+            title="Z lift between the case floor and the bottom of the PCB (mm)."
           />
         </FieldRow>
         <FieldRow label="X offset (mm)">
@@ -178,7 +180,8 @@ export function SelectionPanel() {
             className="numeric-input selection-panel__input"
             value={0}
             disabled
-            title="host PCB X/Y offset coming soon"
+            title="Host PCB X offset is coming soon (issue #83 follow-up). Standoff Z is editable above."
+            aria-label="Host PCB X offset (disabled — coming soon)"
           />
         </FieldRow>
         <FieldRow label="Y offset (mm)">
@@ -187,7 +190,8 @@ export function SelectionPanel() {
             className="numeric-input selection-panel__input"
             value={0}
             disabled
-            title="host PCB X/Y offset coming soon"
+            title="Host PCB Y offset is coming soon (issue #83 follow-up). Standoff Z is editable above."
+            aria-label="Host PCB Y offset (disabled — coming soon)"
           />
         </FieldRow>
         <div className="selection-panel__hint">
@@ -248,6 +252,8 @@ export function SelectionPanel() {
             }
           }}
           data-testid="selection-hat-lift"
+          aria-label="HAT lift Z (mm)"
+          title="Z lift of this HAT above the host PCB (mm). Use to override the header height."
         />
       </FieldRow>
       <FieldRow label="X offset (mm)">
@@ -265,6 +271,8 @@ export function SelectionPanel() {
             }
           }}
           data-testid="selection-hat-x"
+          aria-label="HAT X offset (mm)"
+          title="HAT X offset relative to the host PCB origin (mm)."
         />
       </FieldRow>
       <FieldRow label="Y offset (mm)">
@@ -282,6 +290,8 @@ export function SelectionPanel() {
             }
           }}
           data-testid="selection-hat-y"
+          aria-label="HAT Y offset (mm)"
+          title="HAT Y offset relative to the host PCB origin (mm)."
         />
       </FieldRow>
       <div className="selection-panel__hint">
@@ -307,6 +317,9 @@ export function SelectionPanel() {
 }
 
 function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
+  // Wrapping the input in <label> auto-associates it for a11y; the visible
+  // text is still rendered. Each input also carries its own aria-label so
+  // screen readers don't lose context if the wrapper changes.
   return (
     <label className="selection-panel__row">
       <span className="selection-panel__label">{label}</span>

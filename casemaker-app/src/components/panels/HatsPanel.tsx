@@ -27,6 +27,8 @@ export function HatsPanel() {
           value={pickerValue}
           onChange={(e) => setPickerValue(e.target.value)}
           data-testid="hat-picker"
+          aria-label="Pick a HAT to add"
+          title="Pick a HAT / shield to stack on this board. Only HATs compatible with the current board are listed."
         >
           <option value="">— select a HAT —</option>
           {compatible.map((h) => (
@@ -44,6 +46,7 @@ export function HatsPanel() {
           }}
           disabled={!pickerValue}
           data-testid="hat-add"
+          title={pickerValue ? 'Add the picked HAT to the stack' : 'Pick a HAT first'}
         >
           + Add
         </button>
@@ -98,6 +101,8 @@ export function HatsPanel() {
                       checked={h.enabled}
                       onChange={(e) => patchHat(h.id, { enabled: e.target.checked })}
                       data-testid={`hat-enabled-${h.hatId}`}
+                      aria-label={`HAT ${name} enabled`}
+                      title={`Toggle the ${name} HAT on/off — disabled HATs are still in the stack but not rendered.`}
                     />
                     <span style={{ flex: 1, fontSize: 12 }}>{name}</span>
                     <button
@@ -136,6 +141,8 @@ export function HatsPanel() {
                           onChange={(e) => patchHat(h.id, { mountingPositionId: e.target.value })}
                           data-testid={`hat-orientation-${h.id}`}
                           style={{ fontSize: 11 }}
+                          aria-label={`HAT ${name} orientation`}
+                          title="Mounting orientation — which holes on this HAT align with which on the host board."
                         >
                           {positions.map((p) => (
                             <option key={p.id} value={p.id}>

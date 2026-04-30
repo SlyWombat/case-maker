@@ -67,17 +67,20 @@ export function SettingsMenu({ onClose }: Props) {
                 setDraftPort(String(useSettingsStore.getState().port));
               }}
               data-testid="settings-port"
+              title="HTTP port the embedded server binds to (desktop only). 1024–65535."
             />
           </div>
           <p className="settings-hint">
             Active port: <strong data-testid="settings-port-active">{port}</strong>. Range 1024–65535. Restart the desktop app to apply.
           </p>
-          <label className="settings-check">
+          <label className="settings-check" title="If enabled, the desktop server binds to all network interfaces so other devices on the LAN can reach it.">
             <input
               type="checkbox"
               checked={bindAll}
               onChange={(e) => setBindAll(e.target.checked)}
               data-testid="settings-bind-all"
+              aria-label="Allow LAN access"
+              title="Bind the desktop server to 0.0.0.0 — exposes it to other LAN devices."
             />
             <span>Allow LAN access (bind 0.0.0.0)</span>
           </label>
@@ -91,6 +94,7 @@ export function SettingsMenu({ onClose }: Props) {
           value={exportFormat}
           onChange={(e) => setExportFormat(e.target.value as ExportFormat)}
           data-testid="settings-export-format"
+          title="Default export file format used by the toolbar Export button."
         >
           <option value="stl-binary">STL (binary)</option>
           <option value="stl-ascii">STL (ASCII)</option>
@@ -105,6 +109,7 @@ export function SettingsMenu({ onClose }: Props) {
           value={exportLayout}
           onChange={(e) => setExportLayout(e.target.value as ExportLayoutMode)}
           data-testid="settings-export-layout"
+          title="Print-ready flips the lid for the slicer. Assembled keeps both halves stacked for visualization."
         >
           <option value="print-ready">Print-ready (lid flipped)</option>
           <option value="assembled">Assembled (visualization)</option>

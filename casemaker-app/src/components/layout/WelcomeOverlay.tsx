@@ -52,6 +52,7 @@ export function WelcomeOverlay() {
               onChange={(e) => setBoardChoice(e.target.value)}
               data-testid="welcome-board-select"
               aria-label="Target hardware"
+              title="Pick a built-in microcontroller board to drop into a blank parametric enclosure."
             >
               <option value="">— pick a board —</option>
               {boardIds.map((id) => {

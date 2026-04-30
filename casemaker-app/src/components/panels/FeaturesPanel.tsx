@@ -18,6 +18,9 @@ import type { DisplayFraming } from '@/types/display';
  * etc.) remain editable via JSON until per-domain dedicated panels land;
  * this gives every feature a first-class affordance instead of leaving them
  * unreachable.
+ *
+ * Issue #89 — every input now carries a visible label or aria-label and a
+ * descriptive title= tooltip.
  */
 
 const FAN_SIZES: FanSize[] = ['30x30x10', '40x40x10', '40x40x20', '50x50x10', '60x60x15'];
@@ -70,6 +73,8 @@ function DisplaySection() {
           setDisplay(v === '' ? null : v);
         }}
         data-testid="display-select"
+        aria-label="Display module"
+        title="Pick a built-in display module to add a window/cutout to the case."
       >
         <option value="">— none —</option>
         {ids.map((id) => (
@@ -80,12 +85,14 @@ function DisplaySection() {
       </select>
       {display && (
         <div className="features-row">
-          <label>
+          <label title="Toggle whether the display window is cut into the case.">
             <input
               type="checkbox"
               checked={display.enabled}
               onChange={(e) => patchDisplay({ enabled: e.target.checked })}
               data-testid="display-enabled"
+              aria-label="Display enabled"
+              title="Toggle the display cutout on/off."
             />
             enabled
           </label>
@@ -93,6 +100,8 @@ function DisplaySection() {
             value={display.framing}
             onChange={(e) => patchDisplay({ framing: e.target.value as DisplayFraming })}
             data-testid="display-framing"
+            aria-label="Display framing"
+            title="Framing style — top-window cuts a hole, recessed-bezel adds a sunken bezel."
           >
             {DISPLAY_FRAMINGS.map((f) => (
               <option key={f} value={f}>
@@ -128,6 +137,7 @@ function AntennasSection() {
           }
           data-testid="add-antenna"
           className="features-add"
+          title="Add a new antenna placement (defaults to external SMA mount on +y face)."
         >
           + add
         </button>
@@ -140,10 +150,14 @@ function AntennasSection() {
             checked={a.enabled}
             onChange={(e) => patchAntenna(a.id, { enabled: e.target.checked })}
             data-testid={`antenna-${a.id}-enabled`}
+            aria-label={`Antenna ${a.id} enabled`}
+            title="Toggle this antenna on/off."
           />
           <select
             value={a.type}
             onChange={(e) => patchAntenna(a.id, { type: e.target.value as AntennaType })}
+            aria-label={`Antenna ${a.id} type`}
+            title="Antenna type — internal pad, RPi-external coax, or panel-mount SMA."
           >
             {ANTENNA_TYPES.map((t) => (
               <option key={t} value={t}>
@@ -154,6 +168,8 @@ function AntennasSection() {
           <select
             value={a.facing ?? '+y'}
             onChange={(e) => patchAntenna(a.id, { facing: e.target.value as '+x' | '-x' | '+y' | '-y' })}
+            aria-label={`Antenna ${a.id} facing`}
+            title="Which case face the antenna points out of."
           >
             {(['+x', '-x', '+y', '-y'] as const).map((f) => (
               <option key={f} value={f}>
@@ -161,7 +177,12 @@ function AntennasSection() {
               </option>
             ))}
           </select>
-          <button onClick={() => removeAntenna(a.id)} data-testid={`remove-antenna-${a.id}`}>
+          <button
+            onClick={() => removeAntenna(a.id)}
+            data-testid={`remove-antenna-${a.id}`}
+            title="Remove this antenna"
+            aria-label={`Remove antenna ${a.id}`}
+          >
             ✕
           </button>
         </div>
@@ -184,6 +205,7 @@ function FansSection() {
           onClick={() => addFanMount('40x40x10', '+z')}
           data-testid="add-fan"
           className="features-add"
+          title="Add a 40×40×10 fan mount on the lid (+z face) — change size/face after."
         >
           + add
         </button>
@@ -195,10 +217,14 @@ function FansSection() {
             type="checkbox"
             checked={f.enabled}
             onChange={(e) => patchFanMount(f.id, { enabled: e.target.checked })}
+            aria-label={`Fan ${f.id} enabled`}
+            title="Toggle this fan mount on/off."
           />
           <select
             value={f.size}
             onChange={(e) => patchFanMount(f.id, { size: e.target.value as FanSize })}
+            aria-label={`Fan ${f.id} size`}
+            title="Fan size — width × height × thickness in mm."
           >
             {FAN_SIZES.map((s) => (
               <option key={s} value={s}>
@@ -209,6 +235,8 @@ function FansSection() {
           <select
             value={f.face}
             onChange={(e) => patchFanMount(f.id, { face: e.target.value as CaseFace })}
+            aria-label={`Fan ${f.id} face`}
+            title="Which case face the fan mounts on."
           >
             {CASE_FACES.map((c) => (
               <option key={c} value={c}>
@@ -219,6 +247,8 @@ function FansSection() {
           <select
             value={f.grille}
             onChange={(e) => patchFanMount(f.id, { grille: e.target.value as FanGrille })}
+            aria-label={`Fan ${f.id} grille`}
+            title="Grille pattern over the fan opening — open lets the fan breathe; the others are decorative."
           >
             {FAN_GRILLES.map((g) => (
               <option key={g} value={g}>
@@ -226,7 +256,13 @@ function FansSection() {
               </option>
             ))}
           </select>
-          <button onClick={() => removeFanMount(f.id)}>✕</button>
+          <button
+            onClick={() => removeFanMount(f.id)}
+            title="Remove this fan mount"
+            aria-label={`Remove fan ${f.id}`}
+          >
+            ✕
+          </button>
         </div>
       ))}
     </section>
@@ -262,6 +298,7 @@ function TextLabelsSection() {
           }}
           data-testid="add-text-label"
           className="features-add"
+          title="Add a new engraved text label on the lid (+z) — edit text/face/size below."
         >
           + add
         </button>
@@ -273,16 +310,22 @@ function TextLabelsSection() {
             type="checkbox"
             checked={l.enabled}
             onChange={(e) => patchTextLabel(l.id, { enabled: e.target.checked })}
+            aria-label={`Label ${l.id} enabled`}
+            title="Toggle this text label on/off."
           />
           <input
             type="text"
             value={l.text}
             onChange={(e) => patchTextLabel(l.id, { text: e.target.value })}
             style={{ flex: 1, minWidth: 60 }}
+            aria-label={`Label ${l.id} text`}
+            title="Label text — engraved or embossed onto the chosen face."
           />
           <select
             value={l.face}
             onChange={(e) => patchTextLabel(l.id, { face: e.target.value as CaseFace })}
+            aria-label={`Label ${l.id} face`}
+            title="Which case face the label appears on."
           >
             {CASE_FACES.map((c) => (
               <option key={c} value={c}>
@@ -290,7 +333,13 @@ function TextLabelsSection() {
               </option>
             ))}
           </select>
-          <button onClick={() => removeTextLabel(l.id)}>✕</button>
+          <button
+            onClick={() => removeTextLabel(l.id)}
+            title="Remove this label"
+            aria-label={`Remove label ${l.id}`}
+          >
+            ✕
+          </button>
         </div>
       ))}
     </section>
@@ -307,17 +356,32 @@ function MountingSection() {
     <section className="features-section">
       <h4>Mounting features</h4>
       <div className="features-row">
-        <button onClick={() => applyPreset('four-corner-screw-tabs')}>
+        <button
+          onClick={() => applyPreset('four-corner-screw-tabs')}
+          title="Add four screw tabs at the case corners."
+        >
           + 4-corner tabs
         </button>
-        <button onClick={() => applyPreset('pair-end-flanges-y')} data-testid="preset-end-flanges-y">
+        <button
+          onClick={() => applyPreset('pair-end-flanges-y')}
+          data-testid="preset-end-flanges-y"
+          title="Add flanges on the front and back faces (±Y) for end-screw mounting."
+        >
           + End flanges (front/back)
         </button>
-        <button onClick={() => applyPreset('pair-end-flanges-x')} data-testid="preset-end-flanges-x">
+        <button
+          onClick={() => applyPreset('pair-end-flanges-x')}
+          data-testid="preset-end-flanges-x"
+          title="Add flanges on the left and right faces (±X) for end-screw mounting."
+        >
           + End flanges (left/right)
         </button>
-        <button onClick={() => applyPreset('rear-vesa-100')}>+ VESA 100</button>
-        <button onClick={() => applyPreset('rear-vesa-75')}>+ VESA 75</button>
+        <button onClick={() => applyPreset('rear-vesa-100')} title="Add VESA 100×100 mounting hole pattern on the back.">
+          + VESA 100
+        </button>
+        <button onClick={() => applyPreset('rear-vesa-75')} title="Add VESA 75×75 mounting hole pattern on the back.">
+          + VESA 75
+        </button>
       </div>
       {features.length === 0 && <p className="features-empty">No mounting features.</p>}
       {features.map((f) => (
@@ -326,11 +390,19 @@ function MountingSection() {
             type="checkbox"
             checked={f.enabled}
             onChange={(e) => patchFeature(f.id, { enabled: e.target.checked })}
+            aria-label={`Mounting feature ${f.id} enabled`}
+            title="Toggle this mounting feature on/off."
           />
           <span style={{ flex: 1 }}>
             {f.type} ({f.face})
           </span>
-          <button onClick={() => removeFeature(f.id)}>✕</button>
+          <button
+            onClick={() => removeFeature(f.id)}
+            title="Remove this mounting feature"
+            aria-label={`Remove mounting feature ${f.id}`}
+          >
+            ✕
+          </button>
         </div>
       ))}
     </section>
@@ -361,7 +433,11 @@ function CustomCutoutsSection() {
     <section className="features-section">
       <h4>Custom cutouts</h4>
       <div className="features-row">
-        <button onClick={onAdd} data-testid="add-custom-cutout">
+        <button
+          onClick={onAdd}
+          data-testid="add-custom-cutout"
+          title="Add a 10×10 rect cutout on the back face — edit shape/size/position below."
+        >
           + Add cutout
         </button>
       </div>
@@ -373,6 +449,8 @@ function CustomCutoutsSection() {
             checked={c.enabled}
             onChange={(e) => patchCutout(c.id, { enabled: e.target.checked })}
             data-testid={`custom-cutout-enabled-${c.id}`}
+            aria-label={`Cutout ${c.id} enabled`}
+            title="Toggle this cutout on/off."
           />
           <select
             value={c.face}
@@ -380,6 +458,8 @@ function CustomCutoutsSection() {
               patchCutout(c.id, { face: e.target.value as import('@/types').CutoutFace })
             }
             data-testid={`custom-cutout-face-${c.id}`}
+            aria-label={`Cutout ${c.id} face`}
+            title="Which case face the cutout is on."
           >
             {CUTOUT_FACES.map((f) => (
               <option key={f} value={f}>
@@ -393,6 +473,8 @@ function CustomCutoutsSection() {
               patchCutout(c.id, { shape: e.target.value as import('@/types').CustomCutoutShape })
             }
             data-testid={`custom-cutout-shape-${c.id}`}
+            aria-label={`Cutout ${c.id} shape`}
+            title="Cutout shape — rectangle, round, or rounded slot."
           >
             {CUTOUT_SHAPES.map((s) => (
               <option key={s} value={s}>
@@ -407,6 +489,9 @@ function CustomCutoutsSection() {
             onChange={(e) => patchCutout(c.id, { u: Number(e.target.value) })}
             style={{ width: 56 }}
             data-testid={`custom-cutout-u-${c.id}`}
+            aria-label={`Cutout ${c.id} U position (mm)`}
+            title="U position (mm) — horizontal offset along the chosen face."
+            placeholder="U"
           />
           <input
             type="number"
@@ -415,6 +500,9 @@ function CustomCutoutsSection() {
             onChange={(e) => patchCutout(c.id, { v: Number(e.target.value) })}
             style={{ width: 56 }}
             data-testid={`custom-cutout-v-${c.id}`}
+            aria-label={`Cutout ${c.id} V position (mm)`}
+            title="V position (mm) — vertical offset along the chosen face."
+            placeholder="V"
           />
           <input
             type="number"
@@ -424,6 +512,9 @@ function CustomCutoutsSection() {
             onChange={(e) => patchCutout(c.id, { width: Number(e.target.value) })}
             style={{ width: 56 }}
             data-testid={`custom-cutout-width-${c.id}`}
+            aria-label={`Cutout ${c.id} width (mm)`}
+            title="Cutout width along U axis (mm). For round shapes this is the diameter."
+            placeholder="W"
           />
           <input
             type="number"
@@ -433,6 +524,9 @@ function CustomCutoutsSection() {
             onChange={(e) => patchCutout(c.id, { height: Number(e.target.value) })}
             style={{ width: 56 }}
             data-testid={`custom-cutout-height-${c.id}`}
+            aria-label={`Cutout ${c.id} height (mm)`}
+            title="Cutout height along V axis (mm). Ignored for round shapes."
+            placeholder="H"
           />
           <input
             type="text"
@@ -440,8 +534,15 @@ function CustomCutoutsSection() {
             value={c.label ?? ''}
             onChange={(e) => patchCutout(c.id, { label: e.target.value })}
             style={{ flex: 1 }}
+            aria-label={`Cutout ${c.id} label`}
+            title="Optional descriptive label for this cutout."
           />
-          <button onClick={() => removeCutout(c.id)} data-testid={`custom-cutout-remove-${c.id}`}>
+          <button
+            onClick={() => removeCutout(c.id)}
+            data-testid={`custom-cutout-remove-${c.id}`}
+            title="Remove this cutout"
+            aria-label={`Remove cutout ${c.id}`}
+          >
             ✕
           </button>
         </div>
@@ -467,6 +568,7 @@ function SnapCatchesSection() {
           onClick={() => addSnapCatch('-x', 20)}
           data-testid="add-snap-catch"
           className="features-add"
+          title="Add a snap catch on the −X wall at U=20 mm."
         >
           + add
         </button>
@@ -478,10 +580,14 @@ function SnapCatchesSection() {
             type="checkbox"
             checked={c.enabled}
             onChange={(e) => patchSnapCatch(c.id, { enabled: e.target.checked })}
+            aria-label={`Snap catch ${c.id} enabled`}
+            title="Toggle this snap catch on/off."
           />
           <select
             value={c.wall}
             onChange={(e) => patchSnapCatch(c.id, { wall: e.target.value as SnapWall })}
+            aria-label={`Snap catch ${c.id} wall`}
+            title="Which wall the catch is on (±X / ±Y)."
           >
             {SNAP_WALLS.map((w) => (
               <option key={w} value={w}>
@@ -495,6 +601,8 @@ function SnapCatchesSection() {
             step={1}
             onChange={(e) => patchSnapCatch(c.id, { uPosition: Number(e.target.value) })}
             style={{ width: 60 }}
+            aria-label={`Snap catch ${c.id} U position (mm)`}
+            title="U position along the wall (mm) — distance from the wall's start corner."
           />
           {/* Issue #69 — barb cross-section selector. Default 'hook' matches
               the pre-#69 geometry so older projects render unchanged. */}
@@ -502,7 +610,8 @@ function SnapCatchesSection() {
             value={c.barbType ?? 'hook'}
             onChange={(e) => patchSnapCatch(c.id, { barbType: e.target.value as BarbType })}
             data-testid={`snap-barb-type-${c.id}`}
-            title="Barb cross-section"
+            aria-label={`Snap catch ${c.id} barb type`}
+            title="Barb cross-section — 'hook' is the classic engagement profile, others vary in retention force."
           >
             {BARB_TYPES.map((b) => (
               <option key={b} value={b}>
@@ -520,15 +629,21 @@ function SnapCatchesSection() {
               })
             }
             data-testid={`snap-cantilever-on-${c.id}`}
-            title="Which part flexes — lid or case"
+            aria-label={`Snap catch ${c.id} cantilever location`}
+            title="Which part flexes — lid or case. Tradeoff: lid-arm hides better; case-arm is stronger."
           >
             <option value="lid">arm on lid</option>
             <option value="case">arm on case</option>
           </select>
-          <button onClick={() => removeSnapCatch(c.id)}>✕</button>
+          <button
+            onClick={() => removeSnapCatch(c.id)}
+            title="Remove this snap catch"
+            aria-label={`Remove snap catch ${c.id}`}
+          >
+            ✕
+          </button>
         </div>
       ))}
     </section>
   );
 }
-
