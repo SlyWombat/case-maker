@@ -11,6 +11,10 @@ import { buildBoardPlaceholderGroup } from '@/engine/scene/boardPlaceholder';
  * `BoardProfile.components` so users always see something — green PCB plus
  * coloured connector blocks. When `visualAssets.glb` is wired up later, this
  * component will defer to it.
+ *
+ * Issue #83 — when the Select tool is active, clicking the placeholder selects
+ * the host PCB so the SelectionPanel can edit standoff Z (and, eventually,
+ * X/Y once the schema migration lands).
  */
 export function BoardPlaceholderMesh() {
   const board = useProjectStore((s) => s.project.board);
@@ -35,5 +39,18 @@ export function BoardPlaceholderMesh() {
   // Issue #59 — boardVisualization cycle removed; board visibility is just
   // the showBoard layer toggle now.
   if (!showBoard) return null;
-  return <primitive object={group} />;
+  return (
+    <primitive
+      object={group}
+      onClick={(e: { stopPropagation: () => void }) => {
+        // Issue #83 — read activeTool fresh at click time so the gate
+        // tracks the current tool, not whatever was captured at mount.
+        const { activeTool, showBoard: showBoardNow, setSelection } =
+          useViewportStore.getState();
+        if (activeTool !== 'select' || !showBoardNow) return;
+        e.stopPropagation();
+        setSelection({ kind: 'host' });
+      }}
+    />
+  );
 }

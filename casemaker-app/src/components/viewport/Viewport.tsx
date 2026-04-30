@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { GridFloor } from './GridFloor';
 import { SceneMeshes } from './SceneMeshes';
 import { ViewportToolbar } from './ViewportToolbar';
+import { SelectionPanel } from './SelectionPanel';
 import { ensureZUp } from '@/engine/coords';
 import { useViewportStore, type ViewportCameraMode } from '@/store/viewportStore';
 
@@ -56,12 +57,20 @@ export function Viewport() {
   return (
     <div className="viewport-wrapper">
       <ViewportToolbar />
+      <SelectionPanel />
       <Canvas
         gl={{ antialias: !isE2E, preserveDrawingBuffer: true }}
         dpr={isE2E ? 1 : window.devicePixelRatio}
         flat={isE2E}
         onCreated={({ scene }) => {
           scene.up = new THREE.Vector3(0, 0, 1);
+        }}
+        // Issue #83 — clicking empty canvas (no scene object hit) clears
+        // any active selection. Only fires while the Select tool is on so
+        // we don't fight Orbit/Pan tool drag-clicks.
+        onPointerMissed={() => {
+          const { activeTool, setSelection } = useViewportStore.getState();
+          if (activeTool === 'select') setSelection(null);
         }}
         data-testid="viewport-canvas"
       >

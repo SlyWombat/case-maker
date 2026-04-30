@@ -585,7 +585,19 @@ export const useProjectStore = create<ProjectState>()(
               if (typeof patch.enabled === 'boolean') h.enabled = patch.enabled;
               if (typeof patch.liftOverride === 'number' || patch.liftOverride === undefined)
                 h.liftOverride = patch.liftOverride;
-              if (patch.offsetOverride) h.offsetOverride = patch.offsetOverride;
+              // Issue #83 — `offsetOverride: undefined` resets the override.
+              // Spread the incoming object so a partial { x } write still
+              // preserves any prior y, mirroring the discrete-axis nudge UX.
+              if ('offsetOverride' in patch) {
+                if (patch.offsetOverride === undefined) {
+                  h.offsetOverride = undefined;
+                } else {
+                  h.offsetOverride = {
+                    x: patch.offsetOverride.x,
+                    y: patch.offsetOverride.y,
+                  };
+                }
+              }
               if (typeof patch.stackIndex === 'number') h.stackIndex = patch.stackIndex;
               if (typeof patch.mountingPositionId === 'string')
                 h.mountingPositionId = patch.mountingPositionId;

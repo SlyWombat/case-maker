@@ -513,6 +513,106 @@ body, html, #root {
   outline-offset: 2px;
 }
 
+/* Issue #83 — viewport selection panel. Floats top-right; ~300 px wide so
+   it doesn't crowd the toolbar (top-left). z-index above toolbar so the
+   close button is reachable when both are visible. */
+.selection-panel {
+  position: absolute;
+  top: var(--cm-space-3);
+  right: var(--cm-space-3);
+  z-index: 6;
+  width: 300px;
+  background: var(--cm-color-surface-container);
+  border: var(--cm-border-1);
+  border-radius: var(--cm-radius-md);
+  padding: var(--cm-space-3);
+  color: var(--cm-color-on-surface);
+  font-family: var(--cm-font-body);
+  font-size: var(--cm-text-body-size);
+  backdrop-filter: blur(8px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--cm-space-2);
+}
+.selection-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cm-space-2);
+}
+.selection-panel__title {
+  font-family: var(--cm-font-display);
+  font-weight: 600;
+  font-size: var(--cm-text-h2-size);
+}
+.selection-panel__subtitle {
+  color: var(--cm-color-on-surface-muted);
+  font-size: var(--cm-text-mono-size);
+  font-family: var(--cm-font-mono);
+  margin-top: -4px;
+}
+.selection-panel__close {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--cm-color-on-surface-variant);
+  cursor: pointer;
+  font-size: 1.125rem;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: var(--cm-radius-sm);
+}
+.selection-panel__close:hover {
+  background: var(--cm-color-surface-bright);
+  color: var(--cm-color-on-surface);
+}
+.selection-panel__row {
+  display: grid;
+  grid-template-columns: 1fr 110px;
+  align-items: center;
+  gap: var(--cm-space-2);
+}
+.selection-panel__label {
+  color: var(--cm-color-on-surface-variant);
+}
+.selection-panel__input {
+  background: var(--cm-color-surface-container-low);
+  color: var(--cm-color-on-surface);
+  border: var(--cm-border-1);
+  border-radius: var(--cm-radius-sm);
+  padding: var(--cm-space-1) var(--cm-space-2);
+  font-size: var(--cm-text-body-size);
+  width: 100%;
+  box-sizing: border-box;
+}
+.selection-panel__input:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.selection-panel__hint {
+  color: var(--cm-color-on-surface-muted);
+  font-size: var(--cm-text-mono-size);
+  margin-top: var(--cm-space-1);
+}
+.selection-panel__actions {
+  display: flex;
+  justify-content: flex-end;
+}
+.selection-panel__btn {
+  background: var(--cm-color-surface-container-high);
+  color: var(--cm-color-on-surface);
+  border: var(--cm-border-1);
+  border-radius: var(--cm-radius-sm);
+  padding: var(--cm-space-1) var(--cm-space-3);
+  cursor: pointer;
+  font-family: var(--cm-font-display);
+  font-size: var(--cm-text-mono-size);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.selection-panel__btn:hover {
+  background: var(--cm-color-surface-bright);
+}
+
 /* Issue #85 — welcome screen redesign per refined_selection mockup. Hero
    block + hardware combobox + template card grid. Token-driven so it
    inherits any future palette tweaks from #84. */

@@ -15,6 +15,14 @@ const LS_KEY = 'casemaker.viewport';
 export type ViewportTool = 'select' | 'pan' | 'orbit';
 export type ViewportCameraMode = 'perspective' | 'top' | 'front' | 'side';
 
+// Issue #83 — host PCB / HAT in-viewport selection. Session-scoped (NOT
+// persisted) — fresh page load = no selection. The selection drives
+// SelectionPanel and the keyboard nudge handler.
+export type ViewportSelection =
+  | { kind: 'host' }
+  | { kind: 'hat'; hatPlacementId: string }
+  | null;
+
 interface PersistedViewportFlags {
   showLid?: boolean;
   showBoard?: boolean;
@@ -37,8 +45,18 @@ function loadPersisted(): PersistedViewportFlags {
 
 function savePersisted(flags: PersistedViewportFlags): void {
   if (typeof localStorage === 'undefined') return;
+  // Issue #83 — explicit whitelist so callers passing `{ ...get(), ... }`
+  // can't leak runtime-only fields (e.g. session-scoped `selection`) into
+  // localStorage. Only the documented PersistedViewportFlags keys land on
+  // disk.
+  const out: PersistedViewportFlags = {};
+  if (flags.showLid !== undefined) out.showLid = flags.showLid;
+  if (flags.showBoard !== undefined) out.showBoard = flags.showBoard;
+  if (flags.showGrid !== undefined) out.showGrid = flags.showGrid;
+  if (flags.activeTool !== undefined) out.activeTool = flags.activeTool;
+  if (flags.cameraMode !== undefined) out.cameraMode = flags.cameraMode;
   try {
-    localStorage.setItem(LS_KEY, JSON.stringify(flags));
+    localStorage.setItem(LS_KEY, JSON.stringify(out));
   } catch {
     /* quota or private mode — fall back silently */
   }
@@ -51,6 +69,8 @@ export interface ViewportState {
   selectedPortId: string | null;
   activeTool: ViewportTool;
   cameraMode: ViewportCameraMode;
+  /** Issue #83 — host PCB / HAT in-viewport selection. */
+  selection: ViewportSelection;
   setShowLid: (v: boolean) => void;
   setShowBoard: (v: boolean) => void;
   setShowGrid: (v: boolean) => void;
@@ -58,6 +78,7 @@ export interface ViewportState {
   selectPort: (id: string | null) => void;
   setActiveTool: (t: ViewportTool) => void;
   setCameraMode: (m: ViewportCameraMode) => void;
+  setSelection: (s: ViewportSelection) => void;
 }
 
 const persisted = loadPersisted();
@@ -69,6 +90,11 @@ export const useViewportStore = create<ViewportState>()((set, get) => ({
   selectedPortId: null,
   activeTool: persisted.activeTool ?? 'orbit',
   cameraMode: persisted.cameraMode ?? 'perspective',
+  // Issue #83 — selection is session-scoped. Intentionally NOT loaded from
+  // (or written to) localStorage so opening a project never resurrects a
+  // stale selection that points at a HAT placement that may no longer
+  // exist.
+  selection: null,
   setShowLid: (v) => {
     set({ showLid: v });
     savePersisted({ ...get(), showLid: v });
@@ -95,4 +121,5 @@ export const useViewportStore = create<ViewportState>()((set, get) => ({
     set({ cameraMode: m });
     savePersisted({ ...get(), cameraMode: m });
   },
+  setSelection: (s) => set({ selection: s }),
 }));

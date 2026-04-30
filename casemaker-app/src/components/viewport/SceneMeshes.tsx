@@ -6,6 +6,7 @@ import { bufferToGeometry } from '@/engine/scene/meshFromBuffer';
 import { ExternalAssetMeshes } from './ExternalAssetMeshes';
 import { PortMarkers } from './PortMarkers';
 import { BoardPlaceholderMesh } from './BoardPlaceholderMesh';
+import { HatPlaceholderMeshes } from './HatPlaceholderMeshes';
 
 interface NodeMeshProps {
   id: string;
@@ -40,6 +41,7 @@ export function SceneMeshes() {
       <NodeMesh id="shell" color="#88a4cc" opacity={0.55} />
       {showLid && <NodeMesh id="lid" color="#a8b8d0" opacity={0.6} />}
       <BoardPlaceholderMesh />
+      <HatPlaceholderMeshes />
       <ExternalAssetMeshes />
       <PortMarkers />
     </group>

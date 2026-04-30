@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { BoardProfile, ComponentKind, BoardComponent } from '@/types';
+import type { BoardProfile, ComponentKind, BoardComponent, HatProfile } from '@/types';
 import { buildFixture } from './fixtures';
 
 const KIND_COLORS: Record<ComponentKind, string> = {
@@ -21,6 +21,9 @@ const KIND_COLORS: Record<ComponentKind, string> = {
 };
 
 const PCB_COLOR = '#0d6b3a';
+// Slightly bluer-green so a stack of host + HAT meshes is visually
+// distinguishable in the viewport (issue #83).
+const HAT_PCB_COLOR = '#0d4a6b';
 
 function colorFor(kind: ComponentKind): string {
   return KIND_COLORS[kind] ?? KIND_COLORS.custom;
@@ -114,6 +117,55 @@ function componentObject(comp: BoardComponent): THREE.Object3D | null {
   m.name = `component:${comp.id}`;
   m.userData = { componentId: comp.id, kind: comp.kind };
   return m;
+}
+
+/**
+ * Build a representative 3D mesh for a HAT placement. Mirrors
+ * buildBoardPlaceholderGroup but tinted slightly differently so a stacked
+ * board + HAT is visually distinguishable (issue #83). The caller is
+ * responsible for computing the world-frame `origin` (typically via
+ * computeHatBaseZ + cavity origin XY + offsetOverride).
+ */
+export function buildHatPlaceholderGroup(
+  hat: HatProfile,
+  transform: PlaceholderTransform = { origin: { x: 0, y: 0, z: 0 } },
+): THREE.Group {
+  const group = new THREE.Group();
+  group.name = `hat-placeholder:${hat.id}`;
+  group.userData = { hatId: hat.id, kind: 'hat-placeholder' };
+
+  const pcb = hat.pcb.size;
+  const pcbGeom = new THREE.BoxGeometry(pcb.x, pcb.y, pcb.z);
+  const pcbMat = new THREE.MeshStandardMaterial({
+    color: HAT_PCB_COLOR,
+    metalness: 0.05,
+    roughness: 0.85,
+  });
+  const pcbMesh = new THREE.Mesh(pcbGeom, pcbMat);
+  pcbMesh.position.set(pcb.x / 2, pcb.y / 2, pcb.z / 2);
+  pcbMesh.name = 'pcb';
+  group.add(pcbMesh);
+
+  for (const hole of hat.mountingHoles) {
+    const r = hole.diameter / 2;
+    const ringGeom = new THREE.RingGeometry(r, r + 0.4, 24);
+    const ringMat = new THREE.MeshBasicMaterial({
+      color: '#ffd54a',
+      side: THREE.DoubleSide,
+    });
+    const ring = new THREE.Mesh(ringGeom, ringMat);
+    ring.position.set(hole.x, hole.y, pcb.z + 0.05);
+    ring.name = `hole:${hole.id}`;
+    group.add(ring);
+  }
+
+  for (const comp of hat.components) {
+    const obj = componentObject(comp);
+    if (obj) group.add(obj);
+  }
+
+  group.position.set(transform.origin.x, transform.origin.y, transform.origin.z);
+  return group;
 }
 
 /**
