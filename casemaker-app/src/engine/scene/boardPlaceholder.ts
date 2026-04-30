@@ -91,7 +91,7 @@ function componentObject(comp: BoardComponent): THREE.Object3D | null {
   if (comp.size.x <= 0 || comp.size.y <= 0 || comp.size.z <= 0) return null;
   // Resolution ladder: explicit fixtureId → kind-based procedural fixture →
   // plain coloured block keyed by kind.
-  const fixture = buildFixture(comp.kind, comp.size, comp.fixtureId);
+  const fixture = buildFixture(comp.kind, comp.size, comp.fixtureId, comp.facing ?? '+y');
   if (fixture) {
     fixture.position.set(comp.position.x, comp.position.y, comp.position.z);
     fixture.name = `component:${comp.id}`;

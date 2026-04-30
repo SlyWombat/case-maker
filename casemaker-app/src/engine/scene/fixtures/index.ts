@@ -1,8 +1,22 @@
 import * as THREE from 'three';
-import type { ComponentKind } from '@/types';
-import { fixtureGroup, box, placeAt, cylinder, type FixtureSize } from './_common';
+import type { ComponentKind, Facing } from '@/types';
+import {
+  fixtureGroup,
+  box,
+  placeAt,
+  cylinder,
+  bboxCenter,
+  depthAxisForFacing,
+  alignCylinderToDepth,
+  frontFaceCenter,
+  type FixtureSize,
+} from './_common';
 
-export type FixtureBuilder = (size: FixtureSize) => THREE.Group;
+/** Issue #99 — fixture builders now take `facing` so asymmetric features
+ *  (recesses, latches, pin patterns, body cylinders) can orient themselves
+ *  along the connector's actual depth axis instead of the canonical +X or +Y
+ *  the original code happened to assume. */
+export type FixtureBuilder = (size: FixtureSize, facing: Facing) => THREE.Group;
 
 /**
  * Procedural fixture builders for board / HAT components. Each builder produces
@@ -11,106 +25,119 @@ export type FixtureBuilder = (size: FixtureSize) => THREE.Group;
  * no external assets required.
  */
 
+/**
+ * Build a recessed-throat port (USB-A / USB-B / micro-USB / HDMI / micro-HDMI).
+ * The metal shell fills the bbox; the dark "throat" recess sits at the FRONT
+ * face for the requested facing so the cable opening points outward.
+ */
 function buildPort(
   size: FixtureSize,
-  body: { color: string; insetX?: number; insetY?: number; insetZ?: number },
-  opening: { color: string; depth?: number },
+  facing: Facing,
+  body: { color: string },
+  opening: { color: string },
 ): THREE.Group {
   const g = fixtureGroup('port');
-  // Outer metal shell
-  g.add(
-    placeAt(
-      box(size, body.color, { metalness: 0.7, roughness: 0.35 }),
-      size.x / 2,
-      size.y / 2,
-      size.z / 2,
-    ),
-  );
-  // Inner darker recess hinting at the connector throat
-  const inX = body.insetX ?? Math.min(1.5, size.x * 0.2);
-  const inY = body.insetY ?? Math.min(1.5, size.y * 0.2);
-  const inZ = body.insetZ ?? Math.min(1.5, size.z * 0.25);
-  const inner = box(
-    { x: Math.max(0.5, size.x - inX), y: Math.max(0.5, size.y - inY * 2), z: Math.max(0.5, size.z - inZ * 2) },
-    opening.color,
-    { metalness: 0.1, roughness: 0.85 },
-  );
-  // Push the recess to one face — assume +x is the open mouth (caller rotates
-  // through component facing later if needed; for now centre it).
-  inner.position.set(size.x / 2 - inX / 4, size.y / 2, size.z / 2);
+  const [cx, cy, cz] = bboxCenter(size);
+  g.add(placeAt(box(size, body.color, { metalness: 0.7, roughness: 0.35 }), cx, cy, cz));
+  const depth = depthAxisForFacing(facing, size);
+  // Recess size: shrink along ALL axes so it sits inside the shell, then
+  // truncate the depth side so it only fills the front half of the body.
+  const innerSize: FixtureSize = {
+    x: Math.max(0.5, size.x - Math.min(1.5, size.x * 0.2)),
+    y: Math.max(0.5, size.y - Math.min(1.5, size.y * 0.2)),
+    z: Math.max(0.5, size.z - Math.min(1.5, size.z * 0.5)),
+  };
+  // Truncate the recess to the front half of the depth axis so the throat
+  // is visibly INSIDE the shell rather than filling its full depth.
+  if (depth.axis === 'x') innerSize.x = Math.max(0.4, size.x * 0.6);
+  else if (depth.axis === 'y') innerSize.y = Math.max(0.4, size.y * 0.6);
+  else innerSize.z = Math.max(0.4, size.z * 0.6);
+  const inner = box(innerSize, opening.color, { metalness: 0.1, roughness: 0.85 });
+  // Position the recess at the FRONT face, inset by half its depth so the
+  // recess box sits flush with the front face plane.
+  const insetByHalfRecessDepth =
+    depth.axis === 'x' ? innerSize.x / 2 : depth.axis === 'y' ? innerSize.y / 2 : innerSize.z / 2;
+  const [fx, fy, fz] = frontFaceCenter(facing, size, insetByHalfRecessDepth);
+  inner.position.set(fx, fy, fz);
   g.add(inner);
   return g;
 }
 
-const buildUsbA: FixtureBuilder = (size) =>
-  buildPort(size, { color: '#a5a8ad' }, { color: '#1c1c1c' });
+const buildUsbA: FixtureBuilder = (size, facing) =>
+  buildPort(size, facing, { color: '#a5a8ad' }, { color: '#1c1c1c' });
 
-const buildUsbB: FixtureBuilder = (size) =>
-  buildPort(size, { color: '#a5a8ad' }, { color: '#1c1c1c' });
+const buildUsbB: FixtureBuilder = (size, facing) =>
+  buildPort(size, facing, { color: '#a5a8ad' }, { color: '#1c1c1c' });
 
-const buildUsbC: FixtureBuilder = (size) => {
+const buildUsbC: FixtureBuilder = (size, facing) => {
   const g = fixtureGroup('usb-c');
-  g.add(
-    placeAt(
-      box(size, '#bcbcbc', { metalness: 0.75, roughness: 0.3 }),
-      size.x / 2,
-      size.y / 2,
-      size.z / 2,
-    ),
-  );
-  // Oval-ish dark recess
-  const slot = box(
-    { x: Math.max(0.6, size.x * 0.5), y: Math.max(0.6, size.y * 0.55), z: Math.max(0.6, size.z * 0.5) },
-    '#0e0e0e',
-    { metalness: 0.05, roughness: 0.95 },
-  );
-  slot.position.set(size.x * 0.6, size.y / 2, size.z / 2);
+  const [cx, cy, cz] = bboxCenter(size);
+  g.add(placeAt(box(size, '#bcbcbc', { metalness: 0.75, roughness: 0.3 }), cx, cy, cz));
+  // Oval-ish dark recess at the front face.
+  const depth = depthAxisForFacing(facing, size);
+  const slotSize: FixtureSize = {
+    x: Math.max(0.6, size.x * (depth.axis === 'x' ? 0.5 : 0.55)),
+    y: Math.max(0.6, size.y * (depth.axis === 'y' ? 0.5 : 0.55)),
+    z: Math.max(0.6, size.z * 0.5),
+  };
+  const slot = box(slotSize, '#0e0e0e', { metalness: 0.05, roughness: 0.95 });
+  const inset =
+    depth.axis === 'x' ? slotSize.x / 2 : depth.axis === 'y' ? slotSize.y / 2 : slotSize.z / 2;
+  const [fx, fy, fz] = frontFaceCenter(facing, size, inset);
+  slot.position.set(fx, fy, fz);
   g.add(slot);
   return g;
 };
 
-const buildMicroUsb: FixtureBuilder = (size) =>
-  buildPort(size, { color: '#a5a8ad' }, { color: '#1c1c1c' });
+const buildMicroUsb: FixtureBuilder = (size, facing) =>
+  buildPort(size, facing, { color: '#a5a8ad' }, { color: '#1c1c1c' });
 
-const buildHdmi: FixtureBuilder = (size) =>
-  buildPort(size, { color: '#2a2a2a' }, { color: '#0a0a0a' });
+const buildHdmi: FixtureBuilder = (size, facing) =>
+  buildPort(size, facing, { color: '#2a2a2a' }, { color: '#0a0a0a' });
 
-const buildMicroHdmi: FixtureBuilder = (size) =>
-  buildPort(size, { color: '#2a2a2a' }, { color: '#0a0a0a' });
+const buildMicroHdmi: FixtureBuilder = (size, facing) =>
+  buildPort(size, facing, { color: '#2a2a2a' }, { color: '#0a0a0a' });
 
-const buildBarrelJack: FixtureBuilder = (size) => {
+const buildBarrelJack: FixtureBuilder = (size, facing) => {
   const g = fixtureGroup('barrel-jack');
+  const [cx, cy, cz] = bboxCenter(size);
   // Plastic body
-  g.add(
-    placeAt(box(size, '#1c1c1c', { metalness: 0.05, roughness: 0.9 }), size.x / 2, size.y / 2, size.z / 2),
-  );
-  // Cylindrical socket
-  const r = Math.min(size.y, size.z) * 0.32;
-  const cyl = cylinder(r, Math.max(0.5, size.x * 0.35), '#3a3a3a');
-  cyl.rotation.z = Math.PI / 2;
-  cyl.position.set(size.x * 0.75, size.y / 2, size.z / 2);
+  g.add(placeAt(box(size, '#1c1c1c', { metalness: 0.05, roughness: 0.9 }), cx, cy, cz));
+  // Cylindrical socket along the depth axis, opening at the front face.
+  const depth = depthAxisForFacing(facing, size);
+  const r = Math.min(depth.perpSize.wide, depth.perpSize.tall) * 0.32;
+  const socketLen = Math.max(0.5, depth.length * 0.35);
+  const cyl = cylinder(r, socketLen, '#3a3a3a');
+  alignCylinderToDepth(cyl, depth);
+  // Center the socket cylinder at the front face, inset by half its length.
+  const [fx, fy, fz] = frontFaceCenter(facing, size, socketLen / 2);
+  cyl.position.set(fx, fy, fz);
   g.add(cyl);
   return g;
 };
 
-const buildRj45: FixtureBuilder = (size) => {
+const buildRj45: FixtureBuilder = (size, facing) => {
   const g = fixtureGroup('rj45');
-  // Metal shielded body
-  g.add(
-    placeAt(box(size, '#c4a85a', { metalness: 0.6, roughness: 0.45 }), size.x / 2, size.y / 2, size.z / 2),
-  );
-  // Plastic latch slot in the middle
-  const latch = box(
-    { x: Math.max(0.6, size.x * 0.5), y: Math.max(0.6, size.y * 0.6), z: Math.max(0.6, size.z * 0.55) },
-    '#1a1a1a',
-    { metalness: 0.05, roughness: 0.95 },
-  );
-  latch.position.set(size.x * 0.65, size.y / 2, size.z / 2);
+  const [cx, cy, cz] = bboxCenter(size);
+  g.add(placeAt(box(size, '#c4a85a', { metalness: 0.6, roughness: 0.45 }), cx, cy, cz));
+  // Plastic latch slot at the front face.
+  const depth = depthAxisForFacing(facing, size);
+  const latchSize: FixtureSize = {
+    x: Math.max(0.6, size.x * (depth.axis === 'x' ? 0.4 : 0.6)),
+    y: Math.max(0.6, size.y * (depth.axis === 'y' ? 0.4 : 0.6)),
+    z: Math.max(0.6, size.z * 0.55),
+  };
+  const latch = box(latchSize, '#1a1a1a', { metalness: 0.05, roughness: 0.95 });
+  const inset =
+    depth.axis === 'x' ? latchSize.x / 2 : depth.axis === 'y' ? latchSize.y / 2 : latchSize.z / 2;
+  const [fx, fy, fz] = frontFaceCenter(facing, size, inset);
+  latch.position.set(fx, fy, fz);
   g.add(latch);
   return g;
 };
 
-const buildPinHeader: FixtureBuilder = (size) => {
+const buildPinHeader: FixtureBuilder = (size, _facing) => {
+  void _facing; // pin headers are radially symmetric in their bbox plane
   const g = fixtureGroup('pin-header');
   // Black plastic strip occupies the bottom 30% of the requested size.
   const strikeZ = size.z * 0.3;
@@ -155,24 +182,32 @@ const buildPinHeader: FixtureBuilder = (size) => {
   return g;
 };
 
-const buildSdSlot: FixtureBuilder = (size) => {
+const buildSdSlot: FixtureBuilder = (size, facing) => {
   const g = fixtureGroup('sd-slot');
+  const [cx, cy, cz] = bboxCenter(size);
   // Tin-plated tray
-  g.add(
-    placeAt(box(size, '#c8c8c8', { metalness: 0.55, roughness: 0.5 }), size.x / 2, size.y / 2, size.z / 2),
-  );
-  // Recessed slot
-  const slot = box(
-    { x: Math.max(0.3, size.x * 0.6), y: Math.max(0.3, size.y * 0.85), z: Math.max(0.2, size.z * 0.3) },
-    '#1a1a1a',
-    { metalness: 0.05, roughness: 0.95 },
-  );
-  slot.position.set(size.x * 0.65, size.y / 2, size.z * 0.85);
+  g.add(placeAt(box(size, '#c8c8c8', { metalness: 0.55, roughness: 0.5 }), cx, cy, cz));
+  // Recessed card-entry slot at the front face. Slot's "long" dimension is
+  // perpendicular to the depth axis (cards slide IN along depth axis); the
+  // slot is thinner along the depth axis to look like a card slot.
+  const depth = depthAxisForFacing(facing, size);
+  const slotSize: FixtureSize = {
+    x: Math.max(0.3, size.x * (depth.axis === 'x' ? 0.3 : 0.85)),
+    y: Math.max(0.3, size.y * (depth.axis === 'y' ? 0.3 : 0.85)),
+    z: Math.max(0.2, size.z * 0.3),
+  };
+  const slot = box(slotSize, '#1a1a1a', { metalness: 0.05, roughness: 0.95 });
+  const insetD =
+    depth.axis === 'x' ? slotSize.x / 2 : depth.axis === 'y' ? slotSize.y / 2 : slotSize.z / 2;
+  const [fx, fy, fz] = frontFaceCenter(facing, size, insetD);
+  // SD slot sits at the top of the body (z near top) for typical board mount.
+  slot.position.set(fx, fy, depth.axis === 'z' ? fz : size.z * 0.85);
   g.add(slot);
   return g;
 };
 
-const buildFpcConnector: FixtureBuilder = (size) => {
+const buildFpcConnector: FixtureBuilder = (size, _facing) => {
+  void _facing; // FPC ribbon connectors look the same on any side
   const g = fixtureGroup('fpc');
   // Brown body
   g.add(
@@ -193,64 +228,96 @@ const buildFpcConnector: FixtureBuilder = (size) => {
   return g;
 };
 
-const buildFanMount: FixtureBuilder = (size) => {
+const buildFanMount: FixtureBuilder = (size, _facing) => {
+  void _facing; // fan-mount is radially symmetric (square frame + hub center)
   const g = fixtureGroup('fan-mount');
-  // Outer frame
-  g.add(
-    placeAt(box(size, '#2a2a2a', { metalness: 0.3, roughness: 0.6 }), size.x / 2, size.y / 2, size.z / 2),
-  );
-  // Hub
+  const [cx, cy, cz] = bboxCenter(size);
+  g.add(placeAt(box(size, '#2a2a2a', { metalness: 0.3, roughness: 0.6 }), cx, cy, cz));
   const r = Math.min(size.x, size.y) * 0.18;
   const hub = cylinder(r, size.z, '#1a1a1a');
   hub.rotation.x = Math.PI / 2;
-  hub.position.set(size.x / 2, size.y / 2, size.z / 2);
+  hub.position.set(cx, cy, cz);
   g.add(hub);
   return g;
 };
 
-const buildAntennaConnector: FixtureBuilder = (size) => {
+const buildAntennaConnector: FixtureBuilder = (size, _facing) => {
+  void _facing; // U.FL connector is radially symmetric
   const g = fixtureGroup('ufl');
-  g.add(
-    placeAt(box(size, '#8a5a3a', { metalness: 0.4, roughness: 0.5 }), size.x / 2, size.y / 2, size.z / 2),
-  );
+  const [cx, cy, cz] = bboxCenter(size);
+  g.add(placeAt(box(size, '#8a5a3a', { metalness: 0.4, roughness: 0.5 }), cx, cy, cz));
   const r = Math.min(size.x, size.y) * 0.32;
   const top = cylinder(r, size.z * 0.4, '#d4af37');
   top.rotation.x = Math.PI / 2;
-  top.position.set(size.x / 2, size.y / 2, size.z * 0.8);
+  top.position.set(cx, cy, size.z * 0.8);
   g.add(top);
   return g;
 };
 
-const buildAudioJack35: FixtureBuilder = (size) => {
+const buildAudioJack35: FixtureBuilder = (size, facing) => {
   const g = fixtureGroup('audio-jack-3-5');
-  const r = Math.min(size.y, size.z) * 0.45;
-  const body = cylinder(r, size.x, '#1c1c1c');
-  body.rotation.z = Math.PI / 2;
-  body.position.set(size.x / 2, size.y / 2, size.z / 2);
+  const depth = depthAxisForFacing(facing, size);
+  const r = Math.min(depth.perpSize.wide, depth.perpSize.tall) * 0.45;
+  // Body cylinder along the depth axis, length = depth.length.
+  const body = cylinder(r, depth.length, '#1c1c1c');
+  alignCylinderToDepth(body, depth);
+  const [cx, cy, cz] = bboxCenter(size);
+  body.position.set(cx, cy, cz);
   g.add(body);
-  // Inner hole
-  const hole = cylinder(r * 0.45, size.x * 0.5, '#000000');
-  hole.rotation.z = Math.PI / 2;
-  hole.position.set(size.x * 0.75, size.y / 2, size.z / 2);
+  // Inner hole drilled in from the front face (a darker inner cylinder of
+  // half-length so it visibly recedes into the body).
+  const holeLen = depth.length * 0.5;
+  const hole = cylinder(r * 0.45, holeLen, '#000000');
+  alignCylinderToDepth(hole, depth);
+  const [fx, fy, fz] = frontFaceCenter(facing, size, holeLen / 2);
+  hole.position.set(fx, fy, fz);
   g.add(hole);
   return g;
 };
 
-const buildXlr3: FixtureBuilder = (size) => {
+const buildXlr3: FixtureBuilder = (size, facing) => {
   const g = fixtureGroup('xlr-3');
-  const r = Math.min(size.x, size.z) * 0.45;
-  const body = cylinder(r, size.y, '#222222', { segments: 32 });
-  body.rotation.x = Math.PI / 2;
-  body.position.set(size.x / 2, size.y / 2, size.z / 2);
+  const depth = depthAxisForFacing(facing, size);
+  const r = Math.min(depth.perpSize.wide, depth.perpSize.tall) * 0.45;
+  // Issue #99 — body cylinder along the depth axis (was hardcoded to +Y;
+  // for any facing other than ±y the body was rendering vertical or sideways).
+  const body = cylinder(r, depth.length, '#222222', { segments: 32 });
+  alignCylinderToDepth(body, depth);
+  const [cx, cy, cz] = bboxCenter(size);
+  body.position.set(cx, cy, cz);
   g.add(body);
-  // Three-pin pattern hint
+  // Three-pin pattern at the FRONT face. Pins distribute on a circle in the
+  // plane perpendicular to the depth axis. Pin axis is parallel to the body.
+  const pinR = 0.6;
+  const pinLen = depth.length * 0.4;
+  const pinCircleR = r * 0.4;
   for (let i = 0; i < 3; i++) {
-    const angle = (Math.PI * 2 * i) / 3 - Math.PI / 2;
-    const px = size.x / 2 + Math.cos(angle) * r * 0.4;
-    const pz = size.z / 2 + Math.sin(angle) * r * 0.4;
-    const pin = cylinder(0.6, size.y * 0.4, '#d4af37');
-    pin.rotation.x = Math.PI / 2;
-    pin.position.set(px, size.y * 0.75, pz);
+    const theta = (Math.PI * 2 * i) / 3 - Math.PI / 2;
+    const u = Math.cos(theta) * pinCircleR;
+    const v = Math.sin(theta) * pinCircleR;
+    // Pin sits on the perpendicular plane at the FRONT face, inset by
+    // half its length so the pin extends out of the body face.
+    const [fx, fy, fz] = frontFaceCenter(facing, size, pinLen / 2);
+    let px = fx;
+    let py = fy;
+    let pz = fz;
+    // u,v offsets in the plane perpendicular to depth.axis.
+    if (depth.axis === 'x') {
+      // perpendicular plane = (y, z); wide=y, tall=z
+      py += u;
+      pz += v;
+    } else if (depth.axis === 'y') {
+      // perpendicular plane = (x, z); wide=x, tall=z
+      px += u;
+      pz += v;
+    } else {
+      // depth.axis === 'z'; perpendicular plane = (x, y)
+      px += u;
+      py += v;
+    }
+    const pin = cylinder(pinR, pinLen, '#d4af37');
+    alignCylinderToDepth(pin, depth);
+    pin.position.set(px, py, pz);
     g.add(pin);
   }
   return g;
@@ -280,19 +347,24 @@ const FIXTURE_ID_BUILDERS: Record<string, FixtureBuilder> = {
 /**
  * Resolve a fixture for a given kind / fixtureId. Returns null if neither has
  * a procedural builder; the caller should fall back to a plain coloured block.
+ *
+ * Issue #99 — `facing` defaults to '+y' (the historical canonical) so existing
+ * call sites that don't pass a facing keep their previous behavior on
+ * +y-facing components and now ALSO orient correctly for other facings.
  */
 export function buildFixture(
   kind: ComponentKind,
   size: FixtureSize,
   fixtureId?: string,
+  facing: Facing = '+y',
 ): THREE.Group | null {
   if (size.x <= 0 || size.y <= 0 || size.z <= 0) return null;
   if (fixtureId && FIXTURE_ID_BUILDERS[fixtureId]) {
-    return FIXTURE_ID_BUILDERS[fixtureId]!(size);
+    return FIXTURE_ID_BUILDERS[fixtureId]!(size, facing);
   }
   const builder = KIND_BUILDERS[kind];
   if (!builder) return null;
-  return builder(size);
+  return builder(size, facing);
 }
 
 export function listProceduralKinds(): ComponentKind[] {
