@@ -5,7 +5,7 @@ import type {
   HatProfile,
 } from '@/types';
 import type { MountingFeature } from '@/types/mounting';
-import { axisCylinder, cube, cylinder, rotate, translate, type BuildOp } from './buildPlan';
+import { axisCylinder, cube, cylinder, mesh, rotate, translate, type BuildOp } from './buildPlan';
 import type { Facing } from '@/types';
 import { computeShellDims } from './caseShell';
 import { faceFrame, type FaceFrame } from '@/engine/coords';
@@ -370,10 +370,96 @@ function generateEndFlange(
   // Suppress unused-var warning when only some branches use these.
   void outLetter;
   void outSign;
+
+  // Issue #80 (slice 4) — optional reinforcing rib on top of the plate. The
+  // rib is a triangular prism: vertical leg along the wall (height = ribH),
+  // horizontal leg along the plate top (length = ribL), hypotenuse running
+  // from the outboard end at plate-top up to the wall at plate-top+ribH.
+  // Default ribEnabled=true so the user gets stiffer flanges without opting
+  // in; pass `ribEnabled: 0` (or any falsy number) in params to disable.
+  const ribEnabled = num(feature.params, 'ribEnabled', 1) !== 0;
+  const additive: BuildOp[] = [rect, cap];
+  if (ribEnabled) {
+    const ribL = num(feature.params, 'ribLength', projection * 0.7);
+    const ribH = num(feature.params, 'ribHeight', projection * 0.5);
+    const ribT = num(feature.params, 'ribThickness', Math.max(2, caseParams.wallThickness));
+    additive.push(buildRibGusset(frame, feature, ribL, ribH, ribT, thickness));
+  }
+
   return {
-    additive: [rect, cap],
+    additive,
     subtractive: [translate(holePos, hole)],
   };
+}
+
+/**
+ * Triangular-prism reinforcing rib that sits on top of the end-flange plate
+ * and leans against the wall. Issue #80 — stiffens the flange against bolt
+ * torque, mirroring the gusset on commercial enclosures (Hammond / Polycase).
+ */
+function buildRibGusset(
+  frame: FaceFrame,
+  feature: MountingFeature,
+  ribLength: number,
+  ribHeight: number,
+  ribThickness: number,
+  plateThickness: number,
+): BuildOp {
+  // Face-local triangular prism profile (in n-v plane), extruded along u
+  // by ribThickness, centered at u=0 (the plate's u-axis center).
+  // Triangle vertices (n, v):
+  //   A: (0, vTop)             — wall, at plate-top level
+  //   B: (ribLength, vTop)     — outboard end, at plate-top level
+  //   C: (0, vTop + ribHeight) — wall, top of rib
+  // Where vTop = plateThickness / 2 (top face of plate above plate center).
+  const vTop = plateThickness / 2;
+  const tu = ribThickness / 2;
+  const positions: number[] = [];
+  function pushVert(uOff: number, nOff: number, vOff: number): void {
+    positions.push(
+      frame.origin[0] +
+        frame.uAxis[0] * (feature.position.u + uOff) +
+        frame.outwardAxis[0] * nOff +
+        frame.vAxis[0] * (feature.position.v + vOff),
+      frame.origin[1] +
+        frame.uAxis[1] * (feature.position.u + uOff) +
+        frame.outwardAxis[1] * nOff +
+        frame.vAxis[1] * (feature.position.v + vOff),
+      frame.origin[2] +
+        frame.uAxis[2] * (feature.position.u + uOff) +
+        frame.outwardAxis[2] * nOff +
+        frame.vAxis[2] * (feature.position.v + vOff),
+    );
+  }
+  // Front cap (u = -tu): A=0, B=1, C=2
+  pushVert(-tu, 0, vTop);
+  pushVert(-tu, ribLength, vTop);
+  pushVert(-tu, 0, vTop + ribHeight);
+  // Back cap (u = +tu): A=3, B=4, C=5
+  pushVert(+tu, 0, vTop);
+  pushVert(+tu, ribLength, vTop);
+  pushVert(+tu, 0, vTop + ribHeight);
+  // Triangles wound CCW from outside the prism. The wall side (n=0) is
+  // unioned with the case shell so its winding is for outward-facing normal
+  // (away from the wall material into the rib body — i.e. -n direction
+  // would be into the wall; we want the EXPOSED rib face). Manifold's union
+  // handles fusion regardless, but valid manifold-ness requires every
+  // triangle wound consistently outward.
+  const indices: number[] = [
+    // Front cap (u = -tu, normal -u, CCW from -u view): A C B
+    0, 2, 1,
+    // Back cap (u = +tu, normal +u, CCW from +u view): A B C
+    3, 4, 5,
+    // Wall side (n=0, normal -n outward): A → A' → C' → C
+    // 0 → 3 → 5 → 2 wound CCW from -n view (looking toward +n from inside cavity)
+    0, 3, 5,  0, 5, 2,
+    // Plate-top side (v=vTop, normal -v outward): A → B → B' → A'
+    // 0 → 1 → 4 → 3 wound CCW from -v view (looking up toward the plate top)
+    0, 1, 4,  0, 4, 3,
+    // Hypotenuse (B → C → C' → B'): 1 → 2 → 5 → 4 — outward normal +n+v
+    1, 2, 5,  1, 5, 4,
+  ];
+  return mesh(new Float32Array(positions), new Uint32Array(indices));
 }
 
 /**

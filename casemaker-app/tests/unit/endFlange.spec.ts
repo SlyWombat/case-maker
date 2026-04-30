@@ -70,14 +70,25 @@ describe('end-flange geometry (#80, slice 3)', () => {
     expect(anyNegY, 'at least one -y flange should extend in -Y past origin').toBe(true);
   });
 
-  it('every flange produces both an additive plate and a subtractive bolt hole', () => {
+  it('every flange produces additive plate + cap + rib gusset and a subtractive bolt hole', () => {
     const project = createDefaultProject('rpi-4b');
     const dims = computeShellDims(project.board, project.case);
     const features = endFlangesPreset(dims.outerX, dims.outerY, dims.outerZ);
     const ops = buildMountingFeatureOps(features, project.board, project.case);
-    // Each flange = rect + cap (2 additive ops) + 1 hole = 2 add, 1 sub.
-    expect(ops.additive.length).toBe(features.length * 2);
+    // Each flange = rect + cap + rib (3 additive ops) + 1 hole = 3 add, 1 sub.
+    expect(ops.additive.length).toBe(features.length * 3);
     expect(ops.subtractive.length).toBe(features.length);
+  });
+
+  it('disabling the rib drops the rib op (params.ribEnabled = 0) — back to rect+cap only', () => {
+    const project = createDefaultProject('rpi-4b');
+    const dims = computeShellDims(project.board, project.case);
+    const features = endFlangesPreset(dims.outerX, dims.outerY, dims.outerZ).map((f) => ({
+      ...f,
+      params: { ...f.params, ribEnabled: 0 },
+    }));
+    const ops = buildMountingFeatureOps(features, project.board, project.case);
+    expect(ops.additive.length).toBe(features.length * 2);
   });
 
   it('disabling all flanges produces zero additive / subtractive ops', () => {
