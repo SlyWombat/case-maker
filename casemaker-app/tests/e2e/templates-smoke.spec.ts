@@ -48,13 +48,10 @@ const TEMPLATE_IDS = [
  */
 
 const KNOWN_BROKEN: Record<string, number> = {
-  // Filled in by the initial run of this harness (#88). Each value is the
-  // bug-issue id; remove the entry once the fix lands so the hard assertion
-  // re-engages as a regression net.
-  //
-  // #90 — snap-fit-test ships shell.componentCount === 5; the cantilever
-  // catches break loose from the wall on the small snap-test-fixture board.
-  'snap-fit-test': 90,
+  // Empty — every template currently passes the harness.
+  // Add an entry { '<template-id>': <issue-number> } when a template
+  // regression is filed and tracked but the fix hasn't landed yet.
+  // (#90 — previously here for snap-fit-test loose pieces, fixed by 133f79a.)
 };
 
 interface TemplateResult {

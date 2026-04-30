@@ -23,12 +23,23 @@ export type ViewportSelection =
   | { kind: 'hat'; hatPlacementId: string }
   | null;
 
+// Issue #91 — 4-way view-mode picker that drives lid lift + per-mesh
+// rendering:
+//   complete  : lid sits assembled (no exploded gap; recessed lid drops in)
+//   exploded  : lid lifted by max(deepest_lid_protrusion + 2 mm, 6) so no
+//               two pieces overlap
+//   base-only : only the case shell renders
+//   lid-only  : only the lid renders
+// Default 'exploded' so first-load behavior matches the pre-#91 lift hack.
+export type ViewportViewMode = 'complete' | 'exploded' | 'base-only' | 'lid-only';
+
 interface PersistedViewportFlags {
   showLid?: boolean;
   showBoard?: boolean;
   showGrid?: boolean;
   activeTool?: ViewportTool;
   cameraMode?: ViewportCameraMode;
+  viewMode?: ViewportViewMode;
 }
 
 function loadPersisted(): PersistedViewportFlags {
@@ -55,6 +66,7 @@ function savePersisted(flags: PersistedViewportFlags): void {
   if (flags.showGrid !== undefined) out.showGrid = flags.showGrid;
   if (flags.activeTool !== undefined) out.activeTool = flags.activeTool;
   if (flags.cameraMode !== undefined) out.cameraMode = flags.cameraMode;
+  if (flags.viewMode !== undefined) out.viewMode = flags.viewMode;
   try {
     localStorage.setItem(LS_KEY, JSON.stringify(out));
   } catch {
@@ -71,6 +83,8 @@ export interface ViewportState {
   cameraMode: ViewportCameraMode;
   /** Issue #83 — host PCB / HAT in-viewport selection. */
   selection: ViewportSelection;
+  /** Issue #91 — 4-way view-mode picker. */
+  viewMode: ViewportViewMode;
   setShowLid: (v: boolean) => void;
   setShowBoard: (v: boolean) => void;
   setShowGrid: (v: boolean) => void;
@@ -79,6 +93,7 @@ export interface ViewportState {
   setActiveTool: (t: ViewportTool) => void;
   setCameraMode: (m: ViewportCameraMode) => void;
   setSelection: (s: ViewportSelection) => void;
+  setViewMode: (m: ViewportViewMode) => void;
 }
 
 const persisted = loadPersisted();
@@ -90,6 +105,7 @@ export const useViewportStore = create<ViewportState>()((set, get) => ({
   selectedPortId: null,
   activeTool: persisted.activeTool ?? 'orbit',
   cameraMode: persisted.cameraMode ?? 'perspective',
+  viewMode: persisted.viewMode ?? 'exploded',
   // Issue #83 — selection is session-scoped. Intentionally NOT loaded from
   // (or written to) localStorage so opening a project never resurrects a
   // stale selection that points at a HAT placement that may no longer
@@ -122,4 +138,11 @@ export const useViewportStore = create<ViewportState>()((set, get) => ({
     savePersisted({ ...get(), cameraMode: m });
   },
   setSelection: (s) => set({ selection: s }),
+  setViewMode: (m) => {
+    // Issue #91 — keep showLid in sync with the view mode for legacy
+    // consumers that still gate on showLid (export layouts etc.). The
+    // 4-way picker is the source of truth; showLid mirrors it.
+    set({ viewMode: m, showLid: m !== 'base-only' });
+    savePersisted({ ...get(), viewMode: m, showLid: m !== 'base-only' });
+  },
 }));

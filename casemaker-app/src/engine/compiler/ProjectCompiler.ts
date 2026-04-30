@@ -109,9 +109,12 @@ export function compileProject(project: Project): BuildPlan {
     lidOp = union([lidOp, ...snapOps.lidAdd]);
   }
   const lidDims = computeLidDims(board, caseParams, hats ?? [], resolveHat);
+  // Issue #91 — lid is emitted at its ASSEMBLED Z position. The scene layer
+  // (SceneMeshes) applies the exploded lift dynamically based on viewMode,
+  // so toggling Complete / Exploded doesn't require a full recompile.
   nodes.push({
     id: 'lid',
-    op: translate([0, 0, lidDims.zPosition + lidDims.liftAboveShell], lidOp),
+    op: translate([0, 0, lidDims.zPosition], lidOp),
   });
 
   const placementReport = validatePlacements(project);

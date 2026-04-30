@@ -3,6 +3,7 @@ import {
   useViewportStore,
   type ViewportTool,
   type ViewportCameraMode,
+  type ViewportViewMode,
 } from '@/store/viewportStore';
 
 /**
@@ -31,6 +32,13 @@ const CAMERAS: { id: ViewportCameraMode; label: string; shortcut: string }[] = [
   { id: 'side', label: 'Side', shortcut: '4' },
 ];
 
+const VIEW_MODES: { id: ViewportViewMode; label: string; shortcut: string; hint: string }[] = [
+  { id: 'complete', label: 'Complete', shortcut: 'Shift+1', hint: 'Lid assembled — no exploded gap' },
+  { id: 'exploded', label: 'Exploded', shortcut: 'Shift+2', hint: 'Lid lifted clear of all protrusions' },
+  { id: 'base-only', label: 'Base', shortcut: 'Shift+3', hint: 'Hide the lid, show only the case' },
+  { id: 'lid-only', label: 'Lid', shortcut: 'Shift+4', hint: 'Hide the case, show only the lid' },
+];
+
 function isInputFocused(): boolean {
   const el = document.activeElement;
   if (!el) return false;
@@ -43,9 +51,11 @@ function isInputFocused(): boolean {
 export function ViewportToolbar() {
   const activeTool = useViewportStore((s) => s.activeTool);
   const cameraMode = useViewportStore((s) => s.cameraMode);
+  const viewMode = useViewportStore((s) => s.viewMode);
   const showBoard = useViewportStore((s) => s.showBoard);
   const setActiveTool = useViewportStore((s) => s.setActiveTool);
   const setCameraMode = useViewportStore((s) => s.setCameraMode);
+  const setViewMode = useViewportStore((s) => s.setViewMode);
 
   // Keyboard shortcuts. Skip when the user is typing into a panel field.
   useEffect(() => {
@@ -53,6 +63,17 @@ export function ViewportToolbar() {
       if (isInputFocused()) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const k = e.key.toLowerCase();
+      // Issue #91 — Shift+1..4 cycle view modes (Complete / Exploded /
+      // Base / Lid). Plain 1..4 stay reserved for camera-mode snap.
+      if (e.shiftKey) {
+        if (k === '1' || e.key === '!') setViewMode('complete');
+        else if (k === '2' || e.key === '@') setViewMode('exploded');
+        else if (k === '3' || e.key === '#') setViewMode('base-only');
+        else if (k === '4' || e.key === '$') setViewMode('lid-only');
+        else return;
+        e.preventDefault();
+        return;
+      }
       if (k === 's') {
         if (showBoard) setActiveTool('select');
       } else if (k === 'p') {
@@ -74,7 +95,7 @@ export function ViewportToolbar() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [setActiveTool, setCameraMode, showBoard]);
+  }, [setActiveTool, setCameraMode, setViewMode, showBoard]);
 
   return (
     <div className="viewport-toolbar" data-testid="viewport-toolbar">
@@ -125,6 +146,30 @@ export function ViewportToolbar() {
               data-testid={`viewport-camera-${c.id}`}
             >
               {c.label}
+            </button>
+          );
+        })}
+      </div>
+      <div
+        className="viewport-toolbar__group"
+        role="radiogroup"
+        aria-label="View mode"
+      >
+        {VIEW_MODES.map((v) => {
+          const active = viewMode === v.id;
+          return (
+            <button
+              key={v.id}
+              type="button"
+              className={`viewport-toolbar__btn viewport-toolbar__btn--text${active ? ' viewport-toolbar__btn--active' : ''}`}
+              onClick={() => setViewMode(v.id)}
+              role="radio"
+              aria-checked={active}
+              aria-label={v.label}
+              title={`${v.hint} (${v.shortcut})`}
+              data-testid={`viewport-view-${v.id}`}
+            >
+              {v.label}
             </button>
           );
         })}

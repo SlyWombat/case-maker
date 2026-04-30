@@ -34,14 +34,44 @@ function NodeMesh({ id, color, opacity = 1 }: NodeMeshProps) {
   );
 }
 
+/**
+ * Issue #91 — exploded-lift formula. Targets a 2 mm gap between the deepest
+ * lid-attached protrusion (snap arm tip, lid post tip, etc.) and the
+ * shell's top surface. Reads bboxes from the worker output, so the gap is
+ * always large enough for the actual geometry. Fallback to 8 mm when stats
+ * aren't available yet (first frame, before the worker reports).
+ */
+function useExplodedLift(): number {
+  const shell = useJobStore((s) => s.nodes.get('shell'));
+  const lid = useJobStore((s) => s.nodes.get('lid'));
+  if (!shell || !lid) return 8;
+  const shellTopZ = shell.stats.bbox.max[2];
+  const lidBottomZ = lid.stats.bbox.min[2];
+  // Required lift to put lidBottomZ + lift >= shellTopZ + 2.
+  return Math.max(shellTopZ + 2 - lidBottomZ, 6);
+}
+
 export function SceneMeshes() {
-  const showLid = useViewportStore((s) => s.showLid);
+  const viewMode = useViewportStore((s) => s.viewMode);
+  const explodedLift = useExplodedLift();
+  // Issue #91 — view-mode dispatch:
+  //   complete  : lid at assembled Z (no lift)
+  //   exploded  : dynamic lift to clear deepest lid feature
+  //   base-only : lid hidden
+  //   lid-only  : shell hidden, lid at assembled Z
+  const showShell = viewMode !== 'lid-only';
+  const showLidMesh = viewMode !== 'base-only';
+  const lift = viewMode === 'exploded' ? explodedLift : 0;
   return (
     <group>
-      <NodeMesh id="shell" color="#88a4cc" opacity={0.55} />
-      {showLid && <NodeMesh id="lid" color="#a8b8d0" opacity={0.6} />}
-      <BoardPlaceholderMesh />
-      <HatPlaceholderMeshes />
+      {showShell && <NodeMesh id="shell" color="#88a4cc" opacity={0.55} />}
+      {showLidMesh && (
+        <group position={[0, 0, lift]}>
+          <NodeMesh id="lid" color="#a8b8d0" opacity={0.6} />
+        </group>
+      )}
+      {showShell && <BoardPlaceholderMesh />}
+      {showShell && <HatPlaceholderMeshes />}
       <ExternalAssetMeshes />
       <PortMarkers />
     </group>
