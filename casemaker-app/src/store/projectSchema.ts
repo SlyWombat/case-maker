@@ -129,7 +129,20 @@ const hatPlacementSchema = z.object({
 
 const mountingFeatureSchema = z.object({
   id: z.string(),
-  type: z.enum(['screw-tab', 'zip-tie-slot', 'vesa-mount']),
+  type: z.enum([
+    // Issue #80 — extended type set. Internal mounts live on the cavity
+    // floor; external mounts extrude past the case envelope.
+    'screw-tab',
+    'end-flange',
+    'zip-tie-slot',
+    'vesa-mount',
+    'aligned-standoff',
+    'saddle',
+  ]),
+  // Issue #80 — required field. .default('external') so v5-vintage
+  // entries (no mountClass on disk) load with the right class — every
+  // pre-#80 mounting type is external by definition.
+  mountClass: z.enum(['external', 'internal']).default('external'),
   face: z.enum(['+x', '-x', '+y', '-y', '+z', '-z']),
   position: z.object({ u: z.number(), v: z.number() }),
   rotation: z.number(),
@@ -274,13 +287,29 @@ const projectV5Schema = z.object({
   antennas: z.array(antennaPlacementSchema),
 });
 
+// Issue #80 — v6 differs from v5 only in that mountingFeatures items now
+// REQUIRE `mountClass`. The schema's .default('external') already fills
+// missing values on parse, so the wire-format change is technically
+// backwards-compatible; the version bump is bookkeeping for "this project
+// understands the internal/external split."
+const projectV6Schema = projectV5Schema.extend({
+  schemaVersion: z.literal(6),
+});
+
 export const projectSchema = z
-  .union([projectV1Schema, projectV2Schema, projectV3Schema, projectV4Schema, projectV5Schema])
+  .union([
+    projectV1Schema,
+    projectV2Schema,
+    projectV3Schema,
+    projectV4Schema,
+    projectV5Schema,
+    projectV6Schema,
+  ])
   .transform((p) => {
     if (p.schemaVersion === 1) {
       return {
         ...p,
-        schemaVersion: 5 as const,
+        schemaVersion: 6 as const,
         hats: [],
         customHats: [],
         mountingFeatures: [],
@@ -294,7 +323,7 @@ export const projectSchema = z
     if (p.schemaVersion === 2) {
       return {
         ...p,
-        schemaVersion: 5 as const,
+        schemaVersion: 6 as const,
         mountingFeatures: [],
         display: null,
         customDisplays: [],
@@ -306,7 +335,7 @@ export const projectSchema = z
     if (p.schemaVersion === 3) {
       return {
         ...p,
-        schemaVersion: 5 as const,
+        schemaVersion: 6 as const,
         fanMounts: [],
         textLabels: [],
         antennas: [],
@@ -315,9 +344,14 @@ export const projectSchema = z
     if (p.schemaVersion === 4) {
       return {
         ...p,
-        schemaVersion: 5 as const,
+        schemaVersion: 6 as const,
         antennas: [],
       };
+    }
+    if (p.schemaVersion === 5) {
+      // mountingFeatures items already have mountClass filled by the
+      // mountingFeatureSchema default at parse time; just stamp the version.
+      return { ...p, schemaVersion: 6 as const };
     }
     return p;
   });

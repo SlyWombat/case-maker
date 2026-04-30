@@ -50,7 +50,7 @@ export function createDefaultProject(boardId = DEFAULT_BOARD_ID): Project {
   if (!board) throw new Error(`Unknown built-in board: ${boardId}`);
   const now = new Date(0).toISOString();
   return {
-    schemaVersion: 5,
+    schemaVersion: 6,
     id: newId('proj'),
     name: `${board.name} Case`,
     createdAt: now,
@@ -662,6 +662,7 @@ export const useProjectStore = create<ProjectState>()(
                 draft.mountingFeatures.push({
                   id: `${presetId}-${newId()}`,
                   type: 'vesa-mount',
+                  mountClass: 'external',
                   face: '+y',
                   position: { u: dims.outerX / 2, v: dims.outerZ / 2 },
                   rotation: 0,

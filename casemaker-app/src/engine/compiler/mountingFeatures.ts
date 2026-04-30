@@ -218,6 +218,7 @@ export function fourCornerScrewTabs(
   return positions.map((p, i) => ({
     id: `${presetId}-${i}`,
     type: 'screw-tab' as const,
+    mountClass: 'external' as const,
     face: '-z' as const,
     position: { u: p[0], v: p[1] },
     rotation: 0,
