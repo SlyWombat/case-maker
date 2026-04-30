@@ -64,7 +64,11 @@ export function computeLidDims(
       y: recess.pocketY - 2 * recess.clearance,
       z: params.lidThickness,
       zPosition: dims.outerZ - params.lidThickness,
-      liftAboveShell: 2,
+      // Issue #79 — when the lid is recessed it sits IN a pocket flush with
+      // the rim, so a 2 mm exploded gap is hard to read at default zoom.
+      // Lift further (6 mm) so the user can see the rim, the shelf, and the
+      // floating lid as three distinct surfaces.
+      liftAboveShell: 6,
     };
   }
   return {
