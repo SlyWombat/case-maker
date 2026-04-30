@@ -233,31 +233,41 @@ export function BoardEditorPanel() {
           {board.mountingHoles.map((h) => (
             <tr key={h.id}>
               <td>
-                <NumInput
-                  value={h.x}
-                  onChange={(v) => patchHole(h.id, { x: v })}
-                  testId={`hole-${h.id}-x`}
-                  ariaLabel={`Mounting hole ${h.id} X (mm)`}
-                  title={`Mounting hole ${h.id} — position X (mm)`}
-                />
+                <label className="cell-label">
+                  <span className="cell-label__row">{h.id}</span>
+                  <span className="cell-label__axis">X</span>
+                  <NumInput
+                    value={h.x}
+                    onChange={(v) => patchHole(h.id, { x: v })}
+                    testId={`hole-${h.id}-x`}
+                    ariaLabel={`Mounting hole ${h.id} X (mm)`}
+                    title={`Mounting hole ${h.id} — position X (mm)`}
+                  />
+                </label>
               </td>
               <td>
-                <NumInput
-                  value={h.y}
-                  onChange={(v) => patchHole(h.id, { y: v })}
-                  testId={`hole-${h.id}-y`}
-                  ariaLabel={`Mounting hole ${h.id} Y (mm)`}
-                  title={`Mounting hole ${h.id} — position Y (mm)`}
-                />
+                <label className="cell-label">
+                  <span className="cell-label__axis">Y</span>
+                  <NumInput
+                    value={h.y}
+                    onChange={(v) => patchHole(h.id, { y: v })}
+                    testId={`hole-${h.id}-y`}
+                    ariaLabel={`Mounting hole ${h.id} Y (mm)`}
+                    title={`Mounting hole ${h.id} — position Y (mm)`}
+                  />
+                </label>
               </td>
               <td>
-                <NumInput
-                  value={h.diameter}
-                  onChange={(v) => patchHole(h.id, { diameter: v })}
-                  testId={`hole-${h.id}-d`}
-                  ariaLabel={`Mounting hole ${h.id} diameter (mm)`}
-                  title={`Mounting hole ${h.id} — drill diameter (mm)`}
-                />
+                <label className="cell-label">
+                  <span className="cell-label__axis">Ø</span>
+                  <NumInput
+                    value={h.diameter}
+                    onChange={(v) => patchHole(h.id, { diameter: v })}
+                    testId={`hole-${h.id}-d`}
+                    ariaLabel={`Mounting hole ${h.id} diameter (mm)`}
+                    title={`Mounting hole ${h.id} — drill diameter (mm)`}
+                  />
+                </label>
               </td>
               <td>
                 <button

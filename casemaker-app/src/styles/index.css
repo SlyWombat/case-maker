@@ -353,29 +353,35 @@ body, html, #root {
   font-style: italic;
   margin: 2px 0;
 }
-/* Issue #89 follow-up — visible column headers above feature rows so
-   sighted users identify each per-row input without hovering. */
-.features-row--header {
+/* Issue #89 follow-up — every per-cell input gets a visible inline mini-label
+   (e.g. "X" / "Y" / "Ø" for mounting holes, "wall" / "u (mm)" for snap
+   catches). The wrapping <label> also gives every input a programmatic
+   association without needing aria-labelledby plumbing. */
+.cell-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
   font-family: var(--cm-font-mono);
   font-size: 10px;
   color: var(--cm-color-on-surface-muted);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  border-bottom: var(--cm-border-1);
-  padding-bottom: 2px;
-  margin-bottom: 2px;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
 }
-.features-col {
+.cell-label__axis {
+  flex: 0 0 auto;
+}
+.cell-label__row {
+  flex: 0 0 auto;
+  margin-right: 6px;
+  text-transform: none;
+  color: var(--cm-color-on-surface-variant);
+  font-weight: 600;
+}
+.cell-label > input,
+.cell-label > select {
   flex: 1;
   min-width: 0;
-}
-.features-col--check {
-  flex: 0 0 auto;
-  width: 18px;
-}
-.features-col--remove {
-  flex: 0 0 auto;
-  width: 22px;
 }
 
 .port-editor-row {

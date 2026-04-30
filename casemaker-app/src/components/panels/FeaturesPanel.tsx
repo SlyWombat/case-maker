@@ -574,77 +574,80 @@ function SnapCatchesSection() {
         </button>
       </h4>
       {catches.length === 0 && <p className="features-empty">No catches.</p>}
-      {catches.length > 0 && (
-        <div className="features-row features-row--header" aria-hidden="true">
-          <span className="features-col features-col--check">on</span>
-          <span className="features-col">wall</span>
-          <span className="features-col">u (mm)</span>
-          <span className="features-col">barb</span>
-          <span className="features-col">arm on</span>
-          <span className="features-col features-col--remove" />
-        </div>
-      )}
       {catches.map((c) => (
         <div key={c.id} className="features-row" title={`Catch ${c.id} on wall ${c.wall}`}>
-          <input
-            type="checkbox"
-            checked={c.enabled}
-            onChange={(e) => patchSnapCatch(c.id, { enabled: e.target.checked })}
-            aria-label={`Snap catch ${c.id} enabled`}
-            title="Toggle this snap catch on/off."
-          />
-          <select
-            value={c.wall}
-            onChange={(e) => patchSnapCatch(c.id, { wall: e.target.value as SnapWall })}
-            aria-label={`Snap catch ${c.id} wall`}
-            title="Which wall the catch is on (±X / ±Y)."
-          >
-            {SNAP_WALLS.map((w) => (
-              <option key={w} value={w}>
-                {w}
-              </option>
-            ))}
-          </select>
-          <input
-            type="number"
-            value={c.uPosition}
-            step={1}
-            onChange={(e) => patchSnapCatch(c.id, { uPosition: Number(e.target.value) })}
-            style={{ width: 60 }}
-            aria-label={`Snap catch ${c.id} U position (mm)`}
-            title="U position along the wall (mm) — distance from the wall's start corner."
-          />
-          {/* Issue #69 — barb cross-section selector. Default 'hook' matches
-              the pre-#69 geometry so older projects render unchanged. */}
-          <select
-            value={c.barbType ?? 'hook'}
-            onChange={(e) => patchSnapCatch(c.id, { barbType: e.target.value as BarbType })}
-            data-testid={`snap-barb-type-${c.id}`}
-            aria-label={`Snap catch ${c.id} barb type`}
-            title="Barb cross-section — 'hook' is the classic engagement profile, others vary in retention force."
-          >
-            {BARB_TYPES.map((b) => (
-              <option key={b} value={b}>
-                {b}
-              </option>
-            ))}
-          </select>
-          {/* Issue #64 — which part holds the flexing cantilever. Engine
-              still treats 'case' as 'lid' geometry (follow-up). */}
-          <select
-            value={c.cantileverOn ?? 'lid'}
-            onChange={(e) =>
-              patchSnapCatch(c.id, {
-                cantileverOn: e.target.value as 'lid' | 'case',
-              })
-            }
-            data-testid={`snap-cantilever-on-${c.id}`}
-            aria-label={`Snap catch ${c.id} cantilever location`}
-            title="Which part flexes — lid or case. Tradeoff: lid-arm hides better; case-arm is stronger."
-          >
-            <option value="lid">arm on lid</option>
-            <option value="case">arm on case</option>
-          </select>
+          <label className="cell-label" title="Toggle this snap catch on/off.">
+            <span className="cell-label__axis">on</span>
+            <input
+              type="checkbox"
+              checked={c.enabled}
+              onChange={(e) => patchSnapCatch(c.id, { enabled: e.target.checked })}
+              aria-label={`Snap catch ${c.id} enabled`}
+            />
+          </label>
+          <label className="cell-label">
+            <span className="cell-label__axis">wall</span>
+            <select
+              value={c.wall}
+              onChange={(e) => patchSnapCatch(c.id, { wall: e.target.value as SnapWall })}
+              aria-label={`Snap catch ${c.id} wall`}
+              title="Which wall the catch is on (±X / ±Y)."
+            >
+              {SNAP_WALLS.map((w) => (
+                <option key={w} value={w}>
+                  {w}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="cell-label">
+            <span className="cell-label__axis">u (mm)</span>
+            <input
+              type="number"
+              value={c.uPosition}
+              step={1}
+              onChange={(e) => patchSnapCatch(c.id, { uPosition: Number(e.target.value) })}
+              style={{ width: 60 }}
+              className="numeric-input"
+              aria-label={`Snap catch ${c.id} U position (mm)`}
+              title="U position along the wall (mm) — distance from the wall's start corner."
+            />
+          </label>
+          {/* Issue #69 — barb cross-section selector. */}
+          <label className="cell-label">
+            <span className="cell-label__axis">barb</span>
+            <select
+              value={c.barbType ?? 'hook'}
+              onChange={(e) => patchSnapCatch(c.id, { barbType: e.target.value as BarbType })}
+              data-testid={`snap-barb-type-${c.id}`}
+              aria-label={`Snap catch ${c.id} barb type`}
+              title="Barb cross-section — 'hook' is the classic engagement profile, others vary in retention force."
+            >
+              {BARB_TYPES.map((b) => (
+                <option key={b} value={b}>
+                  {b}
+                </option>
+              ))}
+            </select>
+          </label>
+          {/* Issue #64 — which part holds the flexing cantilever. */}
+          <label className="cell-label">
+            <span className="cell-label__axis">arm</span>
+            <select
+              value={c.cantileverOn ?? 'lid'}
+              onChange={(e) =>
+                patchSnapCatch(c.id, {
+                  cantileverOn: e.target.value as 'lid' | 'case',
+                })
+              }
+              data-testid={`snap-cantilever-on-${c.id}`}
+              aria-label={`Snap catch ${c.id} cantilever location`}
+              title="Which part flexes — lid or case. Tradeoff: lid-arm hides better; case-arm is stronger."
+            >
+              <option value="lid">on lid</option>
+              <option value="case">on case</option>
+            </select>
+          </label>
           <button
             onClick={() => removeSnapCatch(c.id)}
             title="Remove this snap catch"
