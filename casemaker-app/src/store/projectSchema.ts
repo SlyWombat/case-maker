@@ -175,6 +175,13 @@ const displayPlacementSchema = z.object({
   enabled: z.boolean(),
 });
 
+// Issue #54 — schema authoring uses .extend() chains instead of redeclaring
+// the full field set per version. Each version adds (or shadows) what's new
+// since the previous; v1 carries the common fields, every later vN extends
+// vN-1. Keeps the diff between versions surgical and prevents copy-paste
+// drift when a field gets renamed (the original v1..v5 redeclaration style
+// hid that drift).
+
 const projectV1Schema = z.object({
   schemaVersion: z.literal(1),
   id: z.string(),
@@ -187,32 +194,14 @@ const projectV1Schema = z.object({
   externalAssets: z.array(externalAssetSchema),
 });
 
-const projectV2Schema = z.object({
+const projectV2Schema = projectV1Schema.extend({
   schemaVersion: z.literal(2),
-  id: z.string(),
-  name: z.string(),
-  createdAt: z.string(),
-  modifiedAt: z.string(),
-  board: boardProfileSchema,
-  case: caseParamsSchema,
-  ports: z.array(portPlacementSchema),
-  externalAssets: z.array(externalAssetSchema),
   hats: z.array(hatPlacementSchema),
   customHats: z.array(hatProfileSchema),
 });
 
-const projectV3Schema = z.object({
+const projectV3Schema = projectV2Schema.extend({
   schemaVersion: z.literal(3),
-  id: z.string(),
-  name: z.string(),
-  createdAt: z.string(),
-  modifiedAt: z.string(),
-  board: boardProfileSchema,
-  case: caseParamsSchema,
-  ports: z.array(portPlacementSchema),
-  externalAssets: z.array(externalAssetSchema),
-  hats: z.array(hatPlacementSchema),
-  customHats: z.array(hatProfileSchema),
   mountingFeatures: z.array(mountingFeatureSchema),
   display: displayPlacementSchema.nullable(),
   customDisplays: z.array(displayProfileSchema),
@@ -244,21 +233,8 @@ const textLabelSchema = z.object({
   attachedToPortId: z.string().optional(),
 });
 
-const projectV4Schema = z.object({
+const projectV4Schema = projectV3Schema.extend({
   schemaVersion: z.literal(4),
-  id: z.string(),
-  name: z.string(),
-  createdAt: z.string(),
-  modifiedAt: z.string(),
-  board: boardProfileSchema,
-  case: caseParamsSchema,
-  ports: z.array(portPlacementSchema),
-  externalAssets: z.array(externalAssetSchema),
-  hats: z.array(hatPlacementSchema),
-  customHats: z.array(hatProfileSchema),
-  mountingFeatures: z.array(mountingFeatureSchema),
-  display: displayPlacementSchema.nullable(),
-  customDisplays: z.array(displayProfileSchema),
   fanMounts: z.array(fanMountSchema),
   textLabels: z.array(textLabelSchema),
 });
@@ -271,23 +247,8 @@ const antennaPlacementSchema = z.object({
   uOffset: z.number().optional(),
 });
 
-const projectV5Schema = z.object({
+const projectV5Schema = projectV4Schema.extend({
   schemaVersion: z.literal(5),
-  id: z.string(),
-  name: z.string(),
-  createdAt: z.string(),
-  modifiedAt: z.string(),
-  board: boardProfileSchema,
-  case: caseParamsSchema,
-  ports: z.array(portPlacementSchema),
-  externalAssets: z.array(externalAssetSchema),
-  hats: z.array(hatPlacementSchema),
-  customHats: z.array(hatProfileSchema),
-  mountingFeatures: z.array(mountingFeatureSchema),
-  display: displayPlacementSchema.nullable(),
-  customDisplays: z.array(displayProfileSchema),
-  fanMounts: z.array(fanMountSchema),
-  textLabels: z.array(textLabelSchema),
   antennas: z.array(antennaPlacementSchema),
 });
 
