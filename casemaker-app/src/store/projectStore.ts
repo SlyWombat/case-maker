@@ -20,7 +20,7 @@ import { autoPortsForBoard } from '@/engine/compiler/portFactory';
 import { autoPortsForHat } from '@/engine/compiler/hats';
 import { defaultAntennasForBoard } from '@/engine/compiler/antennas';
 import { defaultSnapCatchesForCase } from '@/engine/compiler/snapCatches';
-import { fourCornerScrewTabs } from '@/engine/compiler/mountingFeatures';
+import { fourCornerScrewTabs, endFlangesPreset } from '@/engine/compiler/mountingFeatures';
 import { computeShellDims } from '@/engine/compiler/caseShell';
 import { caseParamsSchema } from '@/store/projectSchema';
 
@@ -157,7 +157,9 @@ export interface ProjectState {
   addCustomCutout: (cutout: import('@/types').CustomCutout) => void;
   removeCustomCutout: (cutoutId: string) => void;
   patchCustomCutout: (cutoutId: string, patch: Partial<import('@/types').CustomCutout>) => void;
-  applyMountingPreset: (presetId: 'four-corner-screw-tabs' | 'rear-vesa-100' | 'rear-vesa-75') => void;
+  applyMountingPreset: (
+    presetId: 'four-corner-screw-tabs' | 'rear-vesa-100' | 'rear-vesa-75' | 'pair-end-flanges-y' | 'pair-end-flanges-x',
+  ) => void;
   setDisplay: (displayId: string | null, framing?: import('@/types/display').DisplayFraming) => void;
   patchDisplay: (
     patch: Partial<import('@/types/display').DisplayPlacement>,
@@ -656,6 +658,14 @@ export const useProjectStore = create<ProjectState>()(
               if (presetId === 'four-corner-screw-tabs') {
                 draft.mountingFeatures.push(
                   ...fourCornerScrewTabs(dims.outerX, dims.outerY),
+                );
+              } else if (presetId === 'pair-end-flanges-y') {
+                draft.mountingFeatures.push(
+                  ...endFlangesPreset(dims.outerX, dims.outerY, dims.outerZ, ['+y', '-y']),
+                );
+              } else if (presetId === 'pair-end-flanges-x') {
+                draft.mountingFeatures.push(
+                  ...endFlangesPreset(dims.outerX, dims.outerY, dims.outerZ, ['+x', '-x']),
                 );
               } else if (presetId === 'rear-vesa-100' || presetId === 'rear-vesa-75') {
                 const size = presetId === 'rear-vesa-100' ? 100 : 75;

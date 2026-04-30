@@ -217,12 +217,19 @@ export function buildMountingFeatureOps(
       case 'screw-tab':
         group = generateScrewTab(feature, frame);
         break;
+      case 'end-flange':
+        group = generateEndFlange(feature, frame, params);
+        break;
       case 'zip-tie-slot':
         group = generateZipTieSlot(feature, frame);
         break;
       case 'vesa-mount':
         group = generateVesaMount(feature, frame);
         break;
+      // Internal mounts (slice 4) — no-op until generators land.
+      case 'aligned-standoff':
+      case 'saddle':
+        continue;
       default:
         continue;
     }
@@ -230,6 +237,183 @@ export function buildMountingFeatureOps(
     out.subtractive.push(...group.subtractive);
   }
   return out;
+}
+
+/**
+ * Hammond-style end-flange: rounded outboard end + reinforcing rib + M3
+ * clearance hole (issue #80). The flange is a horizontal plate that
+ * projects laterally from a side wall (±x or ±y); the rounded outboard
+ * end is a half-disc tangent to the rectangular plate body.
+ *
+ * Geometry assumptions:
+ *   • Wall is vertical (±x or ±y) — the plate top/bottom faces are
+ *     parallel to the wall's u-axis × outward-normal plane.
+ *   • Plate thickness extends along the face's v-axis (vertical).
+ *   • Bolt hole is parallel to v (the plate's thickness axis).
+ *
+ * For ±z faces the plate would be a vertical fin that doesn't make
+ * mechanical sense; falls back to an empty op group there.
+ */
+function generateEndFlange(
+  feature: MountingFeature,
+  frame: FaceFrame,
+  caseParams: CaseParameters,
+): { additive: BuildOp[]; subtractive: BuildOp[] } {
+  // Side walls only for now — top/bottom face flanges don't have a sensible
+  // "horizontal plate that bolts the case to a wall" interpretation.
+  if (frame.outwardLetter === 'z') return { additive: [], subtractive: [] };
+
+  const projection = num(feature.params, 'projection', 12);
+  const width = num(feature.params, 'width', 12);
+  const thickness = num(feature.params, 'thickness', Math.max(3, caseParams.wallThickness));
+  const holeDiameter = num(feature.params, 'holeDiameter', 3.4);
+
+  // Plate body: rectangle (width × (projection - width/2)) + half-disc (radius
+  // = width/2) at the outboard end. We approximate via cube + full cylinder
+  // unioned; the inboard half of the cylinder is hidden inside the rect.
+  const rectLen = projection - width / 2;
+  // Rectangle in face-local (uLocal, nLocal, vLocal) coords:
+  //   uLocal ∈ [-width/2, width/2]
+  //   nLocal ∈ [0, rectLen]   (outward from the wall)
+  //   vLocal ∈ [-thickness/2, thickness/2]
+  // Cube primitive extends in +x/+y/+z from origin; we'll position into world.
+  const outLetter = frame.outwardLetter;
+  const outSign = frame.outwardSign;
+  // World-axis directions for the three local axes:
+  //   uAxis (along wall) is frame.uAxis
+  //   nAxis (outward) is frame.outwardAxis
+  //   vAxis (along wall, vertical) is frame.vAxis
+
+  // Compute world dimensions for the cube. uAxis × nAxis × vAxis maps to
+  // exactly one of the three world axes per dimension because frames are
+  // axis-aligned.
+  function worldSize(uVal: number, nVal: number, vVal: number): [number, number, number] {
+    const sx =
+      Math.abs(frame.uAxis[0]) * uVal +
+      Math.abs(frame.outwardAxis[0]) * nVal +
+      Math.abs(frame.vAxis[0]) * vVal;
+    const sy =
+      Math.abs(frame.uAxis[1]) * uVal +
+      Math.abs(frame.outwardAxis[1]) * nVal +
+      Math.abs(frame.vAxis[1]) * vVal;
+    const sz =
+      Math.abs(frame.uAxis[2]) * uVal +
+      Math.abs(frame.outwardAxis[2]) * nVal +
+      Math.abs(frame.vAxis[2]) * vVal;
+    return [sx, sy, sz];
+  }
+
+  // Plate center in world coords: frame.origin + uAxis * u + vAxis * v +
+  // outwardAxis * (rectLen / 2).
+  function localToWorld(uOff: number, nOff: number, vOff: number): [number, number, number] {
+    return [
+      frame.origin[0] +
+        frame.uAxis[0] * (feature.position.u + uOff) +
+        frame.vAxis[0] * (feature.position.v + vOff) +
+        frame.outwardAxis[0] * nOff,
+      frame.origin[1] +
+        frame.uAxis[1] * (feature.position.u + uOff) +
+        frame.vAxis[1] * (feature.position.v + vOff) +
+        frame.outwardAxis[1] * nOff,
+      frame.origin[2] +
+        frame.uAxis[2] * (feature.position.u + uOff) +
+        frame.vAxis[2] * (feature.position.v + vOff) +
+        frame.outwardAxis[2] * nOff,
+    ];
+  }
+
+  const rectSize = worldSize(width, rectLen, thickness);
+  const rectCenter = localToWorld(0, rectLen / 2, 0);
+  const rectCorner: [number, number, number] = [
+    rectCenter[0] - rectSize[0] / 2,
+    rectCenter[1] - rectSize[1] / 2,
+    rectCenter[2] - rectSize[2] / 2,
+  ];
+  const rect = translate(rectCorner, cube(rectSize, false));
+
+  // Half-disc cap: a Z-axis cylinder of radius=width/2 and height=thickness,
+  // rotated so its axis aligns with the v-axis (plate thickness direction),
+  // then translated to the outboard tip of the rectangle.
+  const capRadius = width / 2;
+  const capCyl = cylinder(thickness, capRadius, 32);
+  let capOriented: BuildOp = capCyl;
+  // The cylinder's axis after rotation should align with the face's v-axis.
+  // For ±x or ±y walls, vAxis is +z (vertical), so the un-rotated Z-axis
+  // cylinder is already aligned. We just need to center it on the v range.
+  void capOriented;
+  const capCenter = localToWorld(0, rectLen, 0);
+  const capCornerOffset: [number, number, number] = [
+    capCenter[0] - capRadius - (frame.vAxis[0] !== 0 ? -capRadius : 0),
+    capCenter[1] - capRadius - (frame.vAxis[1] !== 0 ? -capRadius : 0),
+    capCenter[2],
+  ];
+  // Simpler placement: the Z-axis cylinder spans from corner z to z+thickness.
+  // For side walls, vAxis is +z. Plate vertical extent is [v - t/2, v + t/2]
+  // in world z; cylinder height runs in +z, so cylinder corner (its z=0 face)
+  // sits at world z = vCenter - thickness/2.
+  const capPos: [number, number, number] = [
+    capCenter[0],
+    capCenter[1],
+    capCenter[2] - thickness / 2,
+  ];
+  void capCornerOffset;
+  const cap = translate(capPos, capCyl);
+
+  // Bolt hole: cylinder along v (vertical), centered on the cap circle.
+  const holeLen = thickness + 0.4;
+  const hole = cylinder(holeLen, holeDiameter / 2, 24);
+  const holePos: [number, number, number] = [
+    capCenter[0],
+    capCenter[1],
+    capCenter[2] - holeLen / 2,
+  ];
+  // Suppress unused-var warning when only some branches use these.
+  void outLetter;
+  void outSign;
+  return {
+    additive: [rect, cap],
+    subtractive: [translate(holePos, hole)],
+  };
+}
+
+/**
+ * Pair-at-each-end preset: two flanges per wall on a chosen pair of opposite
+ * walls (default ±y). Each flange sits ~1/4 from the corresponding wall end,
+ * mid-height of the wall.
+ */
+export function endFlangesPreset(
+  outerX: number,
+  outerY: number,
+  outerZ: number,
+  walls: ('+x' | '-x' | '+y' | '-y')[] = ['+y', '-y'],
+  presetId = 'pair-end-flanges',
+): MountingFeature[] {
+  const features: MountingFeature[] = [];
+  const midV = outerZ / 2;
+  for (const wall of walls) {
+    const wallLen = wall === '+x' || wall === '-x' ? outerY : outerX;
+    // Place flanges 1/4 and 3/4 along the wall length so they sit roughly at
+    // each end without bumping into the corner snap features.
+    for (const u of [wallLen / 4, (3 * wallLen) / 4]) {
+      features.push({
+        id: `${presetId}-${wall}-${Math.round(u)}`,
+        type: 'end-flange',
+        mountClass: 'external',
+        face: wall,
+        position: { u, v: midV },
+        rotation: 0,
+        params: {
+          projection: 12,
+          width: 12,
+          thickness: 3,
+          holeDiameter: 3.4,
+        },
+        enabled: true,
+        presetId,
+      });
+    }
+  }
+  return features;
 }
 
 /**

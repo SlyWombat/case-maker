@@ -310,6 +310,12 @@ function MountingSection() {
         <button onClick={() => applyPreset('four-corner-screw-tabs')}>
           + 4-corner tabs
         </button>
+        <button onClick={() => applyPreset('pair-end-flanges-y')} data-testid="preset-end-flanges-y">
+          + End flanges (front/back)
+        </button>
+        <button onClick={() => applyPreset('pair-end-flanges-x')} data-testid="preset-end-flanges-x">
+          + End flanges (left/right)
+        </button>
         <button onClick={() => applyPreset('rear-vesa-100')}>+ VESA 100</button>
         <button onClick={() => applyPreset('rear-vesa-75')}>+ VESA 75</button>
       </div>
