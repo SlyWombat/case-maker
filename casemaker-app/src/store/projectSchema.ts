@@ -5,7 +5,7 @@ import { displayProfileSchema } from '@/library/displaySchema';
 
 const xyzSchema = z.object({ x: z.number(), y: z.number(), z: z.number() });
 
-const caseParamsSchema = z.object({
+export const caseParamsSchema = z.object({
   wallThickness: z.number().positive(),
   floorThickness: z.number().positive(),
   lidThickness: z.number().positive(),

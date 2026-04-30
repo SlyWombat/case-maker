@@ -22,6 +22,7 @@ import { defaultAntennasForBoard } from '@/engine/compiler/antennas';
 import { defaultSnapCatchesForCase } from '@/engine/compiler/snapCatches';
 import { fourCornerScrewTabs } from '@/engine/compiler/mountingFeatures';
 import { computeShellDims } from '@/engine/compiler/caseShell';
+import { caseParamsSchema } from '@/store/projectSchema';
 
 const DEFAULT_BOARD_ID = 'rpi-4b';
 
@@ -187,9 +188,24 @@ export const useProjectStore = create<ProjectState>()(
         showWelcome: () => set({ project: createDefaultProject(), welcomeMode: true }),
         setProject: (p) => set({ project: p, welcomeMode: false }),
         patchCase: (patch) =>
-          set((s) => ({
+          set((s) => {
+            // Issue #56 — validate the patch against the case schema before
+            // committing. Rejects invalid writes (wrong type, removed enum
+            // values, out-of-range numbers) with a console error and a no-op.
+            const parsed = caseParamsSchema.partial().safeParse(patch);
+            if (!parsed.success) {
+              console.error(
+                '[patchCase] rejected invalid patch:',
+                parsed.error.issues,
+                'patch:',
+                patch,
+              );
+              return s;
+            }
+            const validPatch = parsed.data;
+            return {
             project: produce(s.project, (draft) => {
-              for (const [k, v] of Object.entries(patch) as [keyof CaseParameters, unknown][]) {
+              for (const [k, v] of Object.entries(validPatch) as [keyof CaseParameters, unknown][]) {
                 (draft.case as Record<string, unknown>)[k as string] = v;
               }
               // Auto-populate snap catches the first time joint flips to snap-fit (issue #29).
@@ -228,7 +244,8 @@ export const useProjectStore = create<ProjectState>()(
               }
               draft.modifiedAt = new Date(0).toISOString();
             }),
-          })),
+          };
+          }),
         loadBuiltinBoard: (boardId) =>
           set(() => ({ project: createDefaultProject(boardId), welcomeMode: false })),
         addPort: (port) =>
