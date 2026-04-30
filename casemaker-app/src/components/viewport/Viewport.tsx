@@ -5,7 +5,6 @@ import * as THREE from 'three';
 import { GridFloor } from './GridFloor';
 import { SceneMeshes } from './SceneMeshes';
 import { ViewportToolbar } from './ViewportToolbar';
-import { SelectionPanel } from './SelectionPanel';
 import { ensureZUp } from '@/engine/coords';
 import { useViewportStore, type ViewportCameraMode } from '@/store/viewportStore';
 
@@ -57,7 +56,6 @@ export function Viewport() {
   return (
     <div className="viewport-wrapper">
       <ViewportToolbar />
-      <SelectionPanel />
       <Canvas
         gl={{ antialias: !isE2E, preserveDrawingBuffer: true }}
         dpr={isE2E ? 1 : window.devicePixelRatio}

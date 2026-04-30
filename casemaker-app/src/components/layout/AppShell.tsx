@@ -5,6 +5,7 @@ import { Toolbar } from './Toolbar';
 import { PlacementBanner } from './PlacementBanner';
 import { FloatersBanner } from './FloatersBanner';
 import { WelcomeOverlay } from './WelcomeOverlay';
+import { ContextPanel } from './ContextPanel';
 import { Viewport } from '@/components/viewport/Viewport';
 import { useRebuildOnProjectChange } from '@/hooks/useRebuildOnProjectChange';
 import { undoProject, redoProject, useProjectStore } from '@/store/projectStore';
@@ -48,6 +49,7 @@ export function AppShell() {
           {!welcomeMode && <Viewport />}
           {welcomeMode && <WelcomeOverlay />}
         </div>
+        {!welcomeMode && <ContextPanel />}
       </main>
       <StatusBar />
     </div>
