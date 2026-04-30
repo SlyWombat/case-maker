@@ -83,6 +83,70 @@ describe('Snap-fit barb cross-section registry (#69)', () => {
     }
   });
 
+  it('ball-socket wall pocket bbox overlaps wall material, not the cavity (advisor-flagged regression)', () => {
+    // The pocket is structured as translate(rotate(cylinder)). The cylinder
+    // has positive Z extent only (length, radius, segments — body in +Z).
+    // The rotate decides which world axis the body extends along; the
+    // translate places the cylinder's local origin (z=0 face center) on the
+    // inside-wall plane. So the body span in world coords is determined by
+    // the rotation direction starting from the translate origin.
+    function extractTranslateAndRotate(op: BuildOp): {
+      translate: [number, number, number];
+      rotate: [number, number, number];
+      length: number;
+      radius: number;
+    } | null {
+      if (op.kind !== 'translate') return null;
+      const inner = op.child;
+      if (inner.kind !== 'rotate') return null;
+      const cyl = inner.child;
+      if (cyl.kind !== 'cylinder') return null;
+      return {
+        translate: op.offset as [number, number, number],
+        rotate: inner.degrees as [number, number, number],
+        length: cyl.height,
+        radius: cyl.radiusLow,
+      };
+    }
+    // Build a case that's large enough to host catches on every wall + the
+    // four-corner long-side preset. We swap in a test catch on each wall to
+    // exercise all four orientations.
+    const walls = ['+x', '-x', '+y', '-y'] as const;
+    for (const wall of walls) {
+      const c = { ...firstCatch!, wall, barbType: 'ball-socket' as const, uPosition: 20 };
+      const g = buildSnapCatch(c, project.board, project.case);
+      expect(g).not.toBeNull();
+      const meta = extractTranslateAndRotate(g!.wallPocket!);
+      expect(meta, `pocket op shape for wall ${wall}`).not.toBeNull();
+      const [tx, ty] = meta!.translate;
+      const [rx, ry] = meta!.rotate;
+      const wallThickness = project.case.wallThickness;
+      // The cylinder body extends from the translate origin along (rotate ⋅ +Z).
+      // For +x/-x walls: rotate around Y. +90 sends +Z → +X (into +x wall).
+      //                                     -90 sends +Z → -X (into -x wall).
+      // For +y/-y walls: rotate around X. -90 sends +Z → +Y (into +y wall).
+      //                                     +90 sends +Z → -Y (into -y wall).
+      if (wall === '+x') {
+        // Translate is on the inner wall plane (innerX); body extends +X by length.
+        // Cylinder body must end inside wall material x ∈ [innerX, outerX].
+        // innerX > 0; rotate must be +90 around Y so body extends into wall.
+        expect(ry, '+x wall: rotate Y should be +90 so body points into wall').toBe(90);
+        // tx should be > some inner threshold; assert it's at least cavity right.
+        expect(tx).toBeGreaterThan(wallThickness);
+      } else if (wall === '-x') {
+        expect(ry, '-x wall: rotate Y should be -90 so body points into wall').toBe(-90);
+        // -x wall translate origin sits at innerX = wallThickness, body extends -X.
+        expect(tx).toBeCloseTo(wallThickness, 1);
+      } else if (wall === '+y') {
+        expect(rx, '+y wall: rotate X should be -90 so body points +Y into wall').toBe(-90);
+        expect(ty).toBeGreaterThan(wallThickness);
+      } else if (wall === '-y') {
+        expect(rx, '-y wall: rotate X should be +90 so body points -Y into wall').toBe(90);
+        expect(ty).toBeCloseTo(wallThickness, 1);
+      }
+    }
+  });
+
   it('omitting barbType (legacy projects) defaults to hook geometry', () => {
     const legacy = { ...firstCatch! };
     const explicit = { ...firstCatch!, barbType: 'hook' as const };

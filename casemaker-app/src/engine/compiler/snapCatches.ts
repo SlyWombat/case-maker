@@ -488,24 +488,30 @@ function buildBallSocketWallPocket(frame: WallFrame): BuildOp {
   // below the lip's bottom face).
   const ballCenterZ = frame.lipOrigin.z - barbLength / 2;
   const cyl = cylinder(depth, radius, 24);
-  // cylinder() runs along +Z; rotate so its axis runs along the wall normal
-  // OUTWARD (so we bore from the inside surface into the wall).
+  // cylinder() runs along +Z; rotate so the body extends along the wall
+  // outward normal — i.e. INTO the wall material from the inside surface.
+  // Rotation around Y by +θ° maps +Z → +X (right-hand rule). For the +x
+  // wall (wallNormalSign=+1) we want +Z → +X, so rotate by +90°. For the
+  // -x wall we want +Z → -X, so rotate by -90°. Net: wallNormalSign * 90.
+  // (Using the OPPOSITE sign would point the cylinder INTO the cavity, and
+  // the subtractive op would cut empty air. Caught by advisor review.)
   let oriented: BuildOp;
   let pocketOriginX: number;
   let pocketOriginY: number;
+  const tInset = (SNAP_DEFAULTS.pocketWidth - armWidth) / 2;
   if (frame.wallAxis === 'x') {
-    // +x wall (wallNormalSign=+1): outward is +x → rotate +Z to +X (rotate y by -90°)
-    // -x wall (wallNormalSign=-1): outward is -x → rotate +Z to -X (rotate y by +90°)
-    oriented = rotate([0, frame.wallNormalSign === 1 ? -90 : 90, 0], cyl);
+    oriented = rotate([0, frame.wallNormalSign * 90, 0], cyl);
     pocketOriginX = frame.lipOrigin.x;
     // The lip's u-extent is `pocketWidth` (~7 mm) starting at lipOrigin.y; the
     // catch is centered along that extent, which is also where the barb sits.
-    // armWidth (6) is centered inside pocketWidth (7) → +0.5 inset.
-    const tInset = (SNAP_DEFAULTS.pocketWidth - armWidth) / 2;
     pocketOriginY = frame.lipOrigin.y + tInset + armWidth / 2;
   } else {
-    oriented = rotate([frame.wallNormalSign === 1 ? 90 : -90, 0, 0], cyl);
-    const tInset = (SNAP_DEFAULTS.pocketWidth - armWidth) / 2;
+    // For ±y walls: rotation around X by ±90° maps +Z → ∓Y. We want the
+    // cylinder body to point INTO the wall along the OUTWARD normal:
+    //   +y wall (wallNormalSign=+1): outward is +y → +Z → +Y → rotate X by -90.
+    //   -y wall (wallNormalSign=-1): outward is -y → +Z → -Y → rotate X by +90.
+    // Net: -wallNormalSign * 90.
+    oriented = rotate([-frame.wallNormalSign * 90, 0, 0], cyl);
     pocketOriginX = frame.lipOrigin.x + tInset + armWidth / 2;
     pocketOriginY = frame.lipOrigin.y;
   }

@@ -192,6 +192,14 @@ export const useProjectStore = create<ProjectState>()(
             // Issue #56 — validate the patch against the case schema before
             // committing. Rejects invalid writes (wrong type, removed enum
             // values, out-of-range numbers) with a console error and a no-op.
+            //
+            // Note: .partial() only loosens TOP-LEVEL fields. Nested objects
+            // like `ventilation` and `bosses` must still be passed as a
+            // complete value when present (callers spread `{...params.x, …}`
+            // for that). A future caller passing
+            // `patch({ ventilation: { coverage: 0.5 } })` would silently fail
+            // validation here — surface it via the console error in that
+            // case so the no-op is at least visible.
             const parsed = caseParamsSchema.partial().safeParse(patch);
             if (!parsed.success) {
               console.error(
