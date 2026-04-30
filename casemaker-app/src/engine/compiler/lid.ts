@@ -281,13 +281,26 @@ export function buildLid(
 ): BuildOp {
   // When recessed, the plate is sized to drop into the recess pocket; the
   // joint flavor adds posts / holes / snap arms ON TOP of that plate.
-  // Issue (recessed + full-lid combo) — earlier code short-circuited here
-  // and dropped the full-lid friction perimeter when lidRecess was on.
-  // That's a valid combination: the plate sits flush in the rim AND the
-  // friction lip drops into the cavity from the plate underside.
+  //
+  // Bug fix: previously the plate was emitted at lid-local (0, 0, 0) but
+  // the pocket sits at world (wall - recessOffset + clearance, ...) — i.e.
+  // ~0.7 mm inboard from the case envelope on every side. The lid was
+  // then misaligned: hanging over the case on one side and short of the
+  // pocket on the other, which the user correctly described as "the lid
+  // doesn't fit the smaller shape inside." Translate the plate to its
+  // proper pocket-centered XY origin so it nests cleanly. Posts /
+  // holes / lip are already in world coords (computed via
+  // cavityOriginXY) so they don't need offsetting.
   if (params.lidRecess) {
     const lid = computeLidDims(board, params, hats, resolveHat);
-    const plate = roundedRectPrism(lid.x, lid.y, lid.z, lidRecessedCornerRadius(params));
+    const recess = computeRecessDims(board, params, hats, resolveHat)!;
+    const recessOffset = Math.max(0.5, params.wallThickness - 0.5);
+    const plateOriginX = params.wallThickness - recessOffset + recess.clearance;
+    const plateOriginY = params.wallThickness - recessOffset + recess.clearance;
+    const plate = translate(
+      [plateOriginX, plateOriginY, 0],
+      roundedRectPrism(lid.x, lid.y, lid.z, lidRecessedCornerRadius(params)),
+    );
     const { posts, holes } = buildLidPosts(board, params, hats, resolveHat);
     if (params.joint === 'snap-fit' && params.snapType === 'full-lid') {
       const lip = buildFullLidFrictionLip(board, params, hats, resolveHat);

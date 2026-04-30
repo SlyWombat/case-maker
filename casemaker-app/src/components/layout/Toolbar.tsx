@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
   useProjectStore,
   undoProject,
@@ -29,8 +29,8 @@ export function Toolbar() {
   const project = useProjectStore((s) => s.project);
   const setProject = useProjectStore((s) => s.setProject);
   const showWelcome = useProjectStore((s) => s.showWelcome);
-  const showLid = useViewportStore((s) => s.showLid);
-  const toggleShowLid = useViewportStore((s) => s.toggleShowLid);
+  const showBoard = useViewportStore((s) => s.showBoard);
+  const setShowBoard = useViewportStore((s) => s.setShowBoard);
   const exportFormat = useSettingsStore((s) => s.exportFormat);
   const fileInput = useRef<HTMLInputElement | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -42,18 +42,9 @@ export function Toolbar() {
   const fileHandleRef = useRef<ProjectFileHandle>(null);
   const fsaAvailable = fileSystemAccessAvailable();
 
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key !== 'l' && e.key !== 'L') return;
-      const target = e.target as HTMLElement | null;
-      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
-        return;
-      }
-      toggleShowLid();
-    }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [toggleShowLid]);
+  // L-key shortcut for lid show/hide is now part of the view-mode picker
+  // (#91 — Shift+1..4 cycles Complete / Exploded / Base / Lid). The
+  // legacy single toggle is retired alongside the toolbar button.
 
   const onSave = useCallback(async () => {
     if (!fsaAvailable) {
@@ -198,13 +189,19 @@ export function Toolbar() {
         onChange={onFileChange}
         data-testid="load-project-input"
       />
+      {/* Lid show/hide moved to the viewport's 4-mode picker (#91 —
+          Complete / Exploded / Base / Lid). Board visibility stays here
+          since the view-mode picker covers lid only. The schematic /
+          photo cycle was removed in #59 (no GLB / topImage assets ship
+          with any built-in board); this is a single boolean toggle
+          until #39 phase 2 brings GLB assets back. */}
       <button
-        onClick={toggleShowLid}
-        data-testid="toggle-lid-btn"
-        title="Show/hide lid (L)"
-        aria-pressed={showLid}
+        onClick={() => setShowBoard(!showBoard)}
+        data-testid="toggle-board-btn"
+        title="Show/hide the host PCB + HATs in the viewport"
+        aria-pressed={showBoard}
       >
-        {showLid ? '👁 Lid' : '🚫 Lid'}
+        {showBoard ? '👁 Board' : '🚫 Board'}
       </button>
       <button
         onClick={() => setDocsOpen(true)}
