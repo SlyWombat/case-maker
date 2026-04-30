@@ -29,6 +29,9 @@ export interface SceneNodeSummary {
   triangleCount: number;
   vertexCount: number;
   bbox: { min: [number, number, number]; max: [number, number, number] };
+  /** Issue #88 — surface Manifold.decompose() count per node so the
+   *  templates-smoke harness can assert no node ships with loose pieces. */
+  componentCount?: number;
 }
 
 export interface CaseMakerTestApi {
@@ -123,6 +126,7 @@ export function installCaseMakerTestApi(): void {
           triangleCount: n.stats.triangleCount,
           vertexCount: n.stats.vertexCount,
           bbox: n.stats.bbox,
+          componentCount: n.stats.componentCount,
         });
       }
       return out;
