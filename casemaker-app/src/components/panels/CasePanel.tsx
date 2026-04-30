@@ -242,38 +242,51 @@ export function CasePanel() {
           </div>
         </div>
       )}
-      <label className="vent-row" title="If enabled, the lid drops into a pocket flush with the rim — gives a cleaner look but uses more material.">
-        <input
-          type="checkbox"
-          checked={params.lidRecess ?? false}
-          onChange={(e) => patch({ lidRecess: e.target.checked })}
-          data-testid="lid-recess"
-          aria-label="Recessed lid"
-          title="If enabled, the lid drops into a pocket flush with the rim."
-        />
-        <span>Recessed lid (drops into a pocket flush with the rim)</span>
-      </label>
-      <div className="joint-row">
-        <label className="joint-label" htmlFor="case-insert-type">
-          Boss insert type
+      {/* Issue #98 — Recessed-lid hidden for flat-lid joint (no joint
+          hardware = no pocket to drop into). Snap-fit + screw-down show it. */}
+      {params.joint !== 'flat-lid' && (
+        <label className="vent-row" title="If enabled, the lid drops into a pocket flush with the rim — gives a cleaner look but uses more material.">
+          <input
+            type="checkbox"
+            checked={params.lidRecess ?? false}
+            onChange={(e) => patch({ lidRecess: e.target.checked })}
+            data-testid="lid-recess"
+            aria-label="Recessed lid"
+            title="If enabled, the lid drops into a pocket flush with the rim."
+          />
+          <span>Recessed lid (drops into a pocket flush with the rim)</span>
         </label>
-        <select
-          id="case-insert-type"
-          value={params.bosses.insertType}
-          onChange={(e) =>
-            patch({ bosses: { ...params.bosses, insertType: e.target.value as InsertType } })
-          }
-          data-testid="insert-type"
-          title="What kind of fastener anchors into the corner bosses (only used when Joint type = Screw-down)."
-          aria-label="Boss insert type"
-        >
-          {INSERT_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value} title={o.hint}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-      </div>
+      )}
+      {/* Issue #98 — Boss-insert type only applies when the joint actually
+          uses bosses (screw-down). Hidden for flat-lid and snap-fit. */}
+      {params.joint === 'screw-down' && (
+        <div className="joint-row">
+          <label className="joint-label" htmlFor="case-insert-type">
+            Boss insert type
+          </label>
+          <select
+            id="case-insert-type"
+            value={params.bosses.insertType}
+            onChange={(e) =>
+              patch({ bosses: { ...params.bosses, insertType: e.target.value as InsertType } })
+            }
+            data-testid="insert-type"
+            title="What kind of fastener anchors into the corner bosses."
+            aria-label="Boss insert type"
+          >
+            {INSERT_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value} title={o.hint}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+      {/* Issue #98 — Hinge dropdown sits JUST ABOVE Ventilation. Hidden for
+          flat-lid (no closure mechanism to pivot). Replaced the previous
+          enable-checkbox + style-radio with a single None / External pin /
+          Print-in-place dropdown. Detailed knuckle/pin params expand below. */}
+      {params.joint !== 'flat-lid' && <HingeSection params={params} patch={patch} />}
       <label
         className="vent-row"
         title="Add ventilation cutouts to the selected case faces."
@@ -369,7 +382,6 @@ export function CasePanel() {
           />
         </>
       )}
-      <HingeSection params={params} patch={patch} />
     </div>
   );
 }
@@ -430,10 +442,9 @@ const HINGE_POSITIONING_OPTIONS: { value: HingePositioning; label: string; hint:
   { value: 'centered', label: 'Centered', hint: 'Hinge run is centered along the face — recommended default.' },
 ];
 
-const HINGE_PIN_MODE_OPTIONS: { value: HingePinMode; label: string; hint: string }[] = [
-  { value: 'separate', label: 'Separate hardware', hint: 'User supplies an M3 screw or brass rod after printing.' },
-  { value: 'print-in-place', label: 'Print-in-place', hint: 'Pin is printed in place inside the through-hole.' },
-];
+/** Issue #98 — Hinge dropdown values. 'none' fully disables the hinge
+ *  (sets feature.enabled=false); the other two map to existing styles. */
+type HingeDropdownValue = 'none' | HingeStyle;
 
 function HingeSection({ params, patch }: HingeSectionProps) {
   const hinge = params.hinge;
@@ -443,51 +454,48 @@ function HingeSection({ params, patch }: HingeSectionProps) {
     setHinge({ ...hinge, ...p });
   };
   const enabled = !!hinge?.enabled;
+  // Dropdown current value: 'none' if disabled, otherwise the style.
+  const dropdownValue: HingeDropdownValue = enabled ? hinge!.style : 'none';
+  const onDropdownChange = (next: HingeDropdownValue): void => {
+    if (next === 'none') {
+      if (hinge) setHinge({ ...hinge, enabled: false });
+      return;
+    }
+    // Selecting a style enables the hinge; pinMode follows the style choice.
+    const nextPinMode: HingePinMode =
+      next === 'print-in-place' ? 'print-in-place' : 'separate';
+    if (hinge) {
+      setHinge({ ...hinge, enabled: true, style: next, pinMode: nextPinMode });
+    } else {
+      setHinge({ ...defaultHinge(), style: next, pinMode: nextPinMode });
+    }
+  };
   return (
     <div className="hinge-section">
-      <label
-        className="vent-row"
-        title="Enable a barrel hinge on one side face. The lid pivots around the hinge axis."
-      >
-        <input
-          type="checkbox"
-          checked={enabled}
-          onChange={(e) => {
-            if (e.target.checked) {
-              setHinge(hinge ? { ...hinge, enabled: true } : defaultHinge());
-            } else if (hinge) {
-              setHinge({ ...hinge, enabled: false });
-            }
-          }}
-          data-testid="hinge-enabled"
-          aria-label="Enable hinge"
-          title="Enable a barrel hinge on one side face."
-        />
-        <span>Enable hinge (barrel hinge on a side face)</span>
-      </label>
+      <div className="joint-row">
+        <label className="joint-label" htmlFor="case-hinge-style">
+          Hinge
+        </label>
+        <select
+          id="case-hinge-style"
+          value={dropdownValue}
+          onChange={(e) => onDropdownChange(e.target.value as HingeDropdownValue)}
+          data-testid="hinge-style-dropdown"
+          title="Hinge style. None disables the hinge entirely; External pin uses a separate M3 screw or brass rod; Print-in-place prints the pin inside the through-hole as one part."
+          aria-label="Hinge style"
+        >
+          <option value="none" title="No hinge — lid is fully removable.">
+            None
+          </option>
+          {HINGE_STYLE_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value} title={opt.hint}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </div>
       {enabled && hinge && (
         <>
-          <div className="joint-row">
-            <span className="joint-label" id="hinge-style-label">
-              Style
-            </span>
-            <div className="joint-buttons" role="radiogroup" aria-labelledby="hinge-style-label">
-              {HINGE_STYLE_OPTIONS.map((opt) => (
-                <label key={opt.value} title={opt.hint}>
-                  <input
-                    type="radio"
-                    name="hinge-style"
-                    value={opt.value}
-                    checked={hinge.style === opt.value}
-                    onChange={() => updateHinge({ style: opt.value })}
-                    data-testid={`hinge-style-${opt.value}`}
-                    aria-label={`${opt.label} — ${opt.hint}`}
-                  />
-                  <span>{opt.label}</span>
-                </label>
-              ))}
-            </div>
-          </div>
           <div className="joint-row">
             <span className="joint-label" id="hinge-face-label">
               Face
@@ -601,35 +609,9 @@ function HingeSection({ params, patch }: HingeSectionProps) {
               className="numeric-input"
             />
           </LabelledField>
-          <div className="joint-row">
-            <span className="joint-label" id="hinge-pin-mode-label">
-              Pin mode
-            </span>
-            <div className="joint-buttons" role="radiogroup" aria-labelledby="hinge-pin-mode-label">
-              {HINGE_PIN_MODE_OPTIONS.map((opt) => (
-                <label key={opt.value} title={opt.hint}>
-                  <input
-                    type="radio"
-                    name="hinge-pin-mode"
-                    value={opt.value}
-                    checked={hinge.pinMode === opt.value}
-                    onChange={() => {
-                      // pin-mode override: keep style in sync so the geometry
-                      // path matches the user's intent. 'print-in-place' pin
-                      // mode → 'print-in-place' style; 'separate' →
-                      // 'external-pin'.
-                      const nextStyle: HingeStyle =
-                        opt.value === 'print-in-place' ? 'print-in-place' : 'external-pin';
-                      updateHinge({ pinMode: opt.value, style: nextStyle });
-                    }}
-                    data-testid={`hinge-pin-mode-${opt.value}`}
-                    aria-label={`${opt.label} — ${opt.hint}`}
-                  />
-                  <span>{opt.label}</span>
-                </label>
-              ))}
-            </div>
-          </div>
+          {/* Issue #98 — Pin-mode radio removed; pinMode now follows the
+              hinge dropdown style choice ('print-in-place' style ⇒
+              print-in-place pin, 'external-pin' style ⇒ separate hardware). */}
         </>
       )}
     </div>
