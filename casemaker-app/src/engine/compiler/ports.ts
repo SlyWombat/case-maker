@@ -11,6 +11,12 @@ export function buildPortCutoutOp(
 ): BuildOp | null {
   if (!port.enabled) return null;
   if (port.facing === '+z') return null;
+  // Issue #100 — antenna-connector components have a known board-local
+  // position and are handled by the Antenna feature (antennas.ts), which
+  // emits a properly-sized through-hole + counterbore (rpi-external) or
+  // a thin RF window (internal/PCB-trace). Skip the generic port cutout
+  // so we don't drill a redundant rectangular hole next to the proper one.
+  if (port.kind === 'antenna-connector') return null;
 
   const m = port.cutoutMargin;
   const { wallThickness: wall, internalClearance: cl, floorThickness: floor } = params;
