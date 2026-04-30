@@ -2,6 +2,49 @@ import type { Mm } from './units';
 import type { SnapCatch } from './snap';
 
 /**
+ * Issue #92 — barrel-hinge feature for snap-fit / flat-lid cases.
+ *
+ *  - 'external-pin': discrete knuckles + a separate user-supplied pin (M3 screw
+ *                    or brass rod). Easiest to print, strongest action.
+ *  - 'print-in-place': same knuckle layout, plus a centered pin solid printed
+ *                      inside the through-hole with knuckleClearance/2 of slop
+ *                      on each side. No assembly required.
+ *
+ * v1 limitations (deferred to follow-up issues): single hinge per case, side
+ * faces only (±x / ±y), no detents, lid does NOT animate to its closed
+ * position in Complete view (drops straight down regardless of hinge axis).
+ */
+export type HingeStyle = 'external-pin' | 'print-in-place';
+export type HingePinMode = 'separate' | 'print-in-place';
+export type HingePositioning = 'continuous' | 'pair-at-ends' | 'centered';
+
+export interface HingeFeature {
+  id: string;
+  style: HingeStyle;
+  /** Side face the hinge runs along. Top/bottom (±z) not supported in v1. */
+  face: '+x' | '-x' | '+y' | '-y';
+  /** Total knuckle slots; odd, ≥ 3 (so case knuckles outnumber lid knuckles
+   *  by exactly one — the lid pivots between matched pairs). Default 5. */
+  numKnuckles: number;
+  /** Outside diameter of every knuckle cylinder (mm). Default 8. */
+  knuckleOuterDiameter: Mm;
+  /** Through-hole diameter and (for print-in-place) pin solid diameter (mm).
+   *  Default 3 — fits an M3 screw or 3 mm brass rod. */
+  pinDiameter: Mm;
+  /** Axial gap between adjacent knuckles (mm). Default 0.4. */
+  knuckleClearance: Mm;
+  /** Layout strategy along the hinge edge. Default 'centered'. */
+  positioning: HingePositioning;
+  /** Total length of the knuckle run, including clearances (mm). Default 60. */
+  hingeLength: Mm;
+  /** Optional rotation stop in degrees from closed; undefined = no stop. */
+  stopAngle?: number;
+  /** Whether the pin is user-supplied or printed in place. Default 'separate'. */
+  pinMode: HingePinMode;
+  enabled: boolean;
+}
+
+/**
  * The six faces of an axis-aligned box-shaped case.
  *
  * Issue #50 — single canonical definition. Previously duplicated across
@@ -121,4 +164,10 @@ export interface CaseParameters {
    * so legacy projects load with no migration; missing field = empty list.
    */
   customCutouts?: CustomCutout[];
+  /**
+   * Issue #92 — optional barrel hinge on a side face. Only one hinge per
+   * case in v1; multi-hinge support is deferred. Missing/disabled = no hinge
+   * geometry emitted, no envelope growth.
+   */
+  hinge?: HingeFeature;
 }

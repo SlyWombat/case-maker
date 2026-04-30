@@ -5,6 +5,8 @@ import { newId } from '@/utils/id';
 import type { AntennaType } from '@/types/antenna';
 import type { FanSize, CaseFace, FanGrille } from '@/types/fan';
 import type { TextLabel } from '@/types/textLabel';
+import type { BarbType } from '@/types/snap';
+import { BARB_TYPES } from '@/types/snap';
 import type { DisplayFraming } from '@/types/display';
 
 /**
@@ -624,8 +626,26 @@ function SnapCatchesSection() {
               data-testid={`snap-catch-${c.id}-select`}
               title="Edit catch details in the right rail"
             >
-              {c.wall} · u={c.uPosition} · {c.barbType ?? 'hook'} · arm on {c.cantileverOn ?? 'lid'}
+              {c.wall} · u={c.uPosition}
             </button>
+            {/* Barb cross-section stays inline — frequent edit, fits one
+                row, and matches the user's mental model that "style" is
+                always visible from the row. Wall + u-position + cantilever
+                live in the right-rail detail. */}
+            <label className="cell-label" style={{ flex: 0 }}>
+              <span className="cell-label__axis">style</span>
+              <select
+                value={c.barbType ?? 'hook'}
+                onChange={(e) => patchSnapCatch(c.id, { barbType: e.target.value as BarbType })}
+                data-testid={`snap-barb-type-${c.id}`}
+                aria-label={`Snap catch ${c.id} barb style`}
+                title="Barb cross-section: hook = classic; symmetric-ramp = service-friendly; ball-socket = detent."
+              >
+                {BARB_TYPES.map((b) => (
+                  <option key={b} value={b}>{b}</option>
+                ))}
+              </select>
+            </label>
             <button
               onClick={() => removeSnapCatch(c.id)}
               title="Remove this snap catch"

@@ -76,6 +76,24 @@ export const caseParamsSchema = z.object({
       }),
     )
     .optional(),
+  // Issue #92 — optional barrel hinge. Side faces only; one per case in v1.
+  // Missing on disk = no hinge emitted.
+  hinge: z
+    .object({
+      id: z.string(),
+      style: z.enum(['external-pin', 'print-in-place']),
+      face: z.enum(['+x', '-x', '+y', '-y']),
+      numKnuckles: z.number().int().min(3),
+      knuckleOuterDiameter: z.number().positive(),
+      pinDiameter: z.number().positive(),
+      knuckleClearance: z.number().nonnegative(),
+      positioning: z.enum(['continuous', 'pair-at-ends', 'centered']),
+      hingeLength: z.number().positive(),
+      stopAngle: z.number().optional(),
+      pinMode: z.enum(['separate', 'print-in-place']),
+      enabled: z.boolean(),
+    })
+    .optional(),
 });
 
 const portPlacementSchema = z.object({
@@ -261,6 +279,16 @@ const projectV6Schema = projectV5Schema.extend({
   schemaVersion: z.literal(6),
 });
 
+// Issue #92 — v7 adds the optional `case.hinge` field. The schema diff is
+// purely additive (the new field lives on caseParamsSchema as `.optional()`),
+// so the wire format stays backwards-compatible; the bump is bookkeeping for
+// "this project understands the hinge feature." A v6 project on disk parses
+// against v6, then this transform stamps schemaVersion: 7 — `hinge` is just
+// absent on the resulting object (i.e. `undefined`, no hinge emitted).
+const projectV7Schema = projectV6Schema.extend({
+  schemaVersion: z.literal(7),
+});
+
 export const projectSchema = z
   .union([
     projectV1Schema,
@@ -269,12 +297,13 @@ export const projectSchema = z
     projectV4Schema,
     projectV5Schema,
     projectV6Schema,
+    projectV7Schema,
   ])
   .transform((p) => {
     if (p.schemaVersion === 1) {
       return {
         ...p,
-        schemaVersion: 6 as const,
+        schemaVersion: 7 as const,
         hats: [],
         customHats: [],
         mountingFeatures: [],
@@ -288,7 +317,7 @@ export const projectSchema = z
     if (p.schemaVersion === 2) {
       return {
         ...p,
-        schemaVersion: 6 as const,
+        schemaVersion: 7 as const,
         mountingFeatures: [],
         display: null,
         customDisplays: [],
@@ -300,7 +329,7 @@ export const projectSchema = z
     if (p.schemaVersion === 3) {
       return {
         ...p,
-        schemaVersion: 6 as const,
+        schemaVersion: 7 as const,
         fanMounts: [],
         textLabels: [],
         antennas: [],
@@ -309,14 +338,19 @@ export const projectSchema = z
     if (p.schemaVersion === 4) {
       return {
         ...p,
-        schemaVersion: 6 as const,
+        schemaVersion: 7 as const,
         antennas: [],
       };
     }
     if (p.schemaVersion === 5) {
       // mountingFeatures items already have mountClass filled by the
       // mountingFeatureSchema default at parse time; just stamp the version.
-      return { ...p, schemaVersion: 6 as const };
+      return { ...p, schemaVersion: 7 as const };
+    }
+    if (p.schemaVersion === 6) {
+      // v6 → v7 is a pure version bump — `hinge` is optional and absent on
+      // legacy projects, so the parsed object already has the right shape.
+      return { ...p, schemaVersion: 7 as const };
     }
     return p;
   });

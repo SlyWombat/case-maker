@@ -3,12 +3,12 @@ import { parseProject, serializeProject } from '@/store/persistence';
 import { createDefaultProject } from '@/store/projectStore';
 
 describe('mounting features v6 schema migration (#80)', () => {
-  it("createDefaultProject stamps schemaVersion: 6", () => {
+  it("createDefaultProject stamps schemaVersion: 7", () => {
     const p = createDefaultProject('rpi-4b');
-    expect(p.schemaVersion).toBe(6);
+    expect(p.schemaVersion).toBe(7);
   });
 
-  it('a v5-shaped project on disk loads, stamps schemaVersion: 6, and fills mountClass on every feature', () => {
+  it('a v5-shaped project on disk loads, stamps schemaVersion: 7, and fills mountClass on every feature', () => {
     const v5OnDisk = {
       schemaVersion: 5,
       id: 'p1',
@@ -49,7 +49,7 @@ describe('mounting features v6 schema migration (#80)', () => {
       antennas: [],
     };
     const parsed = parseProject(JSON.stringify(v5OnDisk));
-    expect(parsed.schemaVersion).toBe(6);
+    expect(parsed.schemaVersion).toBe(7);
     expect(parsed.mountingFeatures).toHaveLength(2);
     for (const f of parsed.mountingFeatures) {
       expect(f.mountClass).toBe('external');
@@ -75,7 +75,7 @@ describe('mounting features v6 schema migration (#80)', () => {
     expect(round.mountingFeatures[0]!.type).toBe('aligned-standoff');
   });
 
-  it('rejects a project that uses an mountingFeature.type that is not in the v6 enum', () => {
+  it('rejects a project that uses an mountingFeature.type that is not in the v7 enum', () => {
     const bad = {
       ...createDefaultProject('rpi-4b'),
       mountingFeatures: [

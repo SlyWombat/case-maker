@@ -171,11 +171,12 @@ function lidOuterCornerRadius(params: CaseParameters): number {
 }
 
 function lidRecessedCornerRadius(params: CaseParameters): number {
-  // Recessed lid sits inside the pocket; pocket radius = cornerRadius -
-  // recessOffset; lid clearance subtracts another small amount that's
-  // negligible compared to typical radii (≤ 0.2 mm).
-  const recessOffset = Math.max(0.5, params.wallThickness - 0.5);
-  return Math.max(0, params.cornerRadius - recessOffset);
+  // Recessed lid drops into the pocket. With the caseShell pocket now using
+  // the OUTER cornerRadius (uniform-width rim), the lid corner radius
+  // should also be the outer cornerRadius minus the lid clearance — which
+  // is negligible (≤ 0.2 mm) so we pass the full cornerRadius and let
+  // roundedRectPrism's clamp handle the tiny gap.
+  return Math.max(0, params.cornerRadius);
 }
 
 export function buildSnapFitLid(

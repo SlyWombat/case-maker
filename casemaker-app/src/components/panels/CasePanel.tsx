@@ -1,7 +1,17 @@
 import { useId, type ChangeEvent } from 'react';
 import { useProjectStore } from '@/store/projectStore';
-import type { CaseParameters, JointType, InsertType, SnapType } from '@/types';
+import type {
+  CaseParameters,
+  JointType,
+  InsertType,
+  SnapType,
+  HingeFeature,
+  HingeStyle,
+  HingePinMode,
+  HingePositioning,
+} from '@/types';
 import { VENT_SURFACES } from '@/types';
+import { LabelledField } from '@/components/ui/LabelledField';
 
 const JOINT_OPTIONS: { value: JointType; label: string; hint: string }[] = [
   {
@@ -357,6 +367,269 @@ export function CasePanel() {
             onChange={(v) => patch({ ventilation: { ...params.ventilation, coverage: v } })}
             testId="vent-coverage"
           />
+        </>
+      )}
+      <HingeSection params={params} patch={patch} />
+    </div>
+  );
+}
+
+// =============================================================================
+// Issue #92 — barrel-hinge section.
+//
+// Collapsed by default; the user toggles "Enable hinge" to reveal the full
+// form. Lazy-defaults the HingeFeature object on first enable so the schema
+// stays clean for users who don't use it (`hinge` remains undefined on
+// disk).
+// =============================================================================
+
+function defaultHinge(): HingeFeature {
+  return {
+    id: 'hinge-1',
+    style: 'external-pin',
+    face: '-y',
+    numKnuckles: 5,
+    knuckleOuterDiameter: 8,
+    pinDiameter: 3,
+    knuckleClearance: 0.4,
+    positioning: 'centered',
+    hingeLength: 60,
+    pinMode: 'separate',
+    enabled: true,
+  };
+}
+
+interface HingeSectionProps {
+  params: CaseParameters;
+  patch: (p: Partial<CaseParameters>) => void;
+}
+
+const HINGE_STYLE_OPTIONS: { value: HingeStyle; label: string; hint: string }[] = [
+  {
+    value: 'external-pin',
+    label: 'External pin',
+    hint: 'Knuckles + a separate pin (M3 screw or 3 mm brass rod). Easiest to print, strongest action.',
+  },
+  {
+    value: 'print-in-place',
+    label: 'Print-in-place',
+    hint: 'Pin solid is printed inside the through-hole — no assembly required, slightly looser action.',
+  },
+];
+
+const HINGE_FACE_OPTIONS: { value: HingeFeature['face']; label: string }[] = [
+  { value: '-y', label: '-y (front)' },
+  { value: '+y', label: '+y (back)' },
+  { value: '-x', label: '-x (left)' },
+  { value: '+x', label: '+x (right)' },
+];
+
+const HINGE_POSITIONING_OPTIONS: { value: HingePositioning; label: string; hint: string }[] = [
+  { value: 'continuous', label: 'Continuous', hint: 'Hinge run starts at the face origin and spans hingeLength.' },
+  { value: 'pair-at-ends', label: 'Pair at ends', hint: 'Knuckle clusters near the face ends (v1 approximation).' },
+  { value: 'centered', label: 'Centered', hint: 'Hinge run is centered along the face — recommended default.' },
+];
+
+const HINGE_PIN_MODE_OPTIONS: { value: HingePinMode; label: string; hint: string }[] = [
+  { value: 'separate', label: 'Separate hardware', hint: 'User supplies an M3 screw or brass rod after printing.' },
+  { value: 'print-in-place', label: 'Print-in-place', hint: 'Pin is printed in place inside the through-hole.' },
+];
+
+function HingeSection({ params, patch }: HingeSectionProps) {
+  const hinge = params.hinge;
+  const setHinge = (next: HingeFeature | undefined) => patch({ hinge: next });
+  const updateHinge = (p: Partial<HingeFeature>) => {
+    if (!hinge) return;
+    setHinge({ ...hinge, ...p });
+  };
+  const enabled = !!hinge?.enabled;
+  return (
+    <div className="hinge-section">
+      <label
+        className="vent-row"
+        title="Enable a barrel hinge on one side face. The lid pivots around the hinge axis."
+      >
+        <input
+          type="checkbox"
+          checked={enabled}
+          onChange={(e) => {
+            if (e.target.checked) {
+              setHinge(hinge ? { ...hinge, enabled: true } : defaultHinge());
+            } else if (hinge) {
+              setHinge({ ...hinge, enabled: false });
+            }
+          }}
+          data-testid="hinge-enabled"
+          aria-label="Enable hinge"
+          title="Enable a barrel hinge on one side face."
+        />
+        <span>Enable hinge (barrel hinge on a side face)</span>
+      </label>
+      {enabled && hinge && (
+        <>
+          <div className="joint-row">
+            <span className="joint-label" id="hinge-style-label">
+              Style
+            </span>
+            <div className="joint-buttons" role="radiogroup" aria-labelledby="hinge-style-label">
+              {HINGE_STYLE_OPTIONS.map((opt) => (
+                <label key={opt.value} title={opt.hint}>
+                  <input
+                    type="radio"
+                    name="hinge-style"
+                    value={opt.value}
+                    checked={hinge.style === opt.value}
+                    onChange={() => updateHinge({ style: opt.value })}
+                    data-testid={`hinge-style-${opt.value}`}
+                    aria-label={`${opt.label} — ${opt.hint}`}
+                  />
+                  <span>{opt.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+          <div className="joint-row">
+            <span className="joint-label" id="hinge-face-label">
+              Face
+            </span>
+            <div className="joint-buttons" role="radiogroup" aria-labelledby="hinge-face-label">
+              {HINGE_FACE_OPTIONS.map((opt) => (
+                <label key={opt.value} title={`Place the hinge on the ${opt.value} face.`}>
+                  <input
+                    type="radio"
+                    name="hinge-face"
+                    value={opt.value}
+                    checked={hinge.face === opt.value}
+                    onChange={() => updateHinge({ face: opt.value })}
+                    data-testid={`hinge-face-${opt.value}`}
+                    aria-label={`Hinge face ${opt.label}`}
+                  />
+                  <span>{opt.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+          <LabelledField
+            label="Knuckle count"
+            unit="count"
+            hint="Total knuckle slots. Odd, ≥3. Even indices are case-attached; odd indices are lid-attached."
+          >
+            <input
+              type="number"
+              min={3}
+              step={2}
+              value={hinge.numKnuckles}
+              onChange={(e) =>
+                updateHinge({ numKnuckles: Math.max(3, Number(e.target.value) || 3) })
+              }
+              data-testid="hinge-num-knuckles"
+              className="numeric-input"
+            />
+          </LabelledField>
+          <LabelledField
+            label="Knuckle Ø"
+            unit="mm"
+            hint="Outside diameter of every knuckle cylinder."
+          >
+            <input
+              type="number"
+              min={4}
+              max={20}
+              step={0.5}
+              value={hinge.knuckleOuterDiameter}
+              onChange={(e) =>
+                updateHinge({ knuckleOuterDiameter: Number(e.target.value) || 8 })
+              }
+              data-testid="hinge-knuckle-od"
+              className="numeric-input"
+            />
+          </LabelledField>
+          <LabelledField
+            label="Pin Ø"
+            unit="mm"
+            hint="Pin / through-hole nominal diameter. 3 mm fits an M3 screw or brass rod."
+          >
+            <input
+              type="number"
+              min={1}
+              max={6}
+              step={0.1}
+              value={hinge.pinDiameter}
+              onChange={(e) =>
+                updateHinge({ pinDiameter: Number(e.target.value) || 3 })
+              }
+              data-testid="hinge-pin-d"
+              className="numeric-input"
+            />
+          </LabelledField>
+          <div className="joint-row">
+            <span className="joint-label" id="hinge-positioning-label">
+              Positioning
+            </span>
+            <div className="joint-buttons" role="radiogroup" aria-labelledby="hinge-positioning-label">
+              {HINGE_POSITIONING_OPTIONS.map((opt) => (
+                <label key={opt.value} title={opt.hint}>
+                  <input
+                    type="radio"
+                    name="hinge-positioning"
+                    value={opt.value}
+                    checked={hinge.positioning === opt.value}
+                    onChange={() => updateHinge({ positioning: opt.value })}
+                    data-testid={`hinge-positioning-${opt.value}`}
+                    aria-label={`${opt.label} — ${opt.hint}`}
+                  />
+                  <span>{opt.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+          <LabelledField
+            label="Hinge length"
+            unit="mm"
+            hint="Total length of the knuckle run, including clearances."
+          >
+            <input
+              type="number"
+              min={6}
+              max={200}
+              step={1}
+              value={hinge.hingeLength}
+              onChange={(e) =>
+                updateHinge({ hingeLength: Number(e.target.value) || 60 })
+              }
+              data-testid="hinge-length"
+              className="numeric-input"
+            />
+          </LabelledField>
+          <div className="joint-row">
+            <span className="joint-label" id="hinge-pin-mode-label">
+              Pin mode
+            </span>
+            <div className="joint-buttons" role="radiogroup" aria-labelledby="hinge-pin-mode-label">
+              {HINGE_PIN_MODE_OPTIONS.map((opt) => (
+                <label key={opt.value} title={opt.hint}>
+                  <input
+                    type="radio"
+                    name="hinge-pin-mode"
+                    value={opt.value}
+                    checked={hinge.pinMode === opt.value}
+                    onChange={() => {
+                      // pin-mode override: keep style in sync so the geometry
+                      // path matches the user's intent. 'print-in-place' pin
+                      // mode → 'print-in-place' style; 'separate' →
+                      // 'external-pin'.
+                      const nextStyle: HingeStyle =
+                        opt.value === 'print-in-place' ? 'print-in-place' : 'external-pin';
+                      updateHinge({ pinMode: opt.value, style: nextStyle });
+                    }}
+                    data-testid={`hinge-pin-mode-${opt.value}`}
+                    aria-label={`${opt.label} — ${opt.hint}`}
+                  />
+                  <span>{opt.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
         </>
       )}
     </div>

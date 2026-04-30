@@ -15,6 +15,7 @@ import { buildFanMountOps } from './fans';
 import { buildTextLabelOps } from './textLabels';
 import { buildAntennaOps } from './antennas';
 import { buildSnapCatchOps } from './snapCatches';
+import { buildHingeOps } from './hinges';
 import { buildCustomCutouts } from './customCutouts';
 import { validatePlacements } from './placementValidator';
 import { getBuiltinHat } from '@/library/hats';
@@ -63,6 +64,17 @@ export function compileProject(project: Project): BuildPlan {
   const textOps = buildTextLabelOps(textLabels, board, caseParams, hats ?? [], resolveHat);
   const antennaOps = buildAntennaOps(antennas, board, caseParams, hats ?? [], resolveHat);
   const snapOps = buildSnapCatchOps(caseParams.snapCatches, board, caseParams, hats ?? [], resolveHat);
+  // Issue #92 — barrel hinge. caseAdditive joins the shell pre-cavity-cut so
+  // the through-hole bores cleanly through both the wall and the knuckle;
+  // lidAdditive is unioned with the lid op (pre-drilled in lid-local coords);
+  // subtractive joins cutoutOps to drill the shell side.
+  const hingeOps = buildHingeOps(
+    caseParams.hinge,
+    board,
+    caseParams,
+    hats ?? [],
+    resolveHat,
+  );
 
   const additive = [
     shellOuter,
@@ -73,6 +85,7 @@ export function compileProject(project: Project): BuildPlan {
     ...fanOps.additive,
     ...textOps.additive,
     ...snapOps.shellAdd,
+    ...hingeOps.caseAdditive,
   ];
 
   const smartLayout = applySmartCutoutLayout(
@@ -94,6 +107,7 @@ export function compileProject(project: Project): BuildPlan {
     ...textOps.subtractive,
     ...antennaOps.subtractive,
     ...snapOps.shellSubtract,
+    ...hingeOps.subtractive,
     ...buildCustomCutouts(caseParams.customCutouts, board, caseParams, hats ?? [], resolveHat),
   ];
 
@@ -107,6 +121,9 @@ export function compileProject(project: Project): BuildPlan {
   let lidOp = buildLid(board, caseParams, hats ?? [], resolveHat);
   if (snapOps.lidAdd.length > 0) {
     lidOp = union([lidOp, ...snapOps.lidAdd]);
+  }
+  if (hingeOps.lidAdditive.length > 0) {
+    lidOp = union([lidOp, ...hingeOps.lidAdditive]);
   }
   const lidDims = computeLidDims(board, caseParams, hats ?? [], resolveHat);
   // Issue #91 — lid is emitted at its ASSEMBLED Z position. The scene layer

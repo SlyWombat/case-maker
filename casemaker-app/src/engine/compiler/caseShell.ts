@@ -141,9 +141,13 @@ export function buildOuterShell(
     const pocketOriginX = wall - recessOffset;
     const pocketOriginY = wall - recessOffset;
     const pocketOriginZ = dims.outerZ - pocketZ;
-    // Pocket radius: outer-corner radius minus the offset between the case
-    // envelope and the pocket rim. Stays ≥ 0 even when cornerRadius is 0.
-    const pocketR = Math.max(0, outerR - recessOffset);
+    // Pocket radius matches the OUTER envelope radius (not outerR -
+    // recessOffset, which gave a non-uniform-width rim and mismatched
+    // pocket↔lid corners). With the pocket sized at cavity + 2·recessOffset
+    // and inset by recessOffset on each side, using outerR keeps the rim
+    // a uniform recessOffset wide all the way around the corner — which is
+    // how typical injection-molded enclosures look.
+    const pocketR = Math.max(0, outerR);
     void recessLedge;
     const pocket = translate(
       [pocketOriginX, pocketOriginY, pocketOriginZ],
