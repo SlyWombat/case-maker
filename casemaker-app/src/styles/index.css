@@ -1242,11 +1242,15 @@ button:disabled {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 10px;
 }
-
-/* Issue #72 — Donate button. Pushed to the right of the status bar via
-   margin-left: auto on the link itself (since version label sits to its right). */
-.donate-link {
+/* Engine status (rebuild state + tri/vert/bbox + duration) right-justified. */
+.status-bar__engine {
   margin-left: auto;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.donate-link {
   color: #d4af37;
   text-decoration: none;
   font-size: 11px;
