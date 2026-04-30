@@ -49,13 +49,26 @@ export function createDefaultProject(boardId = DEFAULT_BOARD_ID): Project {
   const board = getBuiltinBoard(boardId);
   if (!board) throw new Error(`Unknown built-in board: ${boardId}`);
   const now = new Date(0).toISOString();
+  // Issue #82 — every fresh project starts with an editable copy of the
+  // built-in profile. Pre-#82 we'd structuredClone(board) but leave it
+  // marked builtin: true, forcing the user to click "Clone for editing"
+  // before any board tweak. Inline the same transformation
+  // cloneBoardForEditing applies (fresh id, builtin: false, clonedFrom for
+  // HAT compatibility, drop upstream source URL) so day-1 editing just
+  // works. cloneBoardForEditing is preserved for legacy on-disk projects
+  // where builtin: true came back from JSON.
+  const cloned = structuredClone(board);
+  cloned.id = `custom-${board.id}-${newId()}`;
+  cloned.builtin = false;
+  cloned.clonedFrom = board.id;
+  delete cloned.source;
   return {
     schemaVersion: 6,
     id: newId('proj'),
     name: `${board.name} Case`,
     createdAt: now,
     modifiedAt: now,
-    board: structuredClone(board),
+    board: cloned,
     case: defaultCase(),
     ports: autoPortsForBoard(board),
     externalAssets: [],

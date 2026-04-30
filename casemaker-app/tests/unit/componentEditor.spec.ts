@@ -1,19 +1,26 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useProjectStore, createDefaultProject } from '@/store/projectStore';
+import { getBuiltinBoard } from '@/library';
 
-describe('component editor', () => {
+/**
+ * Issue #82 — createDefaultProject now starts the project editable. The
+ * "cannot add components on a built-in board" guard is still enforced by
+ * the store, but it only fires for legacy disk projects where the saved
+ * board still has builtin: true. We exercise that path explicitly below.
+ */
+function loadAsLegacyBuiltin(boardId: string): void {
+  const project = createDefaultProject(boardId);
+  const builtin = getBuiltinBoard(boardId)!;
+  project.board = structuredClone(builtin);
+  useProjectStore.getState().setProject(project);
+}
+
+describe('component editor — day-1 (#82)', () => {
   beforeEach(() => {
     useProjectStore.getState().setProject(createDefaultProject('rpi-4b'));
   });
 
-  it('cannot add components on a built-in board', () => {
-    const before = useProjectStore.getState().project.board.components.length;
-    useProjectStore.getState().addComponent();
-    expect(useProjectStore.getState().project.board.components.length).toBe(before);
-  });
-
-  it('addComponent works after cloning, with sensible defaults', () => {
-    useProjectStore.getState().cloneBoardForEditing();
+  it('addComponent works on day-1, with sensible defaults', () => {
     const before = useProjectStore.getState().project.board.components.length;
     useProjectStore.getState().addComponent();
     const components = useProjectStore.getState().project.board.components;
@@ -24,7 +31,6 @@ describe('component editor', () => {
   });
 
   it('removeComponent also drops any port that referenced it', () => {
-    useProjectStore.getState().cloneBoardForEditing();
     const project = useProjectStore.getState().project;
     const target = project.board.components.find((c) => c.facing && c.facing !== '+z')!;
     expect(project.ports.some((p) => p.sourceComponentId === target.id)).toBe(true);
@@ -35,7 +41,6 @@ describe('component editor', () => {
   });
 
   it('patchComponent flows changes to the matching port', () => {
-    useProjectStore.getState().cloneBoardForEditing();
     const target = useProjectStore
       .getState()
       .project.board.components.find((c) => c.facing && c.facing !== '+z')!;
@@ -56,5 +61,17 @@ describe('component editor', () => {
     expect(updatedPort?.kind).toBe('usb-c');
     expect(updatedPort?.facing).toBe('+x');
     expect(updatedPort?.position.x).toBe(50);
+  });
+});
+
+describe('component editor — legacy disk projects (pre-#82)', () => {
+  beforeEach(() => {
+    loadAsLegacyBuiltin('rpi-4b');
+  });
+
+  it('cannot add components on a built-in board', () => {
+    const before = useProjectStore.getState().project.board.components.length;
+    useProjectStore.getState().addComponent();
+    expect(useProjectStore.getState().project.board.components.length).toBe(before);
   });
 });

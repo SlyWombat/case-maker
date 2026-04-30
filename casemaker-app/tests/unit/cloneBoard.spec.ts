@@ -1,10 +1,27 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useProjectStore, createDefaultProject } from '@/store/projectStore';
 import { boardProfileSchema } from '@/library/schema';
+import { getBuiltinBoard } from '@/library';
 
-describe('Clone built-in board for editing (#38)', () => {
+/**
+ * Issue #38 + #82 — cloneBoardForEditing exists for legacy on-disk projects
+ * (saved before #82) where the persisted board still has `builtin: true`.
+ * Day-1 projects from createDefaultProject already start editable (#82), so
+ * tests here re-inject a builtin: true board into the store to exercise the
+ * legacy-clone path that cloneBoardForEditing protects.
+ */
+function loadAsLegacyBuiltin(boardId: string): void {
+  const project = createDefaultProject(boardId);
+  // Re-attach the unmodified built-in profile so the project looks like a
+  // pre-#82 disk save where builtin: true round-tripped through JSON.
+  const builtin = getBuiltinBoard(boardId)!;
+  project.board = structuredClone(builtin);
+  useProjectStore.getState().setProject(project);
+}
+
+describe('Clone built-in board for editing (#38, legacy disk projects post-#82)', () => {
   beforeEach(() => {
-    useProjectStore.getState().setProject(createDefaultProject('arduino-giga-r1-wifi'));
+    loadAsLegacyBuiltin('arduino-giga-r1-wifi');
   });
 
   it('cloneBoardForEditing flips builtin → false and renames the id', () => {
@@ -31,7 +48,7 @@ describe('Clone built-in board for editing (#38)', () => {
     const beforeName = useProjectStore.getState().project.board.name;
     useProjectStore.getState().cloneBoardForEditing();
     // Reset to the library entry; it should still match its original name.
-    useProjectStore.getState().setProject(createDefaultProject('arduino-giga-r1-wifi'));
+    loadAsLegacyBuiltin('arduino-giga-r1-wifi');
     expect(useProjectStore.getState().project.board.name).toBe(beforeName);
   });
 

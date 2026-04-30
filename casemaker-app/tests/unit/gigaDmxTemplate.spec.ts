@@ -16,7 +16,9 @@ describe('Issue #32 — GIGA + DMX template + side-Z stack height', () => {
   it('giga-dmx-controller template builds without error', () => {
     const tpl = findTemplate('giga-dmx-controller')!;
     const project = tpl.build();
-    expect(project.board.id).toBe('arduino-giga-r1-wifi');
+    // Issue #82 — board.id is now a fresh `custom-arduino-giga-r1-wifi-…`,
+    // and the original id is preserved in clonedFrom for HAT compatibility.
+    expect(project.board.clonedFrom).toBe('arduino-giga-r1-wifi');
     expect(project.hats.length).toBe(1);
     expect(project.hats[0]!.hatId).toBe('cqrobot-dmx-shield-max485');
   });
