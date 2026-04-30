@@ -153,6 +153,10 @@ export interface ProjectState {
   addMountingFeature: (feature: MountingFeature) => void;
   removeMountingFeature: (featureId: string) => void;
   patchMountingFeature: (featureId: string, patch: Partial<MountingFeature>) => void;
+  // Issue #76 — custom cutout actions.
+  addCustomCutout: (cutout: import('@/types').CustomCutout) => void;
+  removeCustomCutout: (cutoutId: string) => void;
+  patchCustomCutout: (cutoutId: string, patch: Partial<import('@/types').CustomCutout>) => void;
   applyMountingPreset: (presetId: 'four-corner-screw-tabs' | 'rear-vesa-100' | 'rear-vesa-75') => void;
   setDisplay: (displayId: string | null, framing?: import('@/types/display').DisplayFraming) => void;
   patchDisplay: (
@@ -580,6 +584,37 @@ export const useProjectStore = create<ProjectState>()(
               if (!h) return;
               const port = h.ports.find((p) => p.id === portId);
               if (port) port.enabled = enabled;
+            }),
+          })),
+        addCustomCutout: (cutout) =>
+          set((s) => ({
+            project: produce(s.project, (draft) => {
+              if (!draft.case.customCutouts) draft.case.customCutouts = [];
+              draft.case.customCutouts.push(cutout);
+            }),
+          })),
+        removeCustomCutout: (cutoutId) =>
+          set((s) => ({
+            project: produce(s.project, (draft) => {
+              if (!draft.case.customCutouts) return;
+              draft.case.customCutouts = draft.case.customCutouts.filter((c) => c.id !== cutoutId);
+            }),
+          })),
+        patchCustomCutout: (cutoutId, patch) =>
+          set((s) => ({
+            project: produce(s.project, (draft) => {
+              if (!draft.case.customCutouts) return;
+              const c = draft.case.customCutouts.find((x) => x.id === cutoutId);
+              if (!c) return;
+              if (typeof patch.enabled === 'boolean') c.enabled = patch.enabled;
+              if (patch.face) c.face = patch.face;
+              if (patch.shape) c.shape = patch.shape;
+              if (typeof patch.u === 'number') c.u = patch.u;
+              if (typeof patch.v === 'number') c.v = patch.v;
+              if (typeof patch.width === 'number') c.width = patch.width;
+              if (typeof patch.height === 'number') c.height = patch.height;
+              if (typeof patch.rotationDeg === 'number') c.rotationDeg = patch.rotationDeg;
+              if (typeof patch.label === 'string') c.label = patch.label;
             }),
           })),
         addMountingFeature: (feature) =>

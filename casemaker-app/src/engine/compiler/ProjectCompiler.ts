@@ -15,6 +15,7 @@ import { buildFanMountOps } from './fans';
 import { buildTextLabelOps } from './textLabels';
 import { buildAntennaOps } from './antennas';
 import { buildSnapCatchOps } from './snapCatches';
+import { buildCustomCutouts } from './customCutouts';
 import { validatePlacements } from './placementValidator';
 import { getBuiltinHat } from '@/library/hats';
 import { getBuiltinDisplay } from '@/library/displays';
@@ -93,6 +94,7 @@ export function compileProject(project: Project): BuildPlan {
     ...textOps.subtractive,
     ...antennaOps.subtractive,
     ...snapOps.shellSubtract,
+    ...buildCustomCutouts(caseParams.customCutouts, board, caseParams, hats ?? [], resolveHat),
   ];
 
   let shellOp: BuildOp = additive.length > 1 ? union(additive) : shellOuter;

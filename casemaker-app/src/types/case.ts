@@ -39,6 +39,35 @@ export interface BossesParams {
  *  same pattern + coverage applies to every selected surface. */
 export type VentSurface = 'top' | 'bottom' | 'front' | 'back' | 'left' | 'right';
 
+/** Issue #76 — six-face naming for custom cutouts. Same set of values as
+ *  VentSurface; kept as a separate alias so each feature can evolve its
+ *  schema independently. */
+export type CutoutFace = VentSurface;
+export type CustomCutoutShape = 'rect' | 'round' | 'slot';
+
+/**
+ * Issue #76 — user-defined freeform cutout that isn't tied to a board
+ * component. Disabling auto-generated cutouts is still done via the port's
+ * `enabled` toggle; this type is for adding NEW holes the auto-detection
+ * couldn't supply (cable pass-throughs, antenna leads, mod cuts).
+ */
+export interface CustomCutout {
+  id: string;
+  face: CutoutFace;
+  shape: CustomCutoutShape;
+  /** Position on the face, in mm from the (uMin, vMin) corner of that face. */
+  u: Mm;
+  v: Mm;
+  /** For rect / slot: width × height in (u, v). For round: diameter (uses width). */
+  width: Mm;
+  height: Mm;
+  /** Optional rotation in the face plane (degrees, 0 = u-axis aligned). */
+  rotationDeg?: number;
+  enabled: boolean;
+  /** User-facing label shown in the editor (e.g. "antenna pass-through"). */
+  label?: string;
+}
+
 export const VENT_SURFACES: ReadonlyArray<VentSurface> = [
   'top',
   'bottom',
@@ -87,4 +116,9 @@ export interface CaseParameters {
    * Only meaningful when joint === 'snap-fit'.
    */
   snapType?: SnapType;
+  /**
+   * Issue #76 — freeform cutouts placed by hand on any case face. Optional
+   * so legacy projects load with no migration; missing field = empty list.
+   */
+  customCutouts?: CustomCutout[];
 }

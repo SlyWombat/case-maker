@@ -54,6 +54,24 @@ export const caseParamsSchema = z.object({
       }),
     )
     .optional(),
+  // Issue #76 — freeform user-placed cutouts. Optional so legacy projects
+  // load with no migration; a missing field is treated as an empty list.
+  customCutouts: z
+    .array(
+      z.object({
+        id: z.string(),
+        face: z.enum(['top', 'bottom', 'front', 'back', 'left', 'right']),
+        shape: z.enum(['rect', 'round', 'slot']),
+        u: z.number(),
+        v: z.number(),
+        width: z.number().positive(),
+        height: z.number().positive(),
+        rotationDeg: z.number().optional(),
+        enabled: z.boolean(),
+        label: z.string().optional(),
+      }),
+    )
+    .optional(),
 });
 
 const portPlacementSchema = z.object({

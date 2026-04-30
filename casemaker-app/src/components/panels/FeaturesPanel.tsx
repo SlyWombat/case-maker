@@ -35,6 +35,9 @@ const EMPTY_FANS: import('@/types/fan').FanMount[] = [];
 const EMPTY_LABELS: import('@/types/textLabel').TextLabel[] = [];
 const EMPTY_FEATURES: import('@/types/mounting').MountingFeature[] = [];
 const EMPTY_CATCHES: import('@/types/snap').SnapCatch[] = [];
+const EMPTY_CUTOUTS: import('@/types').CustomCutout[] = [];
+const CUTOUT_FACES: import('@/types').CutoutFace[] = ['top', 'bottom', 'front', 'back', 'left', 'right'];
+const CUTOUT_SHAPES: import('@/types').CustomCutoutShape[] = ['rect', 'round', 'slot'];
 
 export function FeaturesPanel() {
   return (
@@ -45,6 +48,7 @@ export function FeaturesPanel() {
       <FansSection />
       <TextLabelsSection />
       <MountingSection />
+      <CustomCutoutsSection />
       <SnapCatchesSection />
     </div>
   );
@@ -321,6 +325,119 @@ function MountingSection() {
             {f.type} ({f.face})
           </span>
           <button onClick={() => removeFeature(f.id)}>✕</button>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+function CustomCutoutsSection() {
+  // Issue #76 — freeform user-placed cutouts on any case face.
+  const cutouts = useProjectStore((s) => s.project.case.customCutouts) ?? EMPTY_CUTOUTS;
+  const addCutout = useProjectStore((s) => s.addCustomCutout);
+  const removeCutout = useProjectStore((s) => s.removeCustomCutout);
+  const patchCutout = useProjectStore((s) => s.patchCustomCutout);
+
+  const onAdd = () => {
+    addCutout({
+      id: newId('cutout'),
+      face: 'back',
+      shape: 'rect',
+      u: 25,
+      v: 10,
+      width: 10,
+      height: 10,
+      enabled: true,
+    });
+  };
+
+  return (
+    <section className="features-section">
+      <h4>Custom cutouts</h4>
+      <div className="features-row">
+        <button onClick={onAdd} data-testid="add-custom-cutout">
+          + Add cutout
+        </button>
+      </div>
+      {cutouts.length === 0 && <p className="features-empty">No custom cutouts.</p>}
+      {cutouts.map((c) => (
+        <div key={c.id} className="features-row" data-testid={`custom-cutout-${c.id}`}>
+          <input
+            type="checkbox"
+            checked={c.enabled}
+            onChange={(e) => patchCutout(c.id, { enabled: e.target.checked })}
+            data-testid={`custom-cutout-enabled-${c.id}`}
+          />
+          <select
+            value={c.face}
+            onChange={(e) =>
+              patchCutout(c.id, { face: e.target.value as import('@/types').CutoutFace })
+            }
+            data-testid={`custom-cutout-face-${c.id}`}
+          >
+            {CUTOUT_FACES.map((f) => (
+              <option key={f} value={f}>
+                {f}
+              </option>
+            ))}
+          </select>
+          <select
+            value={c.shape}
+            onChange={(e) =>
+              patchCutout(c.id, { shape: e.target.value as import('@/types').CustomCutoutShape })
+            }
+            data-testid={`custom-cutout-shape-${c.id}`}
+          >
+            {CUTOUT_SHAPES.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+          <input
+            type="number"
+            value={c.u}
+            step={1}
+            onChange={(e) => patchCutout(c.id, { u: Number(e.target.value) })}
+            style={{ width: 56 }}
+            data-testid={`custom-cutout-u-${c.id}`}
+          />
+          <input
+            type="number"
+            value={c.v}
+            step={1}
+            onChange={(e) => patchCutout(c.id, { v: Number(e.target.value) })}
+            style={{ width: 56 }}
+            data-testid={`custom-cutout-v-${c.id}`}
+          />
+          <input
+            type="number"
+            value={c.width}
+            step={1}
+            min={0.1}
+            onChange={(e) => patchCutout(c.id, { width: Number(e.target.value) })}
+            style={{ width: 56 }}
+            data-testid={`custom-cutout-width-${c.id}`}
+          />
+          <input
+            type="number"
+            value={c.height}
+            step={1}
+            min={0.1}
+            onChange={(e) => patchCutout(c.id, { height: Number(e.target.value) })}
+            style={{ width: 56 }}
+            data-testid={`custom-cutout-height-${c.id}`}
+          />
+          <input
+            type="text"
+            placeholder="label"
+            value={c.label ?? ''}
+            onChange={(e) => patchCutout(c.id, { label: e.target.value })}
+            style={{ flex: 1 }}
+          />
+          <button onClick={() => removeCutout(c.id)} data-testid={`custom-cutout-remove-${c.id}`}>
+            ✕
+          </button>
         </div>
       ))}
     </section>
