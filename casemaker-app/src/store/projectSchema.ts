@@ -17,6 +17,8 @@ export const caseParamsSchema = z.object({
     z.enum(['snap-fit', 'screw-down', 'flat-lid']),
   ),
   lidRecess: z.boolean().optional(),
+  /** Pelican shell-lid cavity height (mm). 0 / undefined = flat-plate lid (legacy). */
+  lidCavityHeight: z.number().nonnegative().optional(),
   extraCavityZ: z.number().nonnegative().optional(),
   snapType: z.enum(['barb', 'full-lid']).optional(),
   ventilation: z.object({

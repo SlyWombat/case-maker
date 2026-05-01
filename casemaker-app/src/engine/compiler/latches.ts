@@ -199,10 +199,35 @@ function buildOneLatch(
 
   // -- Lid-side striker geometry (computed first so the arm hook can be
   // -- positioned relative to the striker). Built later in lid-local coords.
-  const tabInnerN = wallOuter - f.outwardSign * EMBED;
-  const tabOuterN = wallOuter + f.outwardSign * STRIKER_TAB_THICKNESS;
-  const strikerAxisN = tabOuterN;
-  const strikerZ = lidPlateTopZ + STRIKER_TAB_HEIGHT / 2;
+  // Two paths depending on whether the lid is a Pelican-style SHELL (has
+  // its own side walls) or a flat plate:
+  //   • Shell lid (lidCavityHeight > 0): striker rides DIRECTLY on the
+  //     lid's outer side wall — no separate striker tab needed because
+  //     there's already a wall there. Striker Z sits a fixed distance up
+  //     the lid wall.
+  //   • Flat lid: the lid is a thin plate at z=lidPlateBottomZ; we extend
+  //     a short tab UP from the plate top to give the striker an anchor.
+  const lidShellMode = (params.lidCavityHeight ?? 0) > 0;
+  let strikerAxisN: number;
+  let strikerZ: number;
+  let tabInnerN: number;
+  let tabOuterN: number;
+  if (lidShellMode) {
+    // Striker post: cylinder along wall tangent. Axis at the lid wall's
+    // OUTER face (so half overlaps the wall, half protrudes outward) at
+    // a Z above the rim.
+    const STRIKER_Z_ABOVE_RIM = 6;  // mm — striker sits this far up the lid wall
+    strikerAxisN = wallOuter;
+    strikerZ = rimTopZ + STRIKER_Z_ABOVE_RIM;
+    // No tab in shell mode; the lid wall IS the anchor.
+    tabInnerN = wallOuter;
+    tabOuterN = wallOuter;
+  } else {
+    tabInnerN = wallOuter - f.outwardSign * EMBED;
+    tabOuterN = wallOuter + f.outwardSign * STRIKER_TAB_THICKNESS;
+    strikerAxisN = tabOuterN;
+    strikerZ = lidPlateTopZ + STRIKER_TAB_HEIGHT / 2;
+  }
 
   // -- Arm knuckle + body + cam hook --------------------------------------
   // Arm knuckle: cylinder along wall tangent in the middle gap.
@@ -256,23 +281,26 @@ function buildOneLatch(
   const arm = union([armKnuckle, armBody, hook]);
 
   // -- Striker on the LID (additive in lid-local coords) ------------------
-  // Tab geometry parameters were computed above (tabInnerN, tabOuterN,
-  // strikerAxisN, strikerZ). Tab is a slab extending UP from the lid plate
-  // top by STRIKER_TAB_HEIGHT, embedded into the lid plate by EMBED for
-  // manifold fusion. Striker post: half-embedded in the tab outboard face,
-  // half protruding outward for the cam hook to wrap.
-  const tab = makeBoxBetween(
-    f,
-    u0 - latch.width / 2, u0 + latch.width / 2,
-    tabInnerN, tabOuterN,
-    lidPlateTopZ - EMBED, lidPlateTopZ + STRIKER_TAB_HEIGHT,
-  );
+  // Shell mode: a single striker cylinder fused with the lid's outer side
+  // wall (no tab — the lid wall provides the anchor).
+  // Flat mode: a short tab extends UP from the lid plate top, with the
+  // striker post on the tab's outer face.
   const strikerLen = latch.width;
   const striker = makeKnuckleAlongTangent(
     f, u0 - strikerLen / 2, strikerLen, strikerAxisN, strikerZ, STRIKER_R, 0,
   );
-  // Tab + striker in world coords; caller shifts to lid-local.
-  const lidPart = union([tab, striker]);
+  let lidPart: BuildOp;
+  if (lidShellMode) {
+    lidPart = striker;
+  } else {
+    const tab = makeBoxBetween(
+      f,
+      u0 - latch.width / 2, u0 + latch.width / 2,
+      tabInnerN, tabOuterN,
+      lidPlateTopZ - EMBED, lidPlateTopZ + STRIKER_TAB_HEIGHT,
+    );
+    lidPart = union([tab, striker]);
+  }
 
   return {
     caseAdditive: [caseKnuckleA, caseKnuckleB],

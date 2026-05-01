@@ -217,6 +217,17 @@ export interface CaseParameters {
   /** Recessed-lid mode: lid drops into a pocket at the top of the shell, flush with the rim. */
   lidRecess?: boolean;
   /**
+   * Pelican-style shell lid: the lid is itself a hollow box (walls extending
+   * UP from the lid plate, with a closed top). When > 0, buildLid produces
+   * a shell with an internal cavity of this height; the latch striker rides
+   * directly on the lid's outer side wall (no separate striker tab needed).
+   * When 0 / undefined, the lid is a flat plate (legacy default).
+   *
+   * Wall thickness for the lid sides is the case `wallThickness`; the closed
+   * top thickness is `lidThickness`.
+   */
+  lidCavityHeight?: Mm;
+  /**
    * Issue #36 — extra cavity height (mm) added on top of the auto-computed
    * minimum. Grows the wall and pushes the lid up; cutout positions are
    * unchanged so connectors stay aligned with their openings.

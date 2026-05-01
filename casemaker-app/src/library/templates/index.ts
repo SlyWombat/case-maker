@@ -166,6 +166,11 @@ function protectiveCase(): Project {
   // envelope and the cam arm can grab it. The seal still works without
   // recess — gasket compresses between lid underside and rim top.
   p.case.lidRecess = false;
+  // Pelican lids have their OWN cavity (depth to accommodate the top of
+  // the latches plus interior padding). Shell-mode buildLid emits a
+  // hollow box with side walls extending UP from the rim; the latch
+  // striker rides directly on the lid's outer side wall (no separate tab).
+  p.case.lidCavityHeight = 25;
   p.case.joint = 'flat-lid';
   p.case.ventilation = { enabled: false, pattern: 'none', coverage: 0 };
   p.case.bosses.enabled = false;

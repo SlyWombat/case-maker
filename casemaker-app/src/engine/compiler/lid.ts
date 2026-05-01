@@ -78,10 +78,14 @@ export function computeLidDims(
       liftAboveShell: 6,
     };
   }
+  // Pelican-style shell lid (lidCavityHeight > 0): the lid is a hollow box
+  // with side walls extending UP from the bottom plate, closed by a top
+  // panel of `lidThickness`. Total Z = lidThickness + lidCavityHeight.
+  const cavityHeight = params.lidCavityHeight ?? 0;
   return {
     x: dims.outerX,
     y: dims.outerY,
-    z: params.lidThickness,
+    z: params.lidThickness + cavityHeight,
     zPosition: dims.outerZ,
     liftAboveShell: 2,
   };
@@ -164,11 +168,39 @@ export function buildFlatLid(
   resolveDisplay: DisplayResolver = NO_RESOLVE_DISPLAY,
 ): BuildOp {
   const lid = computeLidDims(board, params, hats, resolveHat, display, resolveDisplay);
+  const cavityHeight = params.lidCavityHeight ?? 0;
+  const outerR = lidOuterCornerRadius(params);
   // Issue #81 — non-recessed flat-lid plate matches the case envelope's
   // outer corner radius so the lid silhouette aligns with the rim.
-  const plate = roundedRectPrism(lid.x, lid.y, lid.z, lidOuterCornerRadius(params));
+  let body: BuildOp;
+  if (cavityHeight > 0) {
+    // Pelican-style shell lid: outer prism MINUS inner cavity. Side walls
+    // = `wallThickness`, top "ceiling" panel = `lidThickness`. Cavity opens
+    // DOWNWARD (toward the case rim) from lid-local z=0 up to the ceiling
+    // at z=cavityHeight; the closed top spans z=[cavityHeight, cavityHeight
+    // + lidThickness].
+    const wall = params.wallThickness;
+    const innerR = Math.max(0, outerR - wall);
+    const outer = roundedRectPrism(lid.x, lid.y, lid.z, outerR);
+    // Cavity: a touch taller than `cavityHeight` at the bottom face so the
+    // boolean cut is clean (overshoot avoids a 0-thickness shell skin).
+    const overshoot = 0.1;
+    const innerW = lid.x - 2 * wall;
+    const innerH = lid.y - 2 * wall;
+    if (innerW > 0 && innerH > 0 && cavityHeight > 0) {
+      const cavity = translate(
+        [wall, wall, -overshoot],
+        roundedRectPrism(innerW, innerH, cavityHeight + overshoot, innerR),
+      );
+      body = difference([outer, cavity]);
+    } else {
+      body = outer;
+    }
+  } else {
+    body = roundedRectPrism(lid.x, lid.y, lid.z, outerR);
+  }
   const { posts, holes } = buildLidPosts(board, params, hats, resolveHat, display, resolveDisplay);
-  return attachPosts(plate, posts, holes);
+  return attachPosts(body, posts, holes);
 }
 
 /**
