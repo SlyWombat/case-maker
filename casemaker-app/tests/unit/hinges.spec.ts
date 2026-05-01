@@ -83,18 +83,20 @@ describe('Issue #92 — barrel-hinge geometry compiler', () => {
     const ops = buildHingeOps(hinge, board, baseCase);
     // External-pin mode: 3 case knuckles, no extra pin solid.
     expect(ops.caseAdditive.length).toBe(3);
-    // Lid knuckles are pre-drilled (knuckle - through-hole) but each is
-    // one entry in lidAdditive.
-    expect(ops.lidAdditive.length).toBe(2);
+    // Issue #121 — each lid knuckle now emits TWO entries: the
+    // pre-drilled cylinder + a fairing-tab cube that bridges it to the
+    // lid plate. So 2 lid knuckles → 4 lidAdditive entries.
+    expect(ops.lidAdditive.length).toBe(2 * 2);
     expect(ops.subtractive.length).toBe(1);
   });
 
-  it('numKnuckles=7 → 4 case + 3 lid knuckles', () => {
+  it('numKnuckles=7 → 4 case + 3 lid knuckles (each lid knuckle adds knuckle+fairing)', () => {
     const board = makeBoard(120, 80);
     const hinge = defaultHinge({ numKnuckles: 7, hingeLength: 100 });
     const ops = buildHingeOps(hinge, board, baseCase);
     expect(ops.caseAdditive.length).toBe(4);
-    expect(ops.lidAdditive.length).toBe(3);
+    // Issue #121 — 3 lid knuckles × (knuckle + fairing) = 6 entries.
+    expect(ops.lidAdditive.length).toBe(3 * 2);
   });
 
   it('print-in-place style emits a separate pin node; external-pin does not', () => {

@@ -7,7 +7,7 @@ import type {
   HingePositioning,
 } from '@/types';
 import type { DisplayPlacement, DisplayProfile } from '@/types/display';
-import { cylinder, difference, rotate, translate, type BuildOp } from './buildPlan';
+import { cube, cylinder, difference, rotate, translate, type BuildOp } from './buildPlan';
 import { computeShellDims } from './caseShell';
 import { faceFrame } from '../coords';
 import { computeLidDims } from './lid';
@@ -191,6 +191,61 @@ function buildKnuckle(
   return translate(origin, orientAlongFaceU(cyl, hinge.face));
 }
 
+/** Issue #121 — small "fairing tab" cube that bridges the lid knuckle's
+ *  top arc with the lid plate's underside, giving manifold a volumetric
+ *  overlap to fuse instead of single-line contact. Returns null when the
+ *  geometry is degenerate.
+ *
+ *  The cube spans the knuckle's u-extent (knuckleLen), 2·knuckleR in the
+ *  outward normal (n) direction, and EMBED in z. It sits with its bottom
+ *  face 1 mm BELOW the lid plate underside (overlapping the cylinder
+ *  cross-section's top arc) and its top 0.5 mm ABOVE (overlapping the
+ *  lid plate). Net visual effect is a small fillet around each knuckle's
+ *  attachment to the lid plate — the kind a real hinge has anyway.
+ */
+function buildKnuckleLidFairing(
+  hinge: HingeFeature,
+  origin: [number, number, number],
+  knuckleLen: number,
+): BuildOp | null {
+  const knuckleR = hinge.knuckleOuterDiameter / 2;
+  const FAIRING_BELOW = 1.0; // overlap into the cylinder
+  const FAIRING_ABOVE = 0.5; // overlap into the lid plate
+  const fairingHeight = FAIRING_BELOW + FAIRING_ABOVE;
+  // Cube dims in the local frame: u along the knuckle axis (= knuckleLen),
+  // n perpendicular (= 2·knuckleR), z vertical (= fairingHeight).
+  // Translate the cube so its u start matches the knuckle's u start, its
+  // n center matches the knuckle's n center (= 0 in the face plane → the
+  // origin already places it correctly in n), and its bottom face sits
+  // FAIRING_BELOW below z=lid-plate-underside (which is 0 in lid-local
+  // coords: the cylinder top is at lid-local z=0; we want bottom at -1).
+  // Knuckle u-axis depends on hinge.face — same orientAlongFaceU rule
+  // applies. We build a face-local cube and orient it.
+  const isPmY = hinge.face === '+y' || hinge.face === '-y';
+  // For ±y faces: u = +x. cube dims [u, n, z] = [knuckleLen, 2*r, h].
+  // For ±x faces: u = +y. cube dims [n, u, z] = [2*r, knuckleLen, h].
+  const cubeOp = isPmY
+    ? cube([knuckleLen, 2 * knuckleR, fairingHeight], false)
+    : cube([2 * knuckleR, knuckleLen, fairingHeight], false);
+  // Place: origin is the knuckle's u-start, the in-plane n=0, z=axis center.
+  // Cube min corner offsets:
+  //   u axis: 0 (cube starts at the knuckle u-start, same as cylinder)
+  //   n axis: -knuckleR (cube spans n=[-r, +r] around the axis center)
+  //   z axis: -FAIRING_BELOW (cube z = [axis_z - FAIRING_BELOW + (axis_z to top)])
+  // Wait, the knuckle CENTER in z is `origin[2]`; the knuckle TOP is at
+  // origin[2] + knuckleR. We want fairing bottom at origin[2] + knuckleR
+  // - FAIRING_BELOW and fairing top at origin[2] + knuckleR + FAIRING_ABOVE.
+  // So cube z-min = origin[2] + knuckleR - FAIRING_BELOW.
+  const zMin = origin[2] + knuckleR - FAIRING_BELOW;
+  // For ±y faces, n is +y direction (outward normal); for ±x faces, n is +x.
+  // The "outward" sign was already absorbed into outX/outY when building
+  // origin, so n=0 here is the knuckle axis — cube must straddle it.
+  const nOffset = -knuckleR;
+  const xOff = isPmY ? 0 : nOffset;
+  const yOff = isPmY ? nOffset : 0;
+  return translate([origin[0] + xOff, origin[1] + yOff, zMin], cubeOp);
+}
+
 /** Build the through-hole subtractive cylinder spanning the full hinge axis. */
 function buildThroughHole(
   hinge: HingeFeature,
@@ -325,6 +380,21 @@ export function buildHingeOps(
         [holeStartX, holeStartY, lidLocalAxisZ],
       );
       lidAdditive.push(difference([knuckle, holeForLid]));
+      // Issue #121 — fairing tab between the lid knuckle's top and the
+      // lid plate's underside. Without this they touch at exactly
+      // z=lidLocalAxisZ + knuckleR (= 0 by the convention that the lid
+      // plate underside is at lid-local z=0): one line of contact, not
+      // a volumetric overlap, manifold leaves them as separate
+      // components — the lid splits into [plate, knuckle1, knuckle2, …].
+      // The fairing is a small cube spanning the knuckle's u-extent,
+      // 2·knuckleR perpendicular, that overlaps both the cylinder
+      // (by 1 mm below z=0) and the lid plate (by 0.5 mm above z=0).
+      const fairingTab = buildKnuckleLidFairing(
+        hinge,
+        [startX, startY, lidLocalAxisZ],
+        layout.knuckleLen,
+      );
+      if (fairingTab) lidAdditive.push(fairingTab);
     }
   }
 
