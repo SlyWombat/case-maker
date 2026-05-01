@@ -79,23 +79,36 @@ describe('Fixture facing-aware orientation (#99)', () => {
   });
 
   describe('XLR-3 body cylinder runs along the depth axis (DIN-style 3-pin)', () => {
-    const cases: Array<{ facing: Facing; depthAxis: 'x' | 'y' | 'z' }> = [
-      { facing: '-x', depthAxis: 'x' },
-      { facing: '+x', depthAxis: 'x' },
-      { facing: '+y', depthAxis: 'y' },
-      { facing: '-y', depthAxis: 'y' },
+    // Use an asymmetric size so depth-axis vs perpendicular-axis bboxes are
+    // unambiguously distinguishable. Square cross-sections (e.g. 24×24 perp)
+    // can hide a wrong-axis cylinder because the bbox along ANY axis would
+    // still be ~24 mm.
+    const cases: Array<{
+      facing: Facing;
+      depthAxis: 'x' | 'y' | 'z';
+      xlrSize: { x: number; y: number; z: number };
+    }> = [
+      { facing: '-x', depthAxis: 'x', xlrSize: { x: 20, y: 18, z: 14 } },
+      { facing: '+x', depthAxis: 'x', xlrSize: { x: 20, y: 18, z: 14 } },
+      { facing: '+y', depthAxis: 'y', xlrSize: { x: 18, y: 20, z: 14 } },
+      { facing: '-y', depthAxis: 'y', xlrSize: { x: 18, y: 20, z: 14 } },
     ];
-    const xlrSize = { x: 20, y: 24, z: 24 };
-    for (const { facing, depthAxis } of cases) {
-      it(`facing ${facing}: body bbox depth runs along ${depthAxis}`, () => {
+    for (const { facing, depthAxis, xlrSize } of cases) {
+      it(`facing ${facing}: body bbox depth runs along ${depthAxis}, NOT along the perpendicular axes`, () => {
         const g = buildFixture('custom' as ComponentKind, xlrSize, 'xlr-3', facing);
         expect(g).not.toBeNull();
         const bb = bboxOf(g!);
-        // Body cylinder dominates the bbox; its long axis should match
-        // the depth axis. Length along depth axis ≈ xlrSize[depthAxis];
-        // perpendicular axes are smaller (radius of the body).
         const span = (axis: 'x' | 'y' | 'z'): number => bb.max[axis] - bb.min[axis];
-        expect(span(depthAxis)).toBeGreaterThan(xlrSize[depthAxis] * 0.9);
+        const depthSpan = span(depthAxis);
+        // Length along depth axis ≈ full size on that axis.
+        expect(depthSpan).toBeGreaterThanOrEqual(xlrSize[depthAxis] * 0.9);
+        // CRITICAL: depth span MUST be the LONGEST. If the body were stuck
+        // along the wrong axis (the original #99 bug), the perpendicular
+        // axis would be longer instead. We compare to the OTHER in-plane
+        // axis explicitly so square-perp cross-sections can't hide the bug.
+        const otherInPlane: 'x' | 'y' | 'z' =
+          depthAxis === 'x' ? 'y' : depthAxis === 'y' ? 'x' : 'x';
+        expect(depthSpan).toBeGreaterThanOrEqual(span(otherInPlane));
       });
     }
   });
