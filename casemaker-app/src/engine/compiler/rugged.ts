@@ -5,8 +5,21 @@ import type {
   HatProfile,
 } from '@/types';
 import type { DisplayPlacement, DisplayProfile } from '@/types/display';
-import { cube, cylinder, mesh, translate, union, type BuildOp } from './buildPlan';
+import { cube, cylinder, difference, mesh, rotate, translate, union, type BuildOp } from './buildPlan';
 import { computeShellDims } from './caseShell';
+import {
+  cornerSign,
+  protectiveRibPositions,
+  LATCH_RIB_W,
+  LATCH_RIB_BODY_DEPTH,
+  LATCH_RIB_KNUCKLE_DEPTH,
+  LATCH_RIB_KNUCKLE_PAD,
+  LATCH_PIVOT_BELOW_RIM,
+  LATCH_KNUCKLE_OUTER_R,
+  LATCH_KNUCKLE_OFFSET,
+  LATCH_PIN_R,
+  LATCH_PIN_HOLE_CLEAR,
+} from './latchProtection';
 
 type HatResolver = (id: string) => HatProfile | undefined;
 const NO_HATS: HatPlacement[] = [];
@@ -235,37 +248,115 @@ function buildWallRibs(
   }
 
   // Protective vertical ribs flanking each latch — shield the latch arm
-  // from impact. Two ribs per latch (one on each side of the latch's
-  // u-position), wider than regular ribs and extending OUT past the
-  // latch arm's outermost face. Same tapered ends + on case AND lid.
+  // from impact. Each rib is a 3-segment contour that bumps OUT at the
+  // hinge-knuckle Z so the knuckle (which sticks further out than the arm
+  // body) is also covered. The CORNER-facing rib gets a horizontal pin
+  // hole so the print-in-place hinge pin can be poked out with a
+  // paperclip without disassembling the case.
   const latches = params.latches ?? [];
-  const LATCH_RIB_GAP = 6;
-  const LATCH_RIB_W = 3;
-  // Latch arm body's outer face is at HOOK_WALL_OFFSET (1.0) + tolerance
-  // (0.2 default) + ARM_PLATE_THICKNESS (3.0) ≈ 4.2 mm out from the wall.
-  // Make the protective rib stick out past that so the rib tip shields
-  // the arm.
-  const LATCH_RIB_DEPTH = Math.max(ribDepth + 1, 5);
-  const emitLatchRibs = (out: BuildOp[], zBot: number, zSpan: number): void => {
+  const emitLatchRibs = (out: BuildOp[], zBot: number, zSpan: number, zIsLidLocal: boolean): void => {
     if (zSpan <= 1) return;
+    // World Z for the hinge knuckle bump only makes sense on the CASE side
+    // (the latch hinge lives on the case wall, world Z = rimTopZ -
+    // LATCH_PIVOT_BELOW_RIM where rimTopZ = dims.outerZ for non-recessed).
+    // On the lid the knuckle isn't there, so the lid's protective rib
+    // stays at body depth across its full Z range.
+    const knuckleCenterZ = dims.outerZ - LATCH_PIVOT_BELOW_RIM;
+    const knuckleZBot = knuckleCenterZ - LATCH_KNUCKLE_OUTER_R - LATCH_RIB_KNUCKLE_PAD;
+    const knuckleZTop = knuckleCenterZ + LATCH_KNUCKLE_OUTER_R + LATCH_RIB_KNUCKLE_PAD;
     for (const latch of latches) {
       if (!latch.enabled) continue;
-      const halfW = latch.width / 2;
-      const offsets = [-(halfW + LATCH_RIB_GAP), halfW + LATCH_RIB_GAP];
-      for (const off of offsets) {
-        const tCenter = latch.uPosition + off;
-        out.push(
-          buildTaperedVerticalRib(latch.wall, tCenter, LATCH_RIB_W, zBot, zBot + zSpan, LATCH_RIB_DEPTH, EMBED, RIB_TAPER, dims),
-        );
+      void cornerSign;  // imported for completeness; positions does the heavy lifting
+      const positions = protectiveRibPositions(latch, dims);
+      const ribCenters: { center: number; isCorner: boolean }[] = [
+        { center: positions.innerCenter,  isCorner: false },
+        { center: positions.cornerCenter, isCorner: true  },
+      ];
+      for (const { center: tCenter, isCorner } of ribCenters) {
+        // Build a contoured rib as a stack of vertical segments. On the
+        // case side three segments — body / knuckle bump / body. On the
+        // lid (no hinge) — single body segment.
+        const segmentZTop = zBot + zSpan;
+        const segments: { zBot: number; zTop: number; depth: number }[] = [];
+        if (zIsLidLocal || knuckleZBot >= segmentZTop || knuckleZTop <= zBot) {
+          segments.push({ zBot, zTop: segmentZTop, depth: LATCH_RIB_BODY_DEPTH });
+        } else {
+          const safeKnuckleBot = Math.max(zBot, knuckleZBot);
+          const safeKnuckleTop = Math.min(segmentZTop, knuckleZTop);
+          if (zBot < safeKnuckleBot) {
+            segments.push({ zBot, zTop: safeKnuckleBot, depth: LATCH_RIB_BODY_DEPTH });
+          }
+          segments.push({ zBot: safeKnuckleBot, zTop: safeKnuckleTop, depth: LATCH_RIB_KNUCKLE_DEPTH });
+          if (safeKnuckleTop < segmentZTop) {
+            segments.push({ zBot: safeKnuckleTop, zTop: segmentZTop, depth: LATCH_RIB_BODY_DEPTH });
+          }
+        }
+        // Build each segment as a tapered hexagonal-prism rib. Use a
+        // smaller taper at SHARED z boundaries (between adjacent
+        // segments) so the segments meet at full depth — outer ends keep
+        // the full RIB_TAPER for the smooth wall fade.
+        const segmentRibs: BuildOp[] = [];
+        for (let i = 0; i < segments.length; i++) {
+          const s = segments[i]!;
+          const isFirst = i === 0;
+          const isLast = i === segments.length - 1;
+          const segTaperBot = isFirst ? RIB_TAPER : 0.6;
+          const segTaperTop = isLast ? RIB_TAPER : 0.6;
+          segmentRibs.push(
+            buildTaperedVerticalRibAsymmetric(
+              latch.wall, tCenter, LATCH_RIB_W, s.zBot, s.zTop,
+              s.depth, EMBED, segTaperBot, segTaperTop, dims,
+            ),
+          );
+        }
+        let rib = segmentRibs.length === 1 ? segmentRibs[0]! : union(segmentRibs);
+        // Pin hole through the corner-facing rib (case side only — lid
+        // has no pin). Hole is a horizontal cylinder along the wall
+        // tangent at pin axis Z, slightly larger than the pin so it
+        // slides freely.
+        if (!zIsLidLocal && isCorner) {
+          const holeR = LATCH_PIN_R + LATCH_PIN_HOLE_CLEAR;
+          rib = difference([rib, buildPinHoleCutter(latch.wall, tCenter, holeR, knuckleCenterZ, dims)]);
+        }
+        out.push(rib);
       }
     }
   };
-  emitLatchRibs(caseRibs, ribZBottom, ribZSpan);
+  emitLatchRibs(caseRibs, ribZBottom, ribZSpan, /*zIsLidLocal=*/false);
   if (lidShellMode) {
-    emitLatchRibs(lidRibs, clear, lidTotalZ - 2 * clear);
+    emitLatchRibs(lidRibs, clear, lidTotalZ - 2 * clear, /*zIsLidLocal=*/true);
   }
 
   return { caseRibs, lidRibs };
+}
+
+/** A horizontal cylinder along the wall tangent at the latch pin axis,
+ *  long enough to pierce a single protective rib. Used as a subtractor
+ *  on the corner-facing rib so the print-in-place pin can pass through. */
+function buildPinHoleCutter(
+  wall: '+x' | '-x' | '+y' | '-y',
+  ribTCenter: number,
+  holeR: number,
+  pinZ: number,
+  dims: { outerX: number; outerY: number; outerZ: number },
+): BuildOp {
+  const axis: 'x' | 'y' = wall === '+x' || wall === '-x' ? 'x' : 'y';
+  const sign: 1 | -1 = wall === '+x' || wall === '+y' ? +1 : -1;
+  const wallOuter =
+    wall === '-x' || wall === '-y' ? 0 :
+    wall === '+x' ? dims.outerX : dims.outerY;
+  const pinAxisN = wallOuter + sign * LATCH_KNUCKLE_OFFSET;
+  // Cutter long enough to pierce the rib's full tangent extent (LATCH_RIB_W
+  // = 3 mm) plus a safety margin on each side.
+  const cutLen = LATCH_RIB_W + 2;
+  const cyl = cylinder(cutLen, holeR, 24);
+  const oriented = axis === 'x'
+    ? rotate([-90, 0, 0], cyl)
+    : rotate([0, 90, 0], cyl);
+  if (axis === 'x') {
+    return translate([pinAxisN, ribTCenter - cutLen / 2, pinZ], oriented);
+  }
+  return translate([ribTCenter - cutLen / 2, pinAxisN, pinZ], oriented);
 }
 
 /** Tapered vertical rib: hexagonal cross-section in the (wall-normal,
@@ -285,6 +376,25 @@ function buildTaperedVerticalRib(
   taper: number,
   dims: { outerX: number; outerY: number; outerZ: number },
 ): BuildOp {
+  return buildTaperedVerticalRibAsymmetric(wall, tCenter, ribW, zBot, zTop, ribDepth, embed, taper, taper, dims);
+}
+
+/** Same as buildTaperedVerticalRib but with independent top + bottom
+ *  taper lengths. Used by the protective-latch-rib stack so segments
+ *  meet at full depth (small `0.6` mm taper at shared boundaries) while
+ *  the outer ends keep the full `RIB_TAPER` for the smooth wall fade. */
+function buildTaperedVerticalRibAsymmetric(
+  wall: '+x' | '-x' | '+y' | '-y',
+  tCenter: number,
+  ribW: number,
+  zBot: number,
+  zTop: number,
+  ribDepth: number,
+  embed: number,
+  taperBot: number,
+  taperTop: number,
+  dims: { outerX: number; outerY: number; outerZ: number },
+): BuildOp {
   const axis: 'x' | 'y' = wall === '+x' || wall === '-x' ? 'x' : 'y';
   const sign: 1 | -1 = wall === '+x' || wall === '+y' ? +1 : -1;
   const wallOuter =
@@ -292,12 +402,19 @@ function buildTaperedVerticalRib(
     wall === '+x' ? dims.outerX : dims.outerY;
   const tStart = tCenter - ribW / 2;
   const span = zTop - zBot;
-  // Clamp the per-end taper to no more than 45% of the span — leaves at
-  // least 10% of straight outer face in the middle so the hexagon
+  // Clamp each per-end taper independently — the two together must leave
+  // at least 10% of straight outer face in the middle so the hexagon
   // doesn't degenerate.
-  const effTaper = Math.min(taper, Math.max(0, span * 0.45));
-  if (effTaper < 0.5 || span < 1.5) {
-    // Fall back to a plain cube when there's no room for a useful taper.
+  const maxCombined = Math.max(0, span * 0.9);
+  let effTaperBot = Math.max(0, taperBot);
+  let effTaperTop = Math.max(0, taperTop);
+  if (effTaperBot + effTaperTop > maxCombined) {
+    const scale = maxCombined / (effTaperBot + effTaperTop);
+    effTaperBot *= scale;
+    effTaperTop *= scale;
+  }
+  if (effTaperBot < 0.1 && effTaperTop < 0.1) {
+    // Fall back to a plain cube when there's no useful taper at either end.
     if (axis === 'x') {
       const x0 = sign === -1 ? wallOuter - ribDepth : wallOuter - embed;
       return translate([x0, tStart, zBot], cube([embed + ribDepth, ribW, span], false));
@@ -324,18 +441,24 @@ function buildTaperedVerticalRib(
     }
   }
   // Front cap (t=0): A,B,C,D,E,F → indices 0..5
+  // Hexagon: B at outer-bottom corner sits at zBot only when taperBot > 0;
+  // when taperBot == 0 the rib starts at full ribDepth at zBot (no slope
+  // at this end), which is what we want at SHARED boundaries between
+  // contour segments.
+  const bMidY = effTaperBot > 0.05 ? 0 : ribDepth;
+  const eMidY = effTaperTop > 0.05 ? 0 : ribDepth;
   pushVert(0,    -embed,  zBot);
-  pushVert(0,    0,       zBot);
-  pushVert(0,    ribDepth, zBot + effTaper);
-  pushVert(0,    ribDepth, zTop - effTaper);
-  pushVert(0,    0,       zTop);
+  pushVert(0,    bMidY,   zBot);
+  pushVert(0,    ribDepth, zBot + effTaperBot);
+  pushVert(0,    ribDepth, zTop - effTaperTop);
+  pushVert(0,    eMidY,   zTop);
   pushVert(0,    -embed,  zTop);
   // Back cap (t=ribW): indices 6..11
   pushVert(ribW, -embed,  zBot);
-  pushVert(ribW, 0,       zBot);
-  pushVert(ribW, ribDepth, zBot + effTaper);
-  pushVert(ribW, ribDepth, zTop - effTaper);
-  pushVert(ribW, 0,       zTop);
+  pushVert(ribW, bMidY,   zBot);
+  pushVert(ribW, ribDepth, zBot + effTaperBot);
+  pushVert(ribW, ribDepth, zTop - effTaperTop);
+  pushVert(ribW, eMidY,   zTop);
   pushVert(ribW, -embed,  zTop);
 
   // Reference winding (matches positive-determinant local→world basis).

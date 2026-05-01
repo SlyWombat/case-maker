@@ -8,6 +8,7 @@ import type {
 import type { DisplayPlacement, DisplayProfile } from '@/types/display';
 import { cube, cylinder, difference, translate, union, type BuildOp } from './buildPlan';
 import { computeShellDims } from './caseShell';
+import { pinSpanU } from './latchProtection';
 
 type HatResolver = (id: string) => HatProfile | undefined;
 const NO_HATS: HatPlacement[] = [];
@@ -192,9 +193,13 @@ function buildOneLatch(
   );
 
   // -- Pin (separate part, runs through every knuckle) --------------------
-  const pinLen = latch.width + 1.0;  // a touch longer than the bore so it doesn't fall out
+  // Pin extends ALL THE WAY THROUGH the corner-facing protective rib so the
+  // user can poke it out with a paperclip from outside the case. The
+  // protective rib has a matching hole that's slightly larger than PIN_R.
+  // pinSpanU() returns the asymmetric u range based on the corner side.
+  const pinSpan = pinSpanU(latch, dims);
   const pin = makeBoreAlongTangent(
-    f, u0 - latch.width / 2 - 0.5, pinLen, pinAxisN, pivotZ, PIN_R,
+    f, pinSpan.uMin, pinSpan.uMax - pinSpan.uMin, pinAxisN, pivotZ, PIN_R,
   );
 
   // -- Lid-side striker geometry (computed first so the arm hook can be

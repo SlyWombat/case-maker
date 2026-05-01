@@ -1,0 +1,74 @@
+import type { Latch } from '@/types';
+
+/** Shared geometry between the latch hinge (`latches.ts`) and the protective
+ *  ribs that flank each latch (`rugged.ts`). The ribs need to know where the
+ *  hinge knuckles sit so they can bump out to match the knuckle profile, and
+ *  the pin needs to extend through the corner-facing rib so the user can
+ *  push it out with a paperclip from outside the case. */
+
+// -- Per-latch protective rib layout ---------------------------------------
+export const LATCH_RIB_GAP = 2;              // mm — distance from latch edge to rib center
+export const LATCH_RIB_W = 3;                // mm — wall-tangent width of each protective rib
+export const LATCH_RIB_BODY_DEPTH = 5;       // mm — outward protrusion ABOVE / BELOW the knuckle bump
+export const LATCH_RIB_KNUCKLE_DEPTH = 9;    // mm — outward protrusion AT the hinge-knuckle Z
+export const LATCH_RIB_KNUCKLE_PAD = 1.5;    // mm — Z padding above + below the knuckle envelope
+
+// -- Latch hinge geometry that the rib needs to mirror ---------------------
+// (kept in sync with latches.ts — both import from here so the constants
+// don't drift.)
+export const LATCH_PIVOT_BELOW_RIM = 22;     // mm — pin axis sits this far below the rim
+export const LATCH_KNUCKLE_OUTER_R = 4;      // mm — outer radius of every hinge knuckle
+export const LATCH_KNUCKLE_OFFSET = 4;       // mm — pin axis distance OUT from outer wall surface
+export const LATCH_PIN_R = 1.5;              // mm — pin radius (3 mm diameter)
+
+// -- Pin extension to pass THROUGH the corner-facing protective rib --------
+export const LATCH_PIN_GRIP_LEN = 3;         // mm — pin sticks past corner rib for paperclip removal
+export const LATCH_PIN_HOLE_CLEAR = 0.4;     // mm — corner rib hole is wider than pin by this much
+
+/** Returns +1 if the latch's nearest corner is on the +tangent side of the
+ *  wall midpoint, -1 if the -tangent side. The CORNER-facing protective rib
+ *  is the one on this side; that's the rib that gets the pin removal hole. */
+export function cornerSign(latch: Latch, dims: { outerX: number; outerY: number }): -1 | 1 {
+  const tangentMax = (latch.wall === '+x' || latch.wall === '-x') ? dims.outerY : dims.outerX;
+  return latch.uPosition < tangentMax / 2 ? -1 : +1;
+}
+
+/** Wall-tangent center positions of the two protective ribs flanking a
+ *  latch. The "corner" rib is the one in `cornerSign(latch)` direction —
+ *  closer to the case corner. The "inner" rib is opposite. */
+export function protectiveRibPositions(
+  latch: Latch,
+  dims: { outerX: number; outerY: number },
+): { innerCenter: number; cornerCenter: number; cornerSign: -1 | 1 } {
+  const sCorner = cornerSign(latch, dims);
+  const halfW = latch.width / 2;
+  const offset = halfW + LATCH_RIB_GAP;
+  return {
+    innerCenter: latch.uPosition - sCorner * offset,
+    cornerCenter: latch.uPosition + sCorner * offset,
+    cornerSign: sCorner,
+  };
+}
+
+/** Wall-tangent extent of the print-in-place pin. Pin is asymmetric — short
+ *  end on the inner side (just past the latch's case knuckles, captured),
+ *  long end on the corner side (extends through the corner-facing protective
+ *  rib by LATCH_PIN_GRIP_LEN for removal). */
+export function pinSpanU(
+  latch: Latch,
+  dims: { outerX: number; outerY: number },
+): { uMin: number; uMax: number } {
+  const sCorner = cornerSign(latch, dims);
+  const halfW = latch.width / 2;
+  const cornerRibCenter = latch.uPosition + sCorner * (halfW + LATCH_RIB_GAP);
+  const cornerRibOuter = cornerRibCenter + sCorner * (LATCH_RIB_W / 2);
+  // Inner end: just past the case knuckles (matches the original pin span
+  // before the corner extension, so the pin still seats fully).
+  const innerEnd = latch.uPosition - sCorner * (halfW + 0.5);
+  // Corner end: past the corner rib outer face by GRIP_LEN.
+  const cornerEnd = cornerRibOuter + sCorner * LATCH_PIN_GRIP_LEN;
+  return {
+    uMin: Math.min(innerEnd, cornerEnd),
+    uMax: Math.max(innerEnd, cornerEnd),
+  };
+}
