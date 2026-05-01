@@ -69,6 +69,30 @@ export const caseParamsSchema = z.object({
       }),
     )
     .optional(),
+  // Issue #111 — rugged exterior. Optional.
+  rugged: z
+    .object({
+      enabled: z.boolean(),
+      corners: z.object({
+        enabled: z.boolean(),
+        radius: z.number().positive(),
+        flexBumper: z.boolean(),
+      }),
+      ribbing: z.object({
+        enabled: z.boolean(),
+        direction: z.enum(['vertical', 'horizontal']),
+        ribCount: z.number().int().min(0),
+        ribDepth: z.number().positive(),
+        clearBand: z.number().nonnegative(),
+      }),
+      feet: z.object({
+        enabled: z.boolean(),
+        pads: z.union([z.literal(4), z.literal(6)]),
+        padDiameter: z.number().positive(),
+        padHeight: z.number().positive(),
+      }),
+    })
+    .optional(),
   snapCatches: z
     .array(
       z.object({

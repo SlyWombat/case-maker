@@ -84,6 +84,36 @@ export type VentilationPattern = 'none' | 'slots' | 'hex';
 
 export type BossPosition = 'bottom' | 'top';
 
+/** Issue #111 — rugged exterior options. Independent of the seal/hinge/
+ *  latch features; usable on any case style for added drop protection
+ *  and stiffness. */
+export interface RuggedParams {
+  enabled: boolean;
+  corners: {
+    enabled: boolean;
+    /** Bumper outer radius extending past the case envelope. Typical 6–12 mm. */
+    radius: Mm;
+    /** When true, bumpers print as SEPARATE top-level nodes (in TPU) so
+     *  the user can slip them on. When false, fused with the case body. */
+    flexBumper: boolean;
+  };
+  ribbing: {
+    enabled: boolean;
+    direction: 'vertical' | 'horizontal';
+    ribCount: number;
+    ribDepth: Mm;
+    /** Whity-style refinement: leave smooth bands at the top + bottom of
+     *  each wall (ribs only span the middle band). 0 = full-height ribs. */
+    clearBand: Mm;
+  };
+  feet: {
+    enabled: boolean;
+    pads: 4 | 6;
+    padDiameter: Mm;
+    padHeight: Mm;
+  };
+}
+
 /** Issue #107 — waterproof gasket cross-section profile. 'flat' is a
  *  rectangular cross-section (most common for printable TPU). 'o-ring' is
  *  a circular cross-section (better seal, harder to print evenly). */
@@ -193,6 +223,9 @@ export interface CaseParameters {
    *  emits a striker on the case wall and a cam arm as a separate top-
    *  level BuildNode. Optional. */
   latches?: import('./latch').Latch[];
+  /** Issue #111 — rugged exterior options for protective cases. Corner
+   *  bumpers, wall ribbing, integrated feet. Optional. */
+  rugged?: RuggedParams;
   /**
    * Optional cantilever snap-fit catches (issue #29). Only consulted when
    * joint === 'snap-fit'; auto-populated by createDefaultProject when the

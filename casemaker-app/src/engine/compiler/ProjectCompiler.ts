@@ -5,6 +5,7 @@ import { buildOuterShell } from './caseShell';
 import { computeBossPlacements, buildBossesUnion, buildLidBosses, buildBossSupportColumns } from './bosses';
 import { buildSealChannel, buildSealTongue, buildGasketBody } from './seal';
 import { buildLatchOps } from './latches';
+import { buildRuggedOps } from './rugged';
 import { buildLid, computeLidDims } from './lid';
 import { buildPortCutoutsForProject } from './ports';
 import { applySmartCutoutLayout } from './smartCutoutLayout';
@@ -73,6 +74,8 @@ export function compileProject(project: Project): BuildPlan {
   // Issue #109 — Pelican-style latches. Striker fuses with shell;
   // each cam arm becomes its own top-level node so it prints as a free part.
   const latchOps = buildLatchOps(caseParams.latches, board, caseParams, hats ?? [], resolveHat);
+  // Issue #111 — rugged exterior (corner bumpers, ribbing, feet).
+  const ruggedOps = buildRuggedOps(board, caseParams, hats ?? [], resolveHat);
   // Issue #92 — barrel hinge. caseAdditive joins the shell pre-cavity-cut so
   // the through-hole bores cleanly through both the wall and the knuckle;
   // lidAdditive is unioned with the lid op (pre-drilled in lid-local coords);
@@ -97,6 +100,7 @@ export function compileProject(project: Project): BuildPlan {
     ...snapOps.shellAdd,
     ...hingeOps.caseAdditive,
     ...latchOps.caseAdditive,
+    ...ruggedOps.caseAdditive,
   ];
 
   const smartLayout = applySmartCutoutLayout(
@@ -201,6 +205,11 @@ export function compileProject(project: Project): BuildPlan {
   // node so they print as free parts.
   for (const arm of latchOps.armNodes) {
     nodes.push(arm);
+  }
+  // Issue #111 — flex bumpers (when enabled) print in TPU as separate
+  // slip-on parts.
+  for (const b of ruggedOps.bumperNodes) {
+    nodes.push(b);
   }
 
   const placementReport = validatePlacements(project);
