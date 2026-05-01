@@ -12,6 +12,13 @@ dist
 dist-ssr
 *.local
 
+# Issue #71 — operator notes that reference host-specific account names,
+# tokens, or URLs (e.g. cPanel deploy walkthrough). Not committed.
+local-docs/
+
+# Repo-root .env consumed by scripts/deploy-cpanel.mjs
+.env
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

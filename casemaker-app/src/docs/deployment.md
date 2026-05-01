@@ -101,33 +101,15 @@ curl -v http://<host>:8000/
 - *Connection timed out* → firewall or NAT dropping. Add the firewall rule (and portproxy if WSL2).
 - *200 OK with HTML* → working; any failure beyond this is in the client browser / DNS.
 
-## Static / shared-hosting (cPanel, Nginx, etc.) — issue #71
+## Static / shared-hosting (Apache, Nginx, GitHub Pages, etc.) — issue #71
 
-The `dist/` build is a pure SPA (no Node runtime needed on the server). Host it on cPanel, plain Apache, Nginx, GitHub Pages — anywhere static files can live.
+The `dist/` build is a pure SPA (no Node runtime needed on the server). Host it on plain Apache, Nginx, GitHub Pages, or any other static-file host.
 
-### One-command deploy via cPanel API (`npm run deploy`)
+### Build + upload
 
-1. Generate a cPanel API token (cPanel → Manage API Tokens).
-2. Create `.env` at the **repo root** (already gitignored):
-   ```
-   CPANEL_HOST=cpanel.example.com
-   CPANEL_PORT=2083
-   CPANEL_USER=<your-cpanel-user>
-   CPANEL_TOKEN=<the-api-token>
-   WEB_ROOT=/home/<your-cpanel-user>/public_html/casemaker
-   ```
-3. From `casemaker-app/`:
-   ```
-   npm run deploy             # build + upload
-   npm run deploy -- --skip-build   # upload existing dist/ as-is
-   npm run deploy -- --dry-run      # walk + log without uploading
-   ```
-
-The script (`scripts/deploy-cpanel.mjs`) builds, walks `dist/`, recursively `mkdir`s the remote subdirectories, uploads every file via `Fileman::upload_files` with the API-token header, and writes a `.htaccess` for the `.wasm` MIME type and long cache headers. A `VERSION.txt` (matching the in-app StatusBar) is also uploaded so you can confirm what's live by hitting `<host>/casemaker/VERSION.txt`.
-
-### Manual cPanel / generic Apache deploy
-
-If you'd rather drag-and-drop in cPanel File Manager, copy the contents of `dist/` into the destination directory and add a `.htaccess` next to `index.html`:
+1. From `casemaker-app/`: `npm run build` produces `dist/`.
+2. Copy the contents of `dist/` to the host's public root (e.g. `public_html/casemaker/`).
+3. Drop a `.htaccess` next to `index.html` so `.wasm` is served with the right MIME type and the asset hash bundles get long-lived caching:
 
 ```apache
 AddType application/wasm .wasm
@@ -143,9 +125,20 @@ AddType application/wasm .wasm
 # RewriteRule ^ index.html [L]
 ```
 
+For Nginx, the equivalent server-block fragment:
+
+```nginx
+types { application/wasm wasm; }
+location ~* \.(js|wasm|css)$ {
+  add_header Cache-Control "public, max-age=31536000, immutable";
+}
+# SPA fallback — uncomment if/when client routes are added.
+# location / { try_files $uri $uri/ /index.html; }
+```
+
 ### HTTPS strongly recommended
 
-The File System Access API (planned for issue #70) requires HTTPS. cPanel ships free Let's Encrypt certs — enable AutoSSL on the deployed subdirectory before users start saving projects.
+The File System Access API (planned for issue #70) requires HTTPS — without it the app falls back to download / upload instead of an in-browser file dialog. Free Let's Encrypt certs work on essentially every shared host.
 
 ### What doesn't carry over from the Tauri build
 
@@ -154,6 +147,10 @@ The File System Access API (planned for issue #70) requires HTTPS. cPanel ships 
 | Embedded HTTP server, `--host` / `--port` flags, installer firewall rules | yes | n/a |
 | Native file dialogs (Tauri plugin) | yes | falls back to browser File System Access API on HTTPS, or download/upload on HTTP |
 | Multi-user LAN access via embedded server | yes | replaced by the public host |
+
+### Automation
+
+Repo operators can wire up a one-command deploy via whatever automation their host supports (rsync, FTP, S3 sync, host-specific API). Keep host-specific credentials in a `.env` at the repo root (already gitignored). Project-specific deploy walkthroughs live in the operator's local notes — they're not committed because they reference account names, hostnames, and tokens.
 
 ## Asking for a specific deployment
 
