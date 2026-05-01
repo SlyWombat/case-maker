@@ -26,15 +26,21 @@ import { computeShellDims } from './caseShell';
  *   (protrusion, 0)    — outboard-base (full protrusion at the catch face)
  *   (protrusion·k, H)  — outboard-top (narrowed by factor k)
  *   (0, H)             — wall-top
- * where k ≈ 0.2 gives a steep but printable insertion ramp. Trapezoid
- * (NOT triangle) avoids the thin-apex issue at z=H that fragmented the
- * earlier triangular-prism wedge in #90 — there's always at least
- * protrusion·k of material along every z slice.
+ * where k ≈ 0.2 gives a steep but printable insertion ramp.
  *
- * Mesh winding verified for outward normals: base −z, top +z, wall −n,
- * slanted outboard +n+z, front cap −u (front = u=0), back cap +u.
- * Every face's right-hand-rule cross product points away from the
- * trapezoid interior so manifold treats the prism as a valid solid.
+ * Coordinate convention: nOff > 0 is CAVITY-BOUND (so the lip protrudes
+ * INTO the cavity to engage the lid arm's barb). The local→world basis
+ * uses dn = -wallNormalSign · axis because wallNormalSign is the outward
+ * normal sign and cavity-bound is the opposite direction.
+ *
+ * Pre-fix bug: the lip was emitted in the OUTWARD direction (away from
+ * the cavity), with EMBED_INTO_WALL providing the only attachment to wall
+ * material. The lid arm's barb sat in the cavity with nothing to hook
+ * under — geometrically present but functionally non-engaging. AND the
+ * mesh winding was hard-coded for one (axis, sign) parity; the other half
+ * of the walls produced inverted-orientation triangles that manifold
+ * couldn't fuse, leaving loose-piece lips on the +x and -y walls of the
+ * snap-fit-test template (and any user case using those walls).
  */
 function buildLipWedge(
   origin: { x: number; y: number; z: number },
@@ -46,16 +52,16 @@ function buildLipWedge(
 ): BuildOp {
   const TOP_RATIO = 0.2; // outboard-top is 20% of the base protrusion
   const pMin = protrusion * TOP_RATIO;
-  // pushVert maps face-local (uOff, nOff, zOff) → world coords. wallAxis
-  // chooses which world axis hosts u and n; wallNormalSign flips the n
-  // direction so n>0 is always cavity-bound.
+  // pushVert maps face-local (uOff, nOff, zOff) → world coords. nOff > 0
+  // is cavity-bound (away from outer wall surface, into the case interior).
   const positions: number[] = [];
   function pushVert(uOff: number, nOff: number, zOff: number): void {
+    const cavityBoundSign = -wallNormalSign;
     if (wallAxis === 'x') {
-      const dx = wallNormalSign * nOff;
+      const dx = cavityBoundSign * nOff;
       positions.push(origin.x + dx, origin.y + uOff, origin.z + zOff);
     } else {
-      const dy = wallNormalSign * nOff;
+      const dy = cavityBoundSign * nOff;
       positions.push(origin.x + uOff, origin.y + dy, origin.z + zOff);
     }
   }
@@ -68,30 +74,49 @@ function buildLipWedge(
   pushVert(width, 0, height);     // 5  F — wall, top, far-u
   pushVert(0, pMin, height);      // 6  G — outboard, top (narrowed)
   pushVert(width, pMin, height);  // 7  I — outboard, top, far-u (narrowed)
-  const indices = new Uint32Array([
-    // Issue #121 — base + top triangle windings were INVERTED. Verified by
-    // hand: tri (0,1,3) cross product = (0, 0, +W·P) which points +z, but
-    // the base's outward direction is -z; manifold rejected the whole
-    // mesh as non-orientable ("Not manifold" error on snap-fit-test).
-    // Reversed: base 0,3,1 / 0,2,3; top 4,7,6 / 4,5,7. The other 8
-    // triangles already wound correctly.
-    // base z=0, outside -z
-    0, 3, 1,  0, 2, 3,
-    // top z=H, outside +z
-    4, 7, 6,  4, 5, 7,
-    // wall n=0, outside -n
-    0, 1, 5,  0, 5, 4,
-    // slanted outboard, outside +n+z
-    3, 2, 6,  3, 6, 7,
-    // front cap u=0, outside -u
-    0, 6, 2,  0, 4, 6,
-    // back cap u=width, outside +u
-    1, 7, 5,  1, 3, 7,
-  ]);
-  // Note: wallNormalSign=+1 (outward +x or +y) means n>0 is cavity-bound,
-  // so the trapezoid still sits "inside" the cavity for both wall signs.
-  // For -1 the same holds because we multiply nOff by wallNormalSign.
-  return mesh(new Float32Array(positions), indices);
+  // Reference triangle list (winding for det(local→world) > 0). Every
+  // face's right-hand-rule cross product points away from the trapezoid
+  // interior so manifold treats the prism as a valid solid:
+  //   base   z=0, outside -z
+  //   top    z=H, outside +z
+  //   wall   n=0, outside -n
+  //   outboard slanted, outside +n+z
+  //   front  u=0, outside -u
+  //   back   u=width, outside +u
+  const tris: number[] = [
+    0, 3, 1,  0, 2, 3,   // base
+    4, 7, 6,  4, 5, 7,   // top
+    0, 1, 5,  0, 5, 4,   // wall
+    3, 2, 6,  3, 6, 7,   // outboard
+    0, 6, 2,  0, 4, 6,   // front cap
+    1, 7, 5,  1, 3, 7,   // back cap
+  ];
+  // The local→world basis (u-axis, n-axis, z) determinant flips sign
+  // depending on (wallAxis, wallNormalSign). When negative, every triangle
+  // winding is geometrically inverted (outward normal points the wrong
+  // way) — manifold then rejects the mesh or unions it as a separate
+  // disconnected component. Compute the parity directly so adding new
+  // wall axes or sign conventions doesn't silently regress.
+  //
+  //   axis='x': u-axis=Ŷ, n-axis=cavityBoundSign·X̂, z-axis=Ẑ
+  //             det = cavityBoundSign · det(Ŷ, X̂, Ẑ) = cavityBoundSign · -1
+  //   axis='y': u-axis=X̂, n-axis=cavityBoundSign·Ŷ, z-axis=Ẑ
+  //             det = cavityBoundSign · det(X̂, Ŷ, Ẑ) = cavityBoundSign · +1
+  //
+  // With cavityBoundSign = -wallNormalSign:
+  //   axis='x': det =  wallNormalSign  → inverted when wallNormalSign = -1 (-x wall)
+  //   axis='y': det = -wallNormalSign  → inverted when wallNormalSign = +1 (+y wall)
+  const inverted =
+    (wallAxis === 'x' && wallNormalSign === -1) ||
+    (wallAxis === 'y' && wallNormalSign === +1);
+  if (inverted) {
+    for (let i = 0; i < tris.length; i += 3) {
+      const swap = tris[i + 1]!;
+      tris[i + 1] = tris[i + 2]!;
+      tris[i + 2] = swap;
+    }
+  }
+  return mesh(new Float32Array(positions), new Uint32Array(tris));
 }
 
 /**

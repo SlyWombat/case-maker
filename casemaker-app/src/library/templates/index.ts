@@ -125,6 +125,11 @@ function snapFitTestCube(): Project {
   p.case.lidThickness = 2;
   p.case.floorThickness = 2;
   p.case.zClearance = 4;
+  // Recessed lid by default — exercises the snap-catch geometry against the
+  // recess pocket (the more interesting failure mode after #121/#123) and
+  // matches what most real snap cases look like. Flat-lid is still one click
+  // away if the user wants to test that variant.
+  p.case.lidRecess = true;
   p.case.ventilation = { enabled: false, pattern: 'none', coverage: 0 };
   // Templates set joint directly (bypassing patchCase), so the auto-populate
   // path in projectStore.patchCase doesn't fire. Seed the catches here so

@@ -8,13 +8,18 @@ import { computeLidDims } from '@/engine/compiler/lid';
 import { findTemplate } from '@/library/templates';
 
 describe('lidRecess reactivity (#82)', () => {
+  // Template's intrinsic default doesn't matter here — the test asserts the
+  // delta when the flag flips. Build both baselines explicitly so the test
+  // is invariant to template-default changes.
   const project = findTemplate('snap-fit-test')!.build();
+  const flatCase = { ...project.case, lidRecess: false };
+  const recessedCase = { ...project.case, lidRecess: true };
 
   it('outerZ grows by lidThickness + 1 when lidRecess flips on', () => {
-    const flat = computeShellDims(project.board, project.case, project.hats ?? [], () => undefined);
+    const flat = computeShellDims(project.board, flatCase, project.hats ?? [], () => undefined);
     const recessed = computeShellDims(
       project.board,
-      { ...project.case, lidRecess: true },
+      recessedCase,
       project.hats ?? [],
       () => undefined,
     );
@@ -22,8 +27,8 @@ describe('lidRecess reactivity (#82)', () => {
   });
 
   it('lid dims change when lidRecess flips on', () => {
-    const flat = computeLidDims(project.board, project.case);
-    const recessed = computeLidDims(project.board, { ...project.case, lidRecess: true });
+    const flat = computeLidDims(project.board, flatCase);
+    const recessed = computeLidDims(project.board, recessedCase);
     // Recessed: lid is sized to the pocket (smaller in X and Y).
     expect(recessed.x).toBeLessThan(flat.x);
     expect(recessed.y).toBeLessThan(flat.y);
@@ -31,15 +36,15 @@ describe('lidRecess reactivity (#82)', () => {
     // outerZ. outerZ itself grew by (lidThickness + 1), so the lid in
     // world coords ends up 1 mm higher than it was — but it sits BELOW
     // the new rim by exactly lidThickness.
-    const flatDims = computeShellDims(project.board, project.case, project.hats ?? [], () => undefined);
-    const recessedDims = computeShellDims(project.board, { ...project.case, lidRecess: true }, project.hats ?? [], () => undefined);
+    const flatDims = computeShellDims(project.board, flatCase, project.hats ?? [], () => undefined);
+    const recessedDims = computeShellDims(project.board, recessedCase, project.hats ?? [], () => undefined);
     expect(flat.zPosition).toBeCloseTo(flatDims.outerZ, 3);
     expect(recessed.zPosition).toBeCloseTo(recessedDims.outerZ - project.case.lidThickness, 3);
   });
 
   it('compileProject produces nodes with different shell + lid ops when toggled', () => {
-    const flat = compileProject(project);
-    const recessed = compileProject({ ...project, case: { ...project.case, lidRecess: true } });
+    const flat = compileProject({ ...project, case: flatCase });
+    const recessed = compileProject({ ...project, case: recessedCase });
     // Both have shell + lid nodes.
     expect(flat.nodes.map((n) => n.id)).toEqual(['shell', 'lid']);
     expect(recessed.nodes.map((n) => n.id)).toEqual(['shell', 'lid']);

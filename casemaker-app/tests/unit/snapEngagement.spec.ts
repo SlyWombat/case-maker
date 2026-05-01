@@ -49,12 +49,16 @@ function zExtent(op: BuildOp): { min: number; max: number } {
 }
 
 describe('Snap-fit engagement geometry (#80)', () => {
+  // Build flat / recessed baselines explicitly — the template's intrinsic
+  // default for lidRecess is irrelevant to these geometry equations.
   const project = findTemplate('snap-fit-test')!.build();
+  const flatCase = { ...project.case, lidRecess: false };
+  const recessedCase = { ...project.case, lidRecess: true };
   const firstCatch = project.case.snapCatches?.[0];
 
   it('non-recessed: lip catch face Z = seated barb top Z', () => {
-    const dims = computeShellDims(project.board, project.case, project.hats ?? [], () => undefined);
-    const g = buildSnapCatch(firstCatch!, project.board, project.case);
+    const dims = computeShellDims(project.board, flatCase, project.hats ?? [], () => undefined);
+    const g = buildSnapCatch(firstCatch!, project.board, flatCase);
     expect(g).not.toBeNull();
     // The lip is anchored on the case wall in world coords. Bottom = catch face.
     const lipExtent = zExtent(g!.lip!);
@@ -70,7 +74,6 @@ describe('Snap-fit engagement geometry (#80)', () => {
   });
 
   it('recessed: lip drops with the lid; barb top still = catch face', () => {
-    const recessedCase = { ...project.case, lidRecess: true };
     const dims = computeShellDims(project.board, recessedCase, project.hats ?? [], () => undefined);
     const g = buildSnapCatch(firstCatch!, project.board, recessedCase);
     expect(g).not.toBeNull();
@@ -84,18 +87,15 @@ describe('Snap-fit engagement geometry (#80)', () => {
   });
 
   it('recessed lip is lower than non-recessed lip by lidThickness', () => {
-    const flat = buildSnapCatch(firstCatch!, project.board, project.case);
-    const recessed = buildSnapCatch(firstCatch!, project.board, {
-      ...project.case,
-      lidRecess: true,
-    });
+    const flat = buildSnapCatch(firstCatch!, project.board, flatCase);
+    const recessed = buildSnapCatch(firstCatch!, project.board, recessedCase);
     const flatBottom = zExtent(flat!.lip!).min;
     const recessedBottom = zExtent(recessed!.lip!).min;
     // Recessed lid sits lower → lip is lower by exactly lidThickness.
     // outerZ also differs (recessed is taller), so we compare the relative
     // drop against the recessed-vs-flat outerZ delta.
-    const flatDims = computeShellDims(project.board, project.case, project.hats ?? [], () => undefined);
-    const recessedDims = computeShellDims(project.board, { ...project.case, lidRecess: true }, project.hats ?? [], () => undefined);
+    const flatDims = computeShellDims(project.board, flatCase, project.hats ?? [], () => undefined);
+    const recessedDims = computeShellDims(project.board, recessedCase, project.hats ?? [], () => undefined);
     const outerZDelta = recessedDims.outerZ - flatDims.outerZ;
     // Lip in recessed mode = outerZ - lidThickness - LIP_HEIGHT
     //                      = (flatOuterZ + outerZDelta) - lidThickness - LIP_HEIGHT
@@ -110,7 +110,7 @@ describe('Snap-fit engagement geometry (#80)', () => {
   it('lid mesh exists and arm hangs no further than armLength below the plate', () => {
     // Just sanity: the lid placement happens in ProjectCompiler; the local
     // arm extends armLength below z=0. We assert the build plan agrees.
-    const g = buildSnapCatch(firstCatch!, project.board, project.case);
+    const g = buildSnapCatch(firstCatch!, project.board, flatCase);
     const armExtent = zExtent(g!.armBarb);
     // armBarb is in lid-local coords. Arm Z range [-armLength, 0].
     expect(armExtent.min).toBeCloseTo(-SNAP_DEFAULTS.armLength, 3);
@@ -118,7 +118,7 @@ describe('Snap-fit engagement geometry (#80)', () => {
   });
 
   it('lip slab has positive volume (LIP_HEIGHT > 0) and renders as a sloped trapezoidal prism', () => {
-    const g = buildSnapCatch(firstCatch!, project.board, project.case);
+    const g = buildSnapCatch(firstCatch!, project.board, flatCase);
     // armLength - barbLength must be positive for the lip to have height.
     expect(SNAP_DEFAULTS.armLength).toBeGreaterThan(SNAP_DEFAULTS.barbLength);
     // The lip is a trapezoidal-prism mesh with a sloped outboard face —
