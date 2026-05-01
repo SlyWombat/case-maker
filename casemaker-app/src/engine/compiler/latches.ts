@@ -70,8 +70,6 @@ const HOOK_WALL_OFFSET = 1.0;         // gap between arm inner face and case out
 const STRIKER_R = 1.5;                // striker post on lid edge
 const STRIKER_TAB_THICKNESS = 3;      // wall-normal extent of the lid-side striker tab
 const STRIKER_TAB_HEIGHT = 5;         // vertical extent of the striker tab above lid plate top
-const STRIKER_OUT_PAST_ENVELOPE = 4;  // striker post protrudes this far past case envelope
-const HOOK_THICKNESS = ARM_PLATE_THICKNESS;  // cam hook thickness
 const HOOK_VERTICAL = 4;              // vertical extent of the cam hook lip
 const EMBED = 0.5;                    // volumetric overlap so manifold fuses sub-pieces
 
