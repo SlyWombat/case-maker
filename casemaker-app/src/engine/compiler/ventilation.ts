@@ -5,12 +5,15 @@ import type {
   HatProfile,
   VentSurface,
 } from '@/types';
+import type { DisplayPlacement, DisplayProfile } from '@/types/display';
 import { cube, cylinder, rotate, translate, type BuildOp } from './buildPlan';
 import { computeShellDims } from './caseShell';
 
 type HatResolver = (id: string) => HatProfile | undefined;
 const NO_HATS: HatPlacement[] = [];
 const NO_RESOLVE: HatResolver = () => undefined;
+type DisplayResolver = (id: string) => DisplayProfile | undefined;
+const NO_RESOLVE_DISPLAY: DisplayResolver = () => undefined;
 
 const SLOT_WIDTH = 3;
 const SLOT_GAP = 3;
@@ -228,11 +231,13 @@ export function buildVentilationCutouts(
   params: CaseParameters,
   hats: HatPlacement[] = NO_HATS,
   resolveHat: HatResolver = NO_RESOLVE,
+  display: DisplayPlacement | null | undefined = null,
+  resolveDisplay: DisplayResolver = NO_RESOLVE_DISPLAY,
 ): VentilationCutouts {
   const empty: VentilationCutouts = { shellCuts: [], lidCuts: [] };
   if (!params.ventilation.enabled) return empty;
   if (params.ventilation.coverage <= 0) return empty;
-  const dims = computeShellDims(board, params, hats, resolveHat);
+  const dims = computeShellDims(board, params, hats, resolveHat, display, resolveDisplay);
   const surfaces: VentSurface[] =
     params.ventilation.surfaces && params.ventilation.surfaces.length > 0
       ? params.ventilation.surfaces

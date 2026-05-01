@@ -7,6 +7,7 @@ import type {
   SnapWall,
   BarbType,
 } from '@/types';
+import type { DisplayPlacement, DisplayProfile } from '@/types/display';
 import { SNAP_DEFAULTS } from '@/types/snap';
 import { cube, cylinder, mesh, rotate, translate, union, type BuildOp } from './buildPlan';
 import { computeShellDims } from './caseShell';
@@ -108,6 +109,8 @@ function buildLipSymmetricPrism(
 type HatResolver = (id: string) => HatProfile | undefined;
 const NO_HATS: HatPlacement[] = [];
 const NO_RESOLVE: HatResolver = () => undefined;
+type DisplayResolver = (id: string) => DisplayProfile | undefined;
+const NO_RESOLVE_DISPLAY: DisplayResolver = () => undefined;
 
 export function defaultSnapCatchesForCase(
   board: BoardProfile,
@@ -542,9 +545,11 @@ export function buildSnapCatch(
   params: CaseParameters,
   hats: HatPlacement[] = NO_HATS,
   resolveHat: HatResolver = NO_RESOLVE,
+  display: DisplayPlacement | null | undefined = null,
+  resolveDisplay: DisplayResolver = NO_RESOLVE_DISPLAY,
 ): CatchGeometry | null {
   if (!c.enabled) return null;
-  const dims = computeShellDims(board, params, hats, resolveHat);
+  const dims = computeShellDims(board, params, hats, resolveHat, display, resolveDisplay);
   const { armLength, barbLength } = SNAP_DEFAULTS;
   // Issue #80 — LIP_HEIGHT is determined by arm geometry, not by
   // barbProtrusion. The lip's bottom (catch face) must align with the
@@ -583,6 +588,8 @@ export function buildSnapCatchOps(
   params: CaseParameters,
   hats: HatPlacement[] = NO_HATS,
   resolveHat: HatResolver = NO_RESOLVE,
+  display: DisplayPlacement | null | undefined = null,
+  resolveDisplay: DisplayResolver = NO_RESOLVE_DISPLAY,
 ): { shellAdd: BuildOp[]; shellSubtract: BuildOp[]; lidAdd: BuildOp[] } {
   if (!catches || params.joint !== 'snap-fit') {
     return { shellAdd: [], shellSubtract: [], lidAdd: [] };
@@ -591,7 +598,7 @@ export function buildSnapCatchOps(
   const shellSubtract: BuildOp[] = [];
   const lidAdd: BuildOp[] = [];
   for (const c of catches) {
-    const g = buildSnapCatch(c, board, params, hats, resolveHat);
+    const g = buildSnapCatch(c, board, params, hats, resolveHat, display, resolveDisplay);
     if (!g) continue;
     if (g.lip) shellAdd.push(g.lip);
     if (g.wallPocket) shellSubtract.push(g.wallPocket);

@@ -67,17 +67,19 @@ export function compileProject(project: Project): BuildPlan {
     caseParams,
     hats ?? [],
     resolveHat,
+    display,
+    resolveDisplay,
   );
   const displayOps = buildDisplayCutoutOps(board, caseParams, display, resolveDisplay, hats ?? [], resolveHat);
-  const fanOps = buildFanMountOps(fanMounts, board, caseParams, hats ?? [], resolveHat);
-  const textOps = buildTextLabelOps(textLabels, board, caseParams, hats ?? [], resolveHat);
-  const antennaOps = buildAntennaOps(antennas, board, caseParams, hats ?? [], resolveHat);
-  const snapOps = buildSnapCatchOps(caseParams.snapCatches, board, caseParams, hats ?? [], resolveHat);
+  const fanOps = buildFanMountOps(fanMounts, board, caseParams, hats ?? [], resolveHat, display, resolveDisplay);
+  const textOps = buildTextLabelOps(textLabels, board, caseParams, hats ?? [], resolveHat, display, resolveDisplay);
+  const antennaOps = buildAntennaOps(antennas, board, caseParams, hats ?? [], resolveHat, display, resolveDisplay);
+  const snapOps = buildSnapCatchOps(caseParams.snapCatches, board, caseParams, hats ?? [], resolveHat, display, resolveDisplay);
   // Issue #109 — Pelican-style latches. Striker fuses with shell;
   // each cam arm becomes its own top-level node so it prints as a free part.
-  const latchOps = buildLatchOps(caseParams.latches, board, caseParams, hats ?? [], resolveHat);
+  const latchOps = buildLatchOps(caseParams.latches, board, caseParams, hats ?? [], resolveHat, display, resolveDisplay);
   // Issue #111 — rugged exterior (corner bumpers, ribbing, feet).
-  const ruggedOps = buildRuggedOps(board, caseParams, hats ?? [], resolveHat);
+  const ruggedOps = buildRuggedOps(board, caseParams, hats ?? [], resolveHat, display, resolveDisplay);
   // Issue #92 — barrel hinge. caseAdditive joins the shell pre-cavity-cut so
   // the through-hole bores cleanly through both the wall and the knuckle;
   // lidAdditive is unioned with the lid op (pre-drilled in lid-local coords);
@@ -88,6 +90,8 @@ export function compileProject(project: Project): BuildPlan {
     caseParams,
     hats ?? [],
     resolveHat,
+    display,
+    resolveDisplay,
   );
 
   const additive = [
@@ -111,16 +115,18 @@ export function compileProject(project: Project): BuildPlan {
     caseParams,
     hats ?? [],
     resolveHat,
+    display,
+    resolveDisplay,
   );
 
   // Ventilation cutters split by destination: top-surface vents pierce the
   // LID node (separate mesh below); side / bottom vents pierce the shell.
   // Pre-split they were all routed to the shell and top vents silently
   // dropped because the shell has no material at lid Z.
-  const ventCuts = buildVentilationCutouts(board, caseParams, hats ?? [], resolveHat);
+  const ventCuts = buildVentilationCutouts(board, caseParams, hats ?? [], resolveHat, display, resolveDisplay);
 
   // Issue #107 — gasket channel cut into the rim top face (waterproof seal).
-  const sealChannel = buildSealChannel(board, caseParams, hats ?? [], resolveHat);
+  const sealChannel = buildSealChannel(board, caseParams, hats ?? [], resolveHat, display, resolveDisplay);
   const cutoutOps: BuildOp[] = [
     ...buildPortCutoutsForProject(smartLayout.ports, board, caseParams),
     ...ventCuts.shellCuts,
@@ -134,7 +140,7 @@ export function compileProject(project: Project): BuildPlan {
     ...antennaOps.subtractive,
     ...snapOps.shellSubtract,
     ...hingeOps.subtractive,
-    ...buildCustomCutouts(caseParams.customCutouts, board, caseParams, hats ?? [], resolveHat),
+    ...buildCustomCutouts(caseParams.customCutouts, board, caseParams, hats ?? [], resolveHat, display, resolveDisplay),
   ];
 
   let shellOp: BuildOp = additive.length > 1 ? union(additive) : shellOuter;
@@ -144,8 +150,8 @@ export function compileProject(project: Project): BuildPlan {
 
   const nodes: BuildNode[] = [{ id: 'shell', op: shellOp }];
 
-  let lidOp = buildLid(board, caseParams, hats ?? [], resolveHat);
-  const lidDims = computeLidDims(board, caseParams, hats ?? [], resolveHat);
+  let lidOp = buildLid(board, caseParams, hats ?? [], resolveHat, display, resolveDisplay);
+  const lidDims = computeLidDims(board, caseParams, hats ?? [], resolveHat, display, resolveDisplay);
   // Issue #104 — top-position bosses fuse with the lid mesh, anchored to
   // the lid's WORLD underside Z. The buildLid result is in lid-local
   // coords (the translate([0,0,zPosition], …) below moves it into world).
@@ -171,7 +177,7 @@ export function compileProject(project: Project): BuildPlan {
   // Issue #107 — gasket TONGUE on the lid underside. The tongue op is in
   // world coords; shift to lid-local before union so the eventual
   // translate([0,0,zPosition], lidOp) lands it correctly.
-  const sealTongue = buildSealTongue(board, caseParams, hats ?? [], resolveHat);
+  const sealTongue = buildSealTongue(board, caseParams, hats ?? [], resolveHat, display, resolveDisplay);
   if (sealTongue) {
     const tongueLocal = translate([0, 0, -lidDims.zPosition], sealTongue);
     lidOp = union([lidOp, tongueLocal]);
@@ -199,7 +205,7 @@ export function compileProject(project: Project): BuildPlan {
   // pipeline emits it as a separate STL (printed in TPU 95A, not the
   // case body's PLA/PETG). The export pipeline keys off the `gasket`
   // node id.
-  const gasketBody = buildGasketBody(board, caseParams, hats ?? [], resolveHat);
+  const gasketBody = buildGasketBody(board, caseParams, hats ?? [], resolveHat, display, resolveDisplay);
   if (gasketBody) {
     nodes.push({ id: 'gasket', op: gasketBody });
   }

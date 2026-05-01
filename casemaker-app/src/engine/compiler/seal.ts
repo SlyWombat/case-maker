@@ -4,6 +4,7 @@ import type {
   HatPlacement,
   HatProfile,
 } from '@/types';
+import type { DisplayPlacement, DisplayProfile } from '@/types/display';
 import {
   difference,
   roundedRectPrism,
@@ -15,6 +16,8 @@ import { computeShellDims } from './caseShell';
 type HatResolver = (id: string) => HatProfile | undefined;
 const NO_HATS: HatPlacement[] = [];
 const NO_RESOLVE: HatResolver = () => undefined;
+type DisplayResolver = (id: string) => DisplayProfile | undefined;
+const NO_RESOLVE_DISPLAY: DisplayResolver = () => undefined;
 
 /**
  * Issue #107 — waterproof gasket geometry.
@@ -87,9 +90,11 @@ export function computeSealRing(
   params: CaseParameters,
   hats: HatPlacement[] = NO_HATS,
   resolveHat: HatResolver = NO_RESOLVE,
+  display: DisplayPlacement | null | undefined = null,
+  resolveDisplay: DisplayResolver = NO_RESOLVE_DISPLAY,
 ): SealRingDims | null {
   if (!params.seal?.enabled) return null;
-  const dims = computeShellDims(board, params, hats, resolveHat);
+  const dims = computeShellDims(board, params, hats, resolveHat, display, resolveDisplay);
   const { wallThickness: wall } = params;
   const ringWidth = params.seal.width;
   // Centerline of the gasket ring sits centered in the wall material:
@@ -120,11 +125,13 @@ export function buildSealChannel(
   params: CaseParameters,
   hats: HatPlacement[] = NO_HATS,
   resolveHat: HatResolver = NO_RESOLVE,
+  display: DisplayPlacement | null | undefined = null,
+  resolveDisplay: DisplayResolver = NO_RESOLVE_DISPLAY,
 ): BuildOp | null {
-  const ring = computeSealRing(board, params, hats, resolveHat);
+  const ring = computeSealRing(board, params, hats, resolveHat, display, resolveDisplay);
   if (!ring) return null;
   const { channelDepth } = computeChannelAndTongue(params.seal!);
-  const dims = computeShellDims(board, params, hats, resolveHat);
+  const dims = computeShellDims(board, params, hats, resolveHat, display, resolveDisplay);
   const overshoot = 0.1;
   const totalDepth = channelDepth + 2 * overshoot;
   // Outer ring solid (rounded prism)
@@ -171,11 +178,13 @@ export function buildSealTongue(
   params: CaseParameters,
   hats: HatPlacement[] = NO_HATS,
   resolveHat: HatResolver = NO_RESOLVE,
+  display: DisplayPlacement | null | undefined = null,
+  resolveDisplay: DisplayResolver = NO_RESOLVE_DISPLAY,
 ): BuildOp | null {
-  const ring = computeSealRing(board, params, hats, resolveHat);
+  const ring = computeSealRing(board, params, hats, resolveHat, display, resolveDisplay);
   if (!ring) return null;
   const { tongueHeight } = computeChannelAndTongue(params.seal!);
-  const dims = computeShellDims(board, params, hats, resolveHat);
+  const dims = computeShellDims(board, params, hats, resolveHat, display, resolveDisplay);
   // Tongue is INSET by tongueClearance from the channel walls so it slides
   // in cleanly. Also INSET inward from the gasket-ring outer edge by half
   // the clearance so it sits centered in the channel cross-section.
@@ -241,10 +250,12 @@ export function buildGasketBody(
   params: CaseParameters,
   hats: HatPlacement[] = NO_HATS,
   resolveHat: HatResolver = NO_RESOLVE,
+  display: DisplayPlacement | null | undefined = null,
+  resolveDisplay: DisplayResolver = NO_RESOLVE_DISPLAY,
 ): BuildOp | null {
-  const ring = computeSealRing(board, params, hats, resolveHat);
+  const ring = computeSealRing(board, params, hats, resolveHat, display, resolveDisplay);
   if (!ring) return null;
-  const dims = computeShellDims(board, params, hats, resolveHat);
+  const dims = computeShellDims(board, params, hats, resolveHat, display, resolveDisplay);
   const seal = params.seal!;
   // Gasket sits at the centerline Z, extends ±depth/2 in z. Print orientation
   // is the user's job; we emit the assembled position so the user can verify
@@ -282,11 +293,13 @@ export function computeSealLoopPath(
   params: CaseParameters,
   hats: HatPlacement[] = NO_HATS,
   resolveHat: HatResolver = NO_RESOLVE,
+  display: DisplayPlacement | null | undefined = null,
+  resolveDisplay: DisplayResolver = NO_RESOLVE_DISPLAY,
 ): SealLoopPath | null {
-  const ring = computeSealRing(board, params, hats, resolveHat);
+  const ring = computeSealRing(board, params, hats, resolveHat, display, resolveDisplay);
   if (!ring) return null;
   const { channelDepth } = computeChannelAndTongue(params.seal!);
-  const dims = computeShellDims(board, params, hats, resolveHat);
+  const dims = computeShellDims(board, params, hats, resolveHat, display, resolveDisplay);
   const rimTopZ = params.lidRecess ? dims.outerZ - params.lidThickness : dims.outerZ;
   return {
     outerCornerX: ring.outerCornerX,

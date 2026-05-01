@@ -7,9 +7,13 @@ import type {
   CutoutFace,
   CaseFace,
 } from '@/types';
+import type { DisplayPlacement, DisplayProfile } from '@/types/display';
 import { cube, cylinder, rotate, translate, type BuildOp } from './buildPlan';
 import { computeShellDims } from './caseShell';
 import { faceFrame, placeOnFace } from '@/engine/coords';
+
+type DisplayResolver = (id: string) => DisplayProfile | undefined;
+const NO_RESOLVE_DISPLAY: DisplayResolver = () => undefined;
 
 const CUTOUT_FACE_TO_CASE_FACE: Record<CutoutFace, CaseFace> = {
   top: '+z',
@@ -35,9 +39,11 @@ export function buildCustomCutouts(
   params: CaseParameters,
   hats: HatPlacement[] = [],
   resolveHat: (id: string) => HatProfile | undefined = () => undefined,
+  display: DisplayPlacement | null | undefined = null,
+  resolveDisplay: DisplayResolver = NO_RESOLVE_DISPLAY,
 ): BuildOp[] {
   if (!cutouts || cutouts.length === 0) return [];
-  const dims = computeShellDims(board, params, hats, resolveHat);
+  const dims = computeShellDims(board, params, hats, resolveHat, display, resolveDisplay);
   const out: BuildOp[] = [];
   for (const c of cutouts) {
     if (!c.enabled) continue;

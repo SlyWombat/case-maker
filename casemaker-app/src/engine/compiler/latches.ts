@@ -5,12 +5,15 @@ import type {
   HatProfile,
   Latch,
 } from '@/types';
+import type { DisplayPlacement, DisplayProfile } from '@/types/display';
 import { cube, cylinder, translate, type BuildOp } from './buildPlan';
 import { computeShellDims } from './caseShell';
 
 type HatResolver = (id: string) => HatProfile | undefined;
 const NO_HATS: HatPlacement[] = [];
 const NO_RESOLVE: HatResolver = () => undefined;
+type DisplayResolver = (id: string) => DisplayProfile | undefined;
+const NO_RESOLVE_DISPLAY: DisplayResolver = () => undefined;
 
 /** Issue #109 — Pelican-style spring-cam latch geometry (v1).
  *
@@ -45,10 +48,12 @@ export function buildLatchOps(
   params: CaseParameters,
   hats: HatPlacement[] = NO_HATS,
   resolveHat: HatResolver = NO_RESOLVE,
+  display: DisplayPlacement | null | undefined = null,
+  resolveDisplay: DisplayResolver = NO_RESOLVE_DISPLAY,
 ): LatchOps {
   const empty: LatchOps = { caseAdditive: [], armNodes: [] };
   if (!latches || latches.length === 0) return empty;
-  const dims = computeShellDims(board, params, hats, resolveHat);
+  const dims = computeShellDims(board, params, hats, resolveHat, display, resolveDisplay);
   const caseAdditive: BuildOp[] = [];
   const armNodes: { id: string; op: BuildOp }[] = [];
   for (const latch of latches) {

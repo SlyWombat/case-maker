@@ -1,9 +1,13 @@
 import type { CaseParameters, BoardProfile, HatPlacement, HatProfile } from '@/types';
 import type { FanMount } from '@/types/fan';
+import type { DisplayPlacement, DisplayProfile } from '@/types/display';
 import { FAN_SPECS } from '@/types/fan';
 import { cube, cylinder, difference, translate, type BuildOp } from './buildPlan';
 import { computeShellDims } from './caseShell';
 import { faceFrame, placeOnFace } from '@/engine/coords';
+
+type DisplayResolver = (id: string) => DisplayProfile | undefined;
+const NO_RESOLVE_DISPLAY: DisplayResolver = () => undefined;
 
 export interface FanOpGroups {
   additive: BuildOp[];
@@ -84,10 +88,12 @@ export function buildFanMountOps(
   params: CaseParameters,
   hats: HatPlacement[] = [],
   resolveHat: (id: string) => HatProfile | undefined = () => undefined,
+  display: DisplayPlacement | null | undefined = null,
+  resolveDisplay: DisplayResolver = NO_RESOLVE_DISPLAY,
 ): FanOpGroups {
   const out: FanOpGroups = { additive: [], subtractive: [] };
   if (!fans || fans.length === 0) return out;
-  const dims = computeShellDims(board, params, hats, resolveHat);
+  const dims = computeShellDims(board, params, hats, resolveHat, display, resolveDisplay);
 
   for (const fan of fans) {
     if (!fan.enabled) continue;

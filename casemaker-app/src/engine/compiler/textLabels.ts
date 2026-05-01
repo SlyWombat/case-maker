@@ -1,8 +1,12 @@
 import type { CaseParameters, BoardProfile, HatPlacement, HatProfile } from '@/types';
 import type { TextLabel } from '@/types/textLabel';
+import type { DisplayPlacement, DisplayProfile } from '@/types/display';
 import { cube, translate, type BuildOp } from './buildPlan';
 import { computeShellDims } from './caseShell';
 import { faceFrame, type FaceFrame } from '@/engine/coords';
+
+type DisplayResolver = (id: string) => DisplayProfile | undefined;
+const NO_RESOLVE_DISPLAY: DisplayResolver = () => undefined;
 
 /**
  * Phase 1 text-label implementation: each character becomes a single
@@ -74,10 +78,12 @@ export function buildTextLabelOps(
   params: CaseParameters,
   hats: HatPlacement[] = [],
   resolveHat: (id: string) => HatProfile | undefined = () => undefined,
+  display: DisplayPlacement | null | undefined = null,
+  resolveDisplay: DisplayResolver = NO_RESOLVE_DISPLAY,
 ): TextLabelOpGroups {
   const out: TextLabelOpGroups = { additive: [], subtractive: [] };
   if (!labels || labels.length === 0) return out;
-  const dims = computeShellDims(board, params, hats, resolveHat);
+  const dims = computeShellDims(board, params, hats, resolveHat, display, resolveDisplay);
   for (const label of labels) {
     if (!label.enabled) continue;
     if (!label.text || label.text.length === 0) continue;

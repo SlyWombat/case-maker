@@ -1,4 +1,5 @@
 import type { CaseParameters, BoardProfile, HatPlacement, HatProfile } from '@/types';
+import type { DisplayPlacement, DisplayProfile } from '@/types/display';
 import { cube, cylinder, difference, roundedRectPrism, translate, union, type BuildOp } from './buildPlan';
 import { computeShellDims } from './caseShell';
 import { computeBossPlacements, getScrewClearanceDiameter } from './bosses';
@@ -9,6 +10,8 @@ import { computeHatBaseZ } from './hats';
 type HatResolver = (id: string) => HatProfile | undefined;
 const NO_HATS: HatPlacement[] = [];
 const NO_RESOLVE: HatResolver = () => undefined;
+type DisplayResolver = (id: string) => DisplayProfile | undefined;
+const NO_RESOLVE_DISPLAY: DisplayResolver = () => undefined;
 
 const LID_POST_BOARD_CLEARANCE = 0.3;
 const RECESS_LEDGE = 1; // shelf the lid sits on
@@ -37,9 +40,11 @@ export function computeRecessDims(
   params: CaseParameters,
   hats: HatPlacement[] = NO_HATS,
   resolveHat: HatResolver = NO_RESOLVE,
+  display: DisplayPlacement | null | undefined = null,
+  resolveDisplay: DisplayResolver = NO_RESOLVE_DISPLAY,
 ): { pocketX: number; pocketY: number; pocketZ: number; ledge: number; clearance: number } | null {
   if (!params.lidRecess) return null;
-  const dims = computeShellDims(board, params, hats, resolveHat);
+  const dims = computeShellDims(board, params, hats, resolveHat, display, resolveDisplay);
   const offset = Math.max(0.5, params.wallThickness - 0.5);
   return {
     pocketX: dims.cavityX + 2 * offset,
@@ -55,9 +60,11 @@ export function computeLidDims(
   params: CaseParameters,
   hats: HatPlacement[] = NO_HATS,
   resolveHat: HatResolver = NO_RESOLVE,
+  display: DisplayPlacement | null | undefined = null,
+  resolveDisplay: DisplayResolver = NO_RESOLVE_DISPLAY,
 ): LidDims {
-  const dims = computeShellDims(board, params, hats, resolveHat);
-  const recess = computeRecessDims(board, params, hats, resolveHat);
+  const dims = computeShellDims(board, params, hats, resolveHat, display, resolveDisplay);
+  const recess = computeRecessDims(board, params, hats, resolveHat, display, resolveDisplay);
   if (recess) {
     return {
       x: recess.pocketX - 2 * recess.clearance,
@@ -90,8 +97,10 @@ function buildLidPosts(
   params: CaseParameters,
   hats: HatPlacement[] = NO_HATS,
   resolveHat: HatResolver = NO_RESOLVE,
+  display: DisplayPlacement | null | undefined = null,
+  resolveDisplay: DisplayResolver = NO_RESOLVE_DISPLAY,
 ): { posts: BuildOp[]; holes: BuildOp[]; postLength: number } {
-  const dims = computeShellDims(board, params, hats, resolveHat);
+  const dims = computeShellDims(board, params, hats, resolveHat, display, resolveDisplay);
   const placements = computeBossPlacements(board, params);
   const standoff = board.defaultStandoffHeight;
   // The post anchor is normally the top of the host PCB. With HATs present
@@ -151,12 +160,14 @@ export function buildFlatLid(
   params: CaseParameters,
   hats: HatPlacement[] = NO_HATS,
   resolveHat: HatResolver = NO_RESOLVE,
+  display: DisplayPlacement | null | undefined = null,
+  resolveDisplay: DisplayResolver = NO_RESOLVE_DISPLAY,
 ): BuildOp {
-  const lid = computeLidDims(board, params, hats, resolveHat);
+  const lid = computeLidDims(board, params, hats, resolveHat, display, resolveDisplay);
   // Issue #81 — non-recessed flat-lid plate matches the case envelope's
   // outer corner radius so the lid silhouette aligns with the rim.
   const plate = roundedRectPrism(lid.x, lid.y, lid.z, lidOuterCornerRadius(params));
-  const { posts, holes } = buildLidPosts(board, params, hats, resolveHat);
+  const { posts, holes } = buildLidPosts(board, params, hats, resolveHat, display, resolveDisplay);
   return attachPosts(plate, posts, holes);
 }
 
@@ -184,15 +195,17 @@ export function buildSnapFitLid(
   params: CaseParameters,
   hats: HatPlacement[] = NO_HATS,
   resolveHat: HatResolver = NO_RESOLVE,
+  display: DisplayPlacement | null | undefined = null,
+  resolveDisplay: DisplayResolver = NO_RESOLVE_DISPLAY,
 ): BuildOp {
-  const dims = computeShellDims(board, params, hats, resolveHat);
+  const dims = computeShellDims(board, params, hats, resolveHat, display, resolveDisplay);
   const topPlate = roundedRectPrism(
     dims.outerX,
     dims.outerY,
     params.lidThickness,
     lidOuterCornerRadius(params),
   );
-  const { posts, holes } = buildLidPosts(board, params, hats, resolveHat);
+  const { posts, holes } = buildLidPosts(board, params, hats, resolveHat, display, resolveDisplay);
 
   // Issue #78 — snapType selects the lid style:
   //  - 'barb' (default): flat plate, retention via discrete arms in
@@ -205,7 +218,7 @@ export function buildSnapFitLid(
   }
 
   // Full-Lid variant — restored from the pre-#73 implementation.
-  const lipRing = buildFullLidFrictionLip(board, params, hats, resolveHat);
+  const lipRing = buildFullLidFrictionLip(board, params, hats, resolveHat, display, resolveDisplay);
   if (!lipRing) return attachPosts(topPlate, posts, holes);
 
   const withPosts = posts.length > 0 ? union([topPlate, lipRing, ...posts]) : union([topPlate, lipRing]);
@@ -227,8 +240,10 @@ function buildFullLidFrictionLip(
   params: CaseParameters,
   hats: HatPlacement[] = NO_HATS,
   resolveHat: HatResolver = NO_RESOLVE,
+  display: DisplayPlacement | null | undefined = null,
+  resolveDisplay: DisplayResolver = NO_RESOLVE_DISPLAY,
 ): BuildOp | null {
-  const dims = computeShellDims(board, params, hats, resolveHat);
+  const dims = computeShellDims(board, params, hats, resolveHat, display, resolveDisplay);
   const wall = params.wallThickness;
   const lipOuterX = dims.cavityX - 2 * SNAP_FRICTION;
   const lipOuterY = dims.cavityY - 2 * SNAP_FRICTION;
@@ -262,15 +277,17 @@ export function buildScrewDownLid(
   params: CaseParameters,
   hats: HatPlacement[] = NO_HATS,
   resolveHat: HatResolver = NO_RESOLVE,
+  display: DisplayPlacement | null | undefined = null,
+  resolveDisplay: DisplayResolver = NO_RESOLVE_DISPLAY,
 ): BuildOp {
-  const dims = computeShellDims(board, params, hats, resolveHat);
+  const dims = computeShellDims(board, params, hats, resolveHat, display, resolveDisplay);
   const plate = roundedRectPrism(
     dims.outerX,
     dims.outerY,
     params.lidThickness,
     lidOuterCornerRadius(params),
   );
-  const { posts, holes } = buildLidPosts(board, params, hats, resolveHat);
+  const { posts, holes } = buildLidPosts(board, params, hats, resolveHat, display, resolveDisplay);
   return attachPosts(plate, posts, holes);
 }
 
@@ -279,6 +296,8 @@ export function buildLid(
   params: CaseParameters,
   hats: HatPlacement[] = NO_HATS,
   resolveHat: HatResolver = NO_RESOLVE,
+  display: DisplayPlacement | null | undefined = null,
+  resolveDisplay: DisplayResolver = NO_RESOLVE_DISPLAY,
 ): BuildOp {
   // When recessed, the plate is sized to drop into the recess pocket; the
   // joint flavor adds posts / holes / snap arms ON TOP of that plate.
@@ -293,8 +312,8 @@ export function buildLid(
   // holes / lip are already in world coords (computed via
   // cavityOriginXY) so they don't need offsetting.
   if (params.lidRecess) {
-    const lid = computeLidDims(board, params, hats, resolveHat);
-    const recess = computeRecessDims(board, params, hats, resolveHat)!;
+    const lid = computeLidDims(board, params, hats, resolveHat, display, resolveDisplay);
+    const recess = computeRecessDims(board, params, hats, resolveHat, display, resolveDisplay)!;
     const recessOffset = Math.max(0.5, params.wallThickness - 0.5);
     const plateOriginX = params.wallThickness - recessOffset + recess.clearance;
     const plateOriginY = params.wallThickness - recessOffset + recess.clearance;
@@ -302,9 +321,9 @@ export function buildLid(
       [plateOriginX, plateOriginY, 0],
       roundedRectPrism(lid.x, lid.y, lid.z, lidRecessedCornerRadius(params)),
     );
-    const { posts, holes } = buildLidPosts(board, params, hats, resolveHat);
+    const { posts, holes } = buildLidPosts(board, params, hats, resolveHat, display, resolveDisplay);
     if (params.joint === 'snap-fit' && params.snapType === 'full-lid') {
-      const lip = buildFullLidFrictionLip(board, params, hats, resolveHat);
+      const lip = buildFullLidFrictionLip(board, params, hats, resolveHat, display, resolveDisplay);
       if (lip) {
         const withLip = union([plate, lip]);
         return attachPosts(withLip, posts, holes);
@@ -314,11 +333,11 @@ export function buildLid(
   }
   switch (params.joint) {
     case 'snap-fit':
-      return buildSnapFitLid(board, params, hats, resolveHat);
+      return buildSnapFitLid(board, params, hats, resolveHat, display, resolveDisplay);
     case 'screw-down':
-      return buildScrewDownLid(board, params, hats, resolveHat);
+      return buildScrewDownLid(board, params, hats, resolveHat, display, resolveDisplay);
     case 'flat-lid':
     default:
-      return buildFlatLid(board, params, hats, resolveHat);
+      return buildFlatLid(board, params, hats, resolveHat, display, resolveDisplay);
   }
 }

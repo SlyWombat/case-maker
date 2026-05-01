@@ -6,6 +6,7 @@ import type {
   HingeFeature,
   HingePositioning,
 } from '@/types';
+import type { DisplayPlacement, DisplayProfile } from '@/types/display';
 import { cylinder, difference, rotate, translate, type BuildOp } from './buildPlan';
 import { computeShellDims } from './caseShell';
 import { faceFrame } from '../coords';
@@ -14,6 +15,8 @@ import { computeLidDims } from './lid';
 type HatResolver = (id: string) => HatProfile | undefined;
 const NO_HATS: HatPlacement[] = [];
 const NO_RESOLVE: HatResolver = () => undefined;
+type DisplayResolver = (id: string) => DisplayProfile | undefined;
+const NO_RESOLVE_DISPLAY: DisplayResolver = () => undefined;
 
 /**
  * Issue #92 — barrel-hinge geometry compiler.
@@ -243,14 +246,16 @@ export function buildHingeOps(
   params: CaseParameters,
   hats: HatPlacement[] = NO_HATS,
   resolveHat: HatResolver = NO_RESOLVE,
+  display: DisplayPlacement | null | undefined = null,
+  resolveDisplay: DisplayResolver = NO_RESOLVE_DISPLAY,
 ): HingeOps {
   if (!hingeRaw || !hingeRaw.enabled) return EMPTY_OPS;
   // Issue #110 — normalize numKnuckles per style. piano-continuous derives
   // many tightly-spaced knuckles from the hingeLength; pip-pivot forces 2.
   // Other styles use the user-set numKnuckles as-is.
   const hinge = normalizeHingeForStyle(hingeRaw);
-  const dims = computeShellDims(board, params, hats, resolveHat);
-  const lidDims = computeLidDims(board, params, hats, resolveHat);
+  const dims = computeShellDims(board, params, hats, resolveHat, display, resolveDisplay);
+  const lidDims = computeLidDims(board, params, hats, resolveHat, display, resolveDisplay);
   const frame = faceFrame(hinge.face, dims.outerX, dims.outerY, dims.outerZ);
   // Face length along u: ±x face's u maps to world Y, so faceLen = outerY.
   // ±y face's u maps to world X, so faceLen = outerX.

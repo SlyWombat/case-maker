@@ -5,10 +5,14 @@ import type {
   HatProfile,
 } from '@/types';
 import type { MountingFeature } from '@/types/mounting';
+import type { DisplayPlacement, DisplayProfile } from '@/types/display';
 import { axisCylinder, cube, cylinder, mesh, rotate, translate, type BuildOp } from './buildPlan';
 import type { Facing } from '@/types';
 import { computeShellDims } from './caseShell';
 import { faceFrame, type FaceFrame } from '@/engine/coords';
+
+type DisplayResolver = (id: string) => DisplayProfile | undefined;
+const NO_RESOLVE_DISPLAY: DisplayResolver = () => undefined;
 
 export interface FeatureOpGroups {
   additive: BuildOp[];
@@ -205,10 +209,12 @@ export function buildMountingFeatureOps(
   params: CaseParameters,
   hats: HatPlacement[] = [],
   resolveHat: (id: string) => HatProfile | undefined = () => undefined,
+  display: DisplayPlacement | null | undefined = null,
+  resolveDisplay: DisplayResolver = NO_RESOLVE_DISPLAY,
 ): FeatureOpGroups {
   const out: FeatureOpGroups = { additive: [], subtractive: [] };
   if (!features || features.length === 0) return out;
-  const dims = computeShellDims(board, params, hats, resolveHat);
+  const dims = computeShellDims(board, params, hats, resolveHat, display, resolveDisplay);
   for (const feature of features) {
     if (!feature.enabled) continue;
     const frame = faceFrame(feature.face, dims.outerX, dims.outerY, dims.outerZ);

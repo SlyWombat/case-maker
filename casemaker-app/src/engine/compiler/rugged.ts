@@ -4,12 +4,15 @@ import type {
   HatPlacement,
   HatProfile,
 } from '@/types';
+import type { DisplayPlacement, DisplayProfile } from '@/types/display';
 import { cube, cylinder, translate, type BuildOp } from './buildPlan';
 import { computeShellDims } from './caseShell';
 
 type HatResolver = (id: string) => HatProfile | undefined;
 const NO_HATS: HatPlacement[] = [];
 const NO_RESOLVE: HatResolver = () => undefined;
+type DisplayResolver = (id: string) => DisplayProfile | undefined;
+const NO_RESOLVE_DISPLAY: DisplayResolver = () => undefined;
 
 /** Issue #111 — rugged exterior options. Three independent treatments:
  *
@@ -39,10 +42,12 @@ export function buildRuggedOps(
   params: CaseParameters,
   hats: HatPlacement[] = NO_HATS,
   resolveHat: HatResolver = NO_RESOLVE,
+  display: DisplayPlacement | null | undefined = null,
+  resolveDisplay: DisplayResolver = NO_RESOLVE_DISPLAY,
 ): RuggedOps {
   const empty: RuggedOps = { caseAdditive: [], bumperNodes: [] };
   if (!params.rugged?.enabled) return empty;
-  const dims = computeShellDims(board, params, hats, resolveHat);
+  const dims = computeShellDims(board, params, hats, resolveHat, display, resolveDisplay);
   const caseAdditive: BuildOp[] = [];
   const bumperNodes: { id: string; op: BuildOp }[] = [];
 

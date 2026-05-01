@@ -7,10 +7,12 @@ import type {
   BoardComponent,
   CaseParameters,
 } from '@/types';
+import type { DisplayProfile } from '@/types/display';
 import { computeShellDims } from './caseShell';
 import { computeHatBaseZ } from './hats';
 import { transformPlacementPorts } from './hatOrientation';
 import { getBuiltinHat } from '@/library/hats';
+import { getBuiltinDisplay } from '@/library/displays';
 
 /**
  * Issue #37 — cross-cutting validation that catches overlap, off-PCB, and
@@ -382,6 +384,11 @@ export function validatePlacements(project: Project): PlacementReport {
     if (builtin) return builtin;
     return project.customHats?.find((h) => h.id === id);
   };
+  const resolveDisplay = (id: string): DisplayProfile | undefined => {
+    const builtin = getBuiltinDisplay(id);
+    if (builtin) return builtin;
+    return project.customDisplays?.find((d) => d.id === id);
+  };
 
   const issues: PlacementIssue[] = [];
   issues.push(...validateBoardComponentBounds(project.board));
@@ -396,6 +403,8 @@ export function validatePlacements(project: Project): PlacementReport {
     project.case,
     project.hats ?? [],
     resolveHat,
+    project.display,
+    resolveDisplay,
   );
   issues.push(...validateRimMargin(faceRects, project.case, dims.outerZ));
 

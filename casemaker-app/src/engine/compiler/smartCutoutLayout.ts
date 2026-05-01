@@ -1,5 +1,9 @@
 import type { BoardProfile, CaseParameters, HatPlacement, HatProfile, PortPlacement } from '@/types';
+import type { DisplayPlacement, DisplayProfile } from '@/types/display';
 import { computeShellDims } from './caseShell';
+
+type DisplayResolver = (id: string) => DisplayProfile | undefined;
+const NO_RESOLVE_DISPLAY: DisplayResolver = () => undefined;
 
 export const MIN_BRIDGE_THICKNESS = 1.5;
 
@@ -29,8 +33,10 @@ export function applySmartCutoutLayout(
   params: CaseParameters,
   hats: HatPlacement[] = [],
   resolveHat: (id: string) => HatProfile | undefined = () => undefined,
+  display: DisplayPlacement | null | undefined = null,
+  resolveDisplay: DisplayResolver = NO_RESOLVE_DISPLAY,
 ): SmartLayoutResult {
-  const shell = computeShellDims(board, params, hats, resolveHat);
+  const shell = computeShellDims(board, params, hats, resolveHat, display, resolveDisplay);
   const decisions: SmartCutoutDecision[] = [];
   const out: PortPlacement[] = [];
 
