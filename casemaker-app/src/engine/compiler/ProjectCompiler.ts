@@ -3,7 +3,7 @@ import type { BuildPlan, BuildNode, BuildOp } from './buildPlan';
 import { union, difference, translate } from './buildPlan';
 import { buildOuterShell } from './caseShell';
 import { computeBossPlacements, buildBossesUnion, buildLidBosses, buildBossSupportColumns } from './bosses';
-import { buildSealChannel, buildSealTongue } from './seal';
+import { buildSealChannel, buildSealTongue, buildGasketBody } from './seal';
 import { buildLid, computeLidDims } from './lid';
 import { buildPortCutoutsForProject } from './ports';
 import { applySmartCutoutLayout } from './smartCutoutLayout';
@@ -182,6 +182,15 @@ export function compileProject(project: Project): BuildPlan {
   // than the pin by knuckleClearance/2 + 0.1 mm of slop).
   if (hingeOps.pinNode) {
     nodes.push({ id: 'hinge-pin', op: hingeOps.pinNode });
+  }
+
+  // Issue #108 — gasket body is its own top-level node so the export
+  // pipeline emits it as a separate STL (printed in TPU 95A, not the
+  // case body's PLA/PETG). The export pipeline keys off the `gasket`
+  // node id.
+  const gasketBody = buildGasketBody(board, caseParams, hats ?? [], resolveHat);
+  if (gasketBody) {
+    nodes.push({ id: 'gasket', op: gasketBody });
   }
 
   const placementReport = validatePlacements(project);

@@ -9,6 +9,7 @@ import {
   computeChannelAndTongue,
   buildSealChannel,
   buildSealTongue,
+  buildGasketBody,
 } from '@/engine/compiler/seal';
 import { compileProject } from '@/engine/compiler/ProjectCompiler';
 import { computeShellDims } from '@/engine/compiler/caseShell';
@@ -93,6 +94,31 @@ describe('Waterproof gasket (#107)', () => {
     // union op into the lid.
     const unsealed = compileProject({ ...project, case: { ...project.case, wallThickness: 5 } });
     expect(JSON.stringify(plan.nodes)).not.toBe(JSON.stringify(unsealed.nodes));
+  });
+
+  it('buildGasketBody returns a separate ring buildOp (#108 — printed in TPU)', () => {
+    const project = createDefaultProject('rpi-4b');
+    const params: CaseParameters = { ...project.case, wallThickness: 5, seal: SEAL };
+    const op = buildGasketBody(project.board, params, project.hats ?? [], () => undefined);
+    expect(op).not.toBeNull();
+  });
+
+  it('compileProject emits a `gasket` top-level node when seal is enabled (#108)', () => {
+    const project = createDefaultProject('rpi-4b');
+    const sealedProject = {
+      ...project,
+      case: {
+        ...project.case,
+        wallThickness: 5,
+        lidRecess: true,
+        seal: SEAL,
+      },
+    };
+    const plan = compileProject(sealedProject);
+    expect(plan.nodes.find((n) => n.id === 'gasket')).toBeDefined();
+    // Unsealed projects still don't have a gasket node.
+    const unsealed = compileProject({ ...project, case: { ...project.case, wallThickness: 5 } });
+    expect(unsealed.nodes.find((n) => n.id === 'gasket')).toBeUndefined();
   });
 
   it('computeSealLoopPath returns the centerline z below the rim top by channelDepth/2', () => {

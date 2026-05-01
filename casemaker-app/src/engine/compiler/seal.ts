@@ -226,6 +226,57 @@ export interface SealLoopPath {
   cornerRadius: number;
 }
 
+/**
+ * Issue #108 — gasket body as a separate top-level part. The gasket is
+ * the closed-loop centerline extruded as a uncompressed-thickness ring.
+ * Lives as its own BuildNode so the export pipeline emits it as a
+ * separate STL (printed in TPU 95A).
+ *
+ * For 'flat' profile: rectangular cross-section, dims = ringWidth × depth.
+ * For 'o-ring' profile: not yet supported in v1 (would need a sweep-along-
+ *   path operation; falls back to rectangular).
+ */
+export function buildGasketBody(
+  board: BoardProfile,
+  params: CaseParameters,
+  hats: HatPlacement[] = NO_HATS,
+  resolveHat: HatResolver = NO_RESOLVE,
+): BuildOp | null {
+  const ring = computeSealRing(board, params, hats, resolveHat);
+  if (!ring) return null;
+  const dims = computeShellDims(board, params, hats, resolveHat);
+  const seal = params.seal!;
+  // Gasket sits at the centerline Z, extends ±depth/2 in z. Print orientation
+  // is the user's job; we emit the assembled position so the user can verify
+  // fit visually before laying it flat for printing.
+  const rimTopZ = params.lidRecess ? dims.outerZ - params.lidThickness : dims.outerZ;
+  const { channelDepth } = computeChannelAndTongue(seal);
+  const gasketBottomZ = rimTopZ - channelDepth - seal.depth + channelDepth;
+  // bottomZ = rimTopZ - depth (gasket sits ON the rim with its bottom
+  // edge at the channel base would equal rimTopZ - channelDepth; for the
+  // assembled view, gasket center sits in the channel + standing proud
+  // by (depth - channelDepth)).
+  const baseZ = rimTopZ - channelDepth; // gasket sits with bottom inside channel
+  void gasketBottomZ;
+  // Outer ring solid at full gasket depth
+  const outerSolid = roundedRectPrism(
+    ring.outerWidth,
+    ring.outerHeight,
+    seal.depth,
+    ring.cornerRadius,
+  );
+  const innerWidth = ring.outerWidth - 2 * ring.ringWidth;
+  const innerHeight = ring.outerHeight - 2 * ring.ringWidth;
+  if (innerWidth <= 0 || innerHeight <= 0) return null;
+  const innerR = Math.max(0, ring.cornerRadius - ring.ringWidth);
+  const innerSolid = translate(
+    [ring.ringWidth, ring.ringWidth, -0.1],
+    roundedRectPrism(innerWidth, innerHeight, seal.depth + 0.2, innerR),
+  );
+  const ringOp = difference([outerSolid, innerSolid]);
+  return translate([ring.outerCornerX, ring.outerCornerY, baseZ], ringOp);
+}
+
 export function computeSealLoopPath(
   board: BoardProfile,
   params: CaseParameters,
