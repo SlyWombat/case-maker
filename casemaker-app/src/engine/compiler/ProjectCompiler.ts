@@ -4,6 +4,7 @@ import { union, difference, translate } from './buildPlan';
 import { buildOuterShell } from './caseShell';
 import { computeBossPlacements, buildBossesUnion, buildLidBosses, buildBossSupportColumns } from './bosses';
 import { buildSealChannel, buildSealTongue, buildGasketBody } from './seal';
+import { buildLatchOps } from './latches';
 import { buildLid, computeLidDims } from './lid';
 import { buildPortCutoutsForProject } from './ports';
 import { applySmartCutoutLayout } from './smartCutoutLayout';
@@ -69,6 +70,9 @@ export function compileProject(project: Project): BuildPlan {
   const textOps = buildTextLabelOps(textLabels, board, caseParams, hats ?? [], resolveHat);
   const antennaOps = buildAntennaOps(antennas, board, caseParams, hats ?? [], resolveHat);
   const snapOps = buildSnapCatchOps(caseParams.snapCatches, board, caseParams, hats ?? [], resolveHat);
+  // Issue #109 — Pelican-style latches. Striker fuses with shell;
+  // each cam arm becomes its own top-level node so it prints as a free part.
+  const latchOps = buildLatchOps(caseParams.latches, board, caseParams, hats ?? [], resolveHat);
   // Issue #92 — barrel hinge. caseAdditive joins the shell pre-cavity-cut so
   // the through-hole bores cleanly through both the wall and the knuckle;
   // lidAdditive is unioned with the lid op (pre-drilled in lid-local coords);
@@ -92,6 +96,7 @@ export function compileProject(project: Project): BuildPlan {
     ...textOps.additive,
     ...snapOps.shellAdd,
     ...hingeOps.caseAdditive,
+    ...latchOps.caseAdditive,
   ];
 
   const smartLayout = applySmartCutoutLayout(
@@ -191,6 +196,11 @@ export function compileProject(project: Project): BuildPlan {
   const gasketBody = buildGasketBody(board, caseParams, hats ?? [], resolveHat);
   if (gasketBody) {
     nodes.push({ id: 'gasket', op: gasketBody });
+  }
+  // Issue #109 — Pelican-style latch arms each become their own top-level
+  // node so they print as free parts.
+  for (const arm of latchOps.armNodes) {
+    nodes.push(arm);
   }
 
   const placementReport = validatePlacements(project);

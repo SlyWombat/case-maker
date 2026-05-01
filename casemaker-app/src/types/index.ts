@@ -7,3 +7,4 @@ export * from './project';
 export * from './hat';
 export * from './snap';
 export * from './antenna';
+export * from './latch';

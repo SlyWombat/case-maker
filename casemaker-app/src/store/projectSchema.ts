@@ -54,6 +54,21 @@ export const caseParamsSchema = z.object({
       gasketMaterial: z.enum(['tpu', 'eva', 'epdm']),
     })
     .optional(),
+  // Issue #109 — spring-cam locking latches. Optional array; legacy
+  // projects load with no latches.
+  latches: z
+    .array(
+      z.object({
+        id: z.string(),
+        wall: z.enum(['+x', '-x', '+y', '-y']),
+        uPosition: z.number(),
+        enabled: z.boolean(),
+        throw: z.number().positive(),
+        width: z.number().positive(),
+        height: z.number().positive(),
+      }),
+    )
+    .optional(),
   snapCatches: z
     .array(
       z.object({

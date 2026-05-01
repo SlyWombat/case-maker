@@ -178,6 +178,10 @@ export interface CaseParameters {
    *  load without a seal. When enabled, `lidRecess` is forced true at the
    *  UI layer (a flat lid can't compress a gasket reliably). */
   seal?: SealParams;
+  /** Issue #109 — spring-cam locking latches (Pelican-style). Each latch
+   *  emits a striker on the case wall and a cam arm as a separate top-
+   *  level BuildNode. Optional. */
+  latches?: import('./latch').Latch[];
   /**
    * Optional cantilever snap-fit catches (issue #29). Only consulted when
    * joint === 'snap-fit'; auto-populated by createDefaultProject when the
