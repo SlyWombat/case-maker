@@ -51,7 +51,9 @@ export function compileProject(project: Project): BuildPlan {
   const resolveHat = makeHatResolver(project);
   const resolveDisplay = makeDisplayResolver(project);
 
-  const shellOuter = buildOuterShell(board, caseParams, hats ?? [], resolveHat);
+  // Issue #105 — pass display so the shell envelope grows when the display
+  // PCB is larger than the host (e.g. Pi 7" Touch on a Pi 4B).
+  const shellOuter = buildOuterShell(board, caseParams, hats ?? [], resolveHat, display, resolveDisplay);
   const bossPlacements = computeBossPlacements(board, caseParams);
   // Issue #104 — bottom-position bosses fuse with the floor (legacy path).
   // Top-position bosses are emitted into the lid below; the case wall gets

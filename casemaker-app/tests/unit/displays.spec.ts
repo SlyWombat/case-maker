@@ -33,10 +33,55 @@ describe('display mounting (#8 Phase 9a)', () => {
     expect(arduino.map((d) => d.id)).not.toContain('hyperpixel-4');
   });
 
-  // Issue #53 — computeDisplayFootprint deleted (never wired in). The gap
-  // it tested (display larger than host PCB ⇒ envelope grows) is tracked
-  // as a follow-up; not asserting today's misleading behavior would re-
-  // introduce dead-code-shaped tests.
+  // Issue #105 — display larger than host PCB grows the case envelope.
+  // computeShellDims now takes optional `display` + `resolveDisplay`
+  // params; when the display PCB exceeds the host's, the cavity grows.
+  it('Pi 7" Touch on a Pi 4B grows the case cavity beyond host PCB (#105)', async () => {
+    const { computeShellDims } = await import('@/engine/compiler/caseShell');
+    useProjectStore.getState().setDisplay('rpi-7-touch', 'top-window');
+    const project = useProjectStore.getState().project;
+    const dimsHostOnly = computeShellDims(
+      project.board,
+      project.case,
+      project.hats ?? [],
+      () => undefined,
+    );
+    const dimsWithDisplay = computeShellDims(
+      project.board,
+      project.case,
+      project.hats ?? [],
+      () => undefined,
+      project.display,
+      (id) => getBuiltinDisplay(id),
+    );
+    expect(dimsWithDisplay.cavityX).toBeGreaterThan(dimsHostOnly.cavityX);
+    expect(dimsWithDisplay.cavityY).toBeGreaterThan(dimsHostOnly.cavityY);
+    expect(dimsWithDisplay.outerX).toBeGreaterThan(dimsHostOnly.outerX);
+    expect(dimsWithDisplay.outerY).toBeGreaterThan(dimsHostOnly.outerY);
+  });
+
+  it('HyperPixel 4 on a Pi 4B does NOT grow the case (display ≤ host)', async () => {
+    const { computeShellDims } = await import('@/engine/compiler/caseShell');
+    useProjectStore.getState().setDisplay('hyperpixel-4', 'top-window');
+    const project = useProjectStore.getState().project;
+    const dimsWithDisplay = computeShellDims(
+      project.board,
+      project.case,
+      project.hats ?? [],
+      () => undefined,
+      project.display,
+      (id) => getBuiltinDisplay(id),
+    );
+    const dimsHostOnly = computeShellDims(
+      project.board,
+      project.case,
+      project.hats ?? [],
+      () => undefined,
+    );
+    // HyperPixel 4 is roughly the same size as a Pi 4B PCB, so X/Y don't grow.
+    expect(dimsWithDisplay.cavityX).toBeCloseTo(dimsHostOnly.cavityX, 1);
+    expect(dimsWithDisplay.cavityY).toBeCloseTo(dimsHostOnly.cavityY, 1);
+  });
 
   it('top-window framing produces a single window cutout op', () => {
     useProjectStore.getState().setDisplay('hyperpixel-4', 'top-window');

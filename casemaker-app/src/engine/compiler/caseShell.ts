@@ -1,4 +1,5 @@
 import type { CaseParameters, BoardProfile, HatPlacement, HatProfile } from '@/types';
+import type { DisplayPlacement, DisplayProfile } from '@/types/display';
 import { difference, roundedRectPrism, translate, type BuildOp } from './buildPlan';
 
 export interface ShellDims {
@@ -58,17 +59,42 @@ export function computeStackedHatHeight(
  * dimension (`outerZ`, `cavityZ`) depends on the HAT stack, so any caller
  * that omits HATs is computing the wrong envelope. Pass `[]` and `() =>
  * undefined` explicitly only when the call site truly has no HATs to resolve.
+ *
+ * Issue #105 — optional `display` + `resolveDisplay` parameters. When
+ * provided AND the display's PCB is larger than the host's, the cavity
+ * grows so the case envelope contains the display. Optional to avoid
+ * rippling through every caller; ProjectCompiler is the only call site
+ * that has the project's display in scope and passes it.
  */
 export function computeShellDims(
   board: BoardProfile,
   params: CaseParameters,
   hats: HatPlacement[],
   resolveHat: (id: string) => HatProfile | undefined,
+  display: DisplayPlacement | null | undefined = null,
+  resolveDisplay: (id: string) => DisplayProfile | undefined = () => undefined,
 ): ShellDims {
   const { wallThickness: wall, floorThickness: floor, internalClearance: cl, zClearance } = params;
   const pcb = board.pcb.size;
-  const cavityX = pcb.x + 2 * cl;
-  const cavityY = pcb.y + 2 * cl;
+  // Issue #105 — when a display is mounted with a PCB wider than the host,
+  // the case must grow to contain it. The display PCB is positioned at
+  // (placement.offset, placement.offset, hostTop + standoff); we take the
+  // MAX of the host envelope and the display's farthest extent.
+  let displayMaxX = pcb.x;
+  let displayMaxY = pcb.y;
+  let displayTopAddedZ = 0;
+  if (display && display.enabled) {
+    const profile = resolveDisplay(display.displayId);
+    if (profile) {
+      const offX = display.offset?.x ?? 0;
+      const offY = display.offset?.y ?? 0;
+      displayMaxX = Math.max(pcb.x, offX + profile.pcb.size.x);
+      displayMaxY = Math.max(pcb.y, offY + profile.pcb.size.y);
+      displayTopAddedZ = profile.overallHeight;
+    }
+  }
+  const cavityX = displayMaxX + 2 * cl;
+  const cavityY = displayMaxY + 2 * cl;
   const stackHeight = computeStackedHatHeight(hats, resolveHat, board);
   // Issue #66 — host's own tallest +z component must always fit, even with
   // no HATs present. `recommendedZClearance` was set too low on several
@@ -86,9 +112,11 @@ export function computeShellDims(
   // fires on stock projects (e.g. GIGA + DMX, where the XLR cutout reaches
   // 0.7 mm into the rim margin).
   const RIM_MARGIN = 2;
-  const tallestAbovePcb = Math.max(hostTallestAbovePcb, stackHeight);
+  // Issue #105 — display sits ABOVE the host PCB (mounted on standoffs);
+  // its overallHeight contributes to the tallest +z excursion.
+  const tallestAbovePcb = Math.max(hostTallestAbovePcb, stackHeight, displayTopAddedZ);
   const rimSafe = tallestAbovePcb + params.lidThickness + RIM_MARGIN;
-  const baseClearance = Math.max(zClearance, stackHeight, hostTallestAbovePcb, rimSafe);
+  const baseClearance = Math.max(zClearance, stackHeight, hostTallestAbovePcb, rimSafe, displayTopAddedZ);
   const extra = Math.max(0, params.extraCavityZ ?? 0);
   const cavityZ = board.defaultStandoffHeight + pcb.z + baseClearance + extra;
   // When the lid is recessed (issue #30), the case envelope extends above the
@@ -104,13 +132,22 @@ export function computeShellDims(
   };
 }
 
+/**
+ * Issue #105 — `display` + `resolveDisplay` are optional. When provided AND
+ * the display PCB is larger than the host's, the resulting shell envelope
+ * grows so the case contains the display. Other compilers that recompute
+ * shellDims internally without the display still see the host-only
+ * envelope; that's a known partial fix tracked separately.
+ */
 export function buildOuterShell(
   board: BoardProfile,
   params: CaseParameters,
   hats: HatPlacement[],
   resolveHat: (id: string) => HatProfile | undefined,
+  display: DisplayPlacement | null | undefined = null,
+  resolveDisplay: (id: string) => DisplayProfile | undefined = () => undefined,
 ): BuildOp {
-  const dims = computeShellDims(board, params, hats, resolveHat);
+  const dims = computeShellDims(board, params, hats, resolveHat, display, resolveDisplay);
   const { wallThickness: wall, floorThickness: floor } = params;
 
   // Issue #81 — vertical-edge rounding. Outer corners use cornerRadius;
