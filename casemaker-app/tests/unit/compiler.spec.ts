@@ -14,10 +14,10 @@ describe('ProjectCompiler', () => {
 
   it('shell dims grow by 2*delta on X and Y when wallThickness changes by delta', () => {
     const project = createDefaultProject('rpi-4b');
-    const before = computeShellDims(project.board, project.case);
+    const before = computeShellDims(project.board, project.case, project.hats ?? [], () => undefined);
     const delta = 1;
     project.case.wallThickness += delta;
-    const after = computeShellDims(project.board, project.case);
+    const after = computeShellDims(project.board, project.case, project.hats ?? [], () => undefined);
     expect(after.outerX - before.outerX).toBeCloseTo(2 * delta, 6);
     expect(after.outerY - before.outerY).toBeCloseTo(2 * delta, 6);
   });

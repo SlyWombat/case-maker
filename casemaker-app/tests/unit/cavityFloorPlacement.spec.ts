@@ -8,7 +8,7 @@ import { describe, it, expect } from 'vitest';
 import { computeShellDims } from '@/engine/compiler/caseShell';
 import { validatePlacements } from '@/engine/compiler/placementValidator';
 import { createDefaultProject } from '@/store/projectStore';
-import { listBuiltinBoardIds, getBuiltinBoard } from '@/library';
+import { listBuiltinBoardIds } from '@/library';
 import type { BoardProfile, BoardComponent, Facing } from '@/types';
 
 const RIM_MARGIN = 2;
@@ -54,6 +54,7 @@ describe('Panel-mount connector overhang exemption (#67)', () => {
       components: [usb],
       defaultStandoffHeight: 3,
       recommendedZClearance: 10,
+      builtin: false,
     };
   }
 

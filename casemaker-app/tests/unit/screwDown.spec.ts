@@ -17,7 +17,7 @@ describe('screw-down geometry', () => {
     expect(screwPlacements[0]!.totalHeight).toBeCloseTo(flatPlacements[0]!.totalHeight, 6);
     // shell still sized correctly for the screw-down case
     expect(
-      computeShellDims(screwProject.board, screwProject.case).cavityZ,
+      computeShellDims(screwProject.board, screwProject.case, screwProject.hats ?? [], () => undefined).cavityZ,
     ).toBeGreaterThan(0);
   });
 

@@ -40,7 +40,7 @@ test('STL import: file becomes a reference asset and shows in project', async ({
   expect(assetId).toMatch(/^asset-/);
   const project = await page.evaluate(() => window.__caseMaker!.getProject());
   expect(project.externalAssets.length).toBe(1);
-  expect(project.externalAssets[0].name).toBe('tet.stl');
-  expect(project.externalAssets[0].format).toBe('stl');
-  expect(project.externalAssets[0].visibility).toBe('reference');
+  expect(project.externalAssets[0]?.name).toBe('tet.stl');
+  expect(project.externalAssets[0]?.format).toBe('stl');
+  expect(project.externalAssets[0]?.visibility).toBe('reference');
 });

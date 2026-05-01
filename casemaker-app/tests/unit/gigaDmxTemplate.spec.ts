@@ -66,7 +66,7 @@ describe('Issue #32 — GIGA + DMX template + side-Z stack height', () => {
     // After the DMX shield orientation correction (XLRs on the -x short edge,
     // above the host's USB cluster), both XLR placements face -x.
     const xlrFacings = placement.ports
-      .filter((p) => p.sourceComponentId.includes('xlr'))
+      .filter((p) => p.sourceComponentId?.includes('xlr'))
       .map((p) => p.facing);
     expect(xlrFacings).toContain('-x');
   });

@@ -6,18 +6,9 @@
 import { describe, it, expect } from 'vitest';
 import { buildSnapCatch } from '@/engine/compiler/snapCatches';
 import { computeShellDims } from '@/engine/compiler/caseShell';
-import { computeLidDims } from '@/engine/compiler/lid';
 import { SNAP_DEFAULTS } from '@/types/snap';
 import { findTemplate } from '@/library/templates';
 import type { BuildOp } from '@/engine/compiler/buildPlan';
-
-function meshTriangles(op: BuildOp): number {
-  let n = 0;
-  if (op.kind === 'mesh') n += op.indices.length / 3;
-  if ('child' in op && op.child) n += meshTriangles(op.child);
-  if ('children' in op) for (const c of op.children) n += meshTriangles(c);
-  return n;
-}
 
 /** Walk the build op tree and return the world-Z extent of every primitive. */
 function zExtent(op: BuildOp): { min: number; max: number } {
@@ -62,11 +53,11 @@ describe('Snap-fit engagement geometry (#80)', () => {
   const firstCatch = project.case.snapCatches?.[0];
 
   it('non-recessed: lip catch face Z = seated barb top Z', () => {
-    const dims = computeShellDims(project.board, project.case);
+    const dims = computeShellDims(project.board, project.case, project.hats ?? [], () => undefined);
     const g = buildSnapCatch(firstCatch!, project.board, project.case);
     expect(g).not.toBeNull();
     // The lip is anchored on the case wall in world coords. Bottom = catch face.
-    const lipExtent = zExtent(g!.lip);
+    const lipExtent = zExtent(g!.lip!);
     const lipBottomZ = lipExtent.min;
     // Compute barb top Z in seated position (lid sits AT outerZ, no liftAboveShell).
     // armBarb is built in lid-local coords; arm Z range [-armLength, 0],
@@ -80,10 +71,10 @@ describe('Snap-fit engagement geometry (#80)', () => {
 
   it('recessed: lip drops with the lid; barb top still = catch face', () => {
     const recessedCase = { ...project.case, lidRecess: true };
-    const dims = computeShellDims(project.board, recessedCase);
+    const dims = computeShellDims(project.board, recessedCase, project.hats ?? [], () => undefined);
     const g = buildSnapCatch(firstCatch!, project.board, recessedCase);
     expect(g).not.toBeNull();
-    const lipExtent = zExtent(g!.lip);
+    const lipExtent = zExtent(g!.lip!);
     const lipBottomZ = lipExtent.min;
     // Recessed lid sits at outerZ - lidThickness.
     const seatedLidPlateBottom = dims.outerZ - recessedCase.lidThickness;
@@ -98,13 +89,13 @@ describe('Snap-fit engagement geometry (#80)', () => {
       ...project.case,
       lidRecess: true,
     });
-    const flatBottom = zExtent(flat!.lip).min;
-    const recessedBottom = zExtent(recessed!.lip).min;
+    const flatBottom = zExtent(flat!.lip!).min;
+    const recessedBottom = zExtent(recessed!.lip!).min;
     // Recessed lid sits lower → lip is lower by exactly lidThickness.
     // outerZ also differs (recessed is taller), so we compare the relative
     // drop against the recessed-vs-flat outerZ delta.
-    const flatDims = computeShellDims(project.board, project.case);
-    const recessedDims = computeShellDims(project.board, { ...project.case, lidRecess: true });
+    const flatDims = computeShellDims(project.board, project.case, project.hats ?? [], () => undefined);
+    const recessedDims = computeShellDims(project.board, { ...project.case, lidRecess: true }, project.hats ?? [], () => undefined);
     const outerZDelta = recessedDims.outerZ - flatDims.outerZ;
     // Lip in recessed mode = outerZ - lidThickness - LIP_HEIGHT
     //                      = (flatOuterZ + outerZDelta) - lidThickness - LIP_HEIGHT
@@ -141,6 +132,6 @@ describe('Snap-fit engagement geometry (#80)', () => {
       if ('children' in op) return op.children.some((c) => findMesh(c));
       return false;
     }
-    expect(findMesh(g!.lip)).toBe(true);
+    expect(findMesh(g!.lip!)).toBe(true);
   });
 });

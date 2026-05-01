@@ -17,10 +17,11 @@ function bboxOf(op: BuildOp): { min: [number, number, number]; max: [number, num
       const x0 = o.center ? ox - sx / 2 : ox;
       const y0 = o.center ? oy - sy / 2 : oy;
       const z0 = o.center ? oz - sz / 2 : oz;
-      for (const [x, y, z] of [
+      const corners: [number, number, number][] = [
         [x0, y0, z0],
         [x0 + sx, y0 + sy, z0 + sz],
-      ]) {
+      ];
+      for (const [x, y, z] of corners) {
         if (x < min[0]) min[0] = x;
         if (y < min[1]) min[1] = y;
         if (z < min[2]) min[2] = z;
@@ -32,10 +33,11 @@ function bboxOf(op: BuildOp): { min: [number, number, number]; max: [number, num
       // Z-axis cylinder of radius r and height h, post-rotate handled above.
       const r = o.radiusLow;
       const h = o.height;
-      for (const [x, y, z] of [
+      const corners: [number, number, number][] = [
         [ox - r, oy - r, oz],
         [ox + r, oy + r, oz + h],
-      ]) {
+      ];
+      for (const [x, y, z] of corners) {
         if (x < min[0]) min[0] = x;
         if (y < min[1]) min[1] = y;
         if (z < min[2]) min[2] = z;
@@ -64,7 +66,7 @@ describe('screw-tab tabs extrude OUTSIDE the case envelope (#80 corner-tabs bug)
 
   it('compiled additive bbox grows BEYOND the bare-shell footprint when 4-corner tabs are added', () => {
     const project = createDefaultProject('rpi-4b');
-    const dims = computeShellDims(project.board, project.case);
+    const dims = computeShellDims(project.board, project.case, project.hats ?? [], () => undefined);
     const ops = buildMountingFeatureOps(
       fourCornerScrewTabs(dims.outerX, dims.outerY),
       project.board,
@@ -122,7 +124,7 @@ describe('screw-tab tabs extrude OUTSIDE the case envelope (#80 corner-tabs bug)
       return null;
     }
     const project = createDefaultProject('rpi-4b');
-    const dims = computeShellDims(project.board, project.case);
+    const dims = computeShellDims(project.board, project.case, project.hats ?? [], () => undefined);
     const ops = buildMountingFeatureOps(
       fourCornerScrewTabs(dims.outerX, dims.outerY),
       project.board,

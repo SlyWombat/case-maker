@@ -64,7 +64,7 @@ describe('Snap-fit barb cross-section registry (#69)', () => {
       // Issue #77 — every barb type produces SOME case-side geometry change:
       // either a lip (additive) or a wall pocket (subtractive). Ball-socket is
       // the detent design (pocket only); every other type is lip-based.
-      const caseSide = (g!.lip ? countSolidPrimitives(g!.lip) : 0)
+      const caseSide = (g!.lip! ? countSolidPrimitives(g!.lip!) : 0)
         + (g!.wallPocket ? countSolidPrimitives(g!.wallPocket) : 0);
       expect(caseSide).toBeGreaterThanOrEqual(1);
     });
@@ -74,10 +74,10 @@ describe('Snap-fit barb cross-section registry (#69)', () => {
     for (const barbType of BARB_TYPES) {
       const g = buildSnapCatch({ ...firstCatch!, barbType }, project.board, project.case);
       if (barbType === 'ball-socket') {
-        expect(g!.lip).toBeNull();
+        expect(g!.lip!).toBeNull();
         expect(g!.wallPocket).not.toBeNull();
       } else {
-        expect(g!.lip).not.toBeNull();
+        expect(g!.lip!).not.toBeNull();
         expect(g!.wallPocket).toBeNull();
       }
     }
@@ -152,7 +152,7 @@ describe('Snap-fit barb cross-section registry (#69)', () => {
     const explicit = { ...firstCatch!, barbType: 'hook' as const };
     const gLegacy = buildSnapCatch(legacy, project.board, project.case);
     const gExplicit = buildSnapCatch(explicit, project.board, project.case);
-    expect(countSolidPrimitives(gLegacy!.lip)).toBe(countSolidPrimitives(gExplicit!.lip));
+    expect(countSolidPrimitives(gLegacy!.lip!)).toBe(countSolidPrimitives(gExplicit!.lip!));
     expect(countSolidPrimitives(gLegacy!.armBarb)).toBe(countSolidPrimitives(gExplicit!.armBarb));
   });
 
@@ -186,13 +186,13 @@ describe('Snap-fit barb cross-section registry (#69)', () => {
     // slope converts lid-down force into arm-flex force so rectangular
     // barbs can click past without requiring the wall itself to flex.
     // Hook vs symmetric-ramp differ only in the barb shape on the lid side.
-    expect(countByKind(hook!.lip, 'mesh')).toBe(1);
-    expect(countByKind(sym!.lip, 'mesh')).toBe(1);
-    expect(countByKind(hook!.lip, 'cube')).toBe(0);
-    expect(countByKind(sym!.lip, 'cube')).toBe(0);
+    expect(countByKind(hook!.lip!, 'mesh')).toBe(1);
+    expect(countByKind(sym!.lip!, 'mesh')).toBe(1);
+    expect(countByKind(hook!.lip!, 'cube')).toBe(0);
+    expect(countByKind(sym!.lip!, 'cube')).toBe(0);
     // 8-vert / 12-tri trapezoidal prism — sanity check the topology.
-    expect(meshTriangles(hook!.lip)).toBe(12);
-    expect(meshTriangles(sym!.lip)).toBe(12);
+    expect(meshTriangles(hook!.lip!)).toBe(12);
+    expect(meshTriangles(sym!.lip!)).toBe(12);
   });
 
   // Suppress unused-import lint when the helpers below stop being used.

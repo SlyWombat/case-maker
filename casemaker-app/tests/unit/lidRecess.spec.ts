@@ -7,7 +7,7 @@ import { createDefaultProject } from '@/store/projectStore';
 describe('Issue #30 — recessed lid mode', () => {
   it('lidRecess off: lid X/Y matches shell outer X/Y', () => {
     const project = createDefaultProject('rpi-4b');
-    const dims = computeShellDims(project.board, project.case);
+    const dims = computeShellDims(project.board, project.case, project.hats ?? [], () => undefined);
     const lid = computeLidDims(project.board, project.case);
     expect(lid.x).toBe(dims.outerX);
     expect(lid.y).toBe(dims.outerY);
@@ -16,7 +16,7 @@ describe('Issue #30 — recessed lid mode', () => {
   it('lidRecess on: lid X/Y is smaller (sized to recess pocket minus clearance)', () => {
     const project = createDefaultProject('rpi-4b');
     project.case.lidRecess = true;
-    const dimsOff = computeShellDims(project.board, { ...project.case, lidRecess: false });
+    const dimsOff = computeShellDims(project.board, { ...project.case, lidRecess: false }, project.hats ?? [], () => undefined);
     const lidOn = computeLidDims(project.board, project.case);
     expect(lidOn.x).toBeLessThan(dimsOff.outerX);
     expect(lidOn.y).toBeLessThan(dimsOff.outerY);
@@ -24,8 +24,8 @@ describe('Issue #30 — recessed lid mode', () => {
 
   it('lidRecess on: shell envelope is taller (extends above the cavity)', () => {
     const project = createDefaultProject('rpi-4b');
-    const dimsOff = computeShellDims(project.board, project.case);
-    const dimsOn = computeShellDims(project.board, { ...project.case, lidRecess: true });
+    const dimsOff = computeShellDims(project.board, project.case, project.hats ?? [], () => undefined);
+    const dimsOn = computeShellDims(project.board, { ...project.case, lidRecess: true }, project.hats ?? [], () => undefined);
     expect(dimsOn.outerZ).toBeGreaterThan(dimsOff.outerZ);
   });
 

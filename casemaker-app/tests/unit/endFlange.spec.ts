@@ -59,7 +59,7 @@ describe('end-flange geometry (#80, slice 3)', () => {
 
   it('compiled additive bbox grows OUTWARD past the case envelope on the chosen wall', () => {
     const project = createDefaultProject('rpi-4b');
-    const dims = computeShellDims(project.board, project.case);
+    const dims = computeShellDims(project.board, project.case, project.hats ?? [], () => undefined);
     const features = endFlangesPreset(dims.outerX, dims.outerY, dims.outerZ);
     const ops = buildMountingFeatureOps(features, project.board, project.case);
     expect(ops.additive.length).toBeGreaterThanOrEqual(features.length);
@@ -76,7 +76,7 @@ describe('end-flange geometry (#80, slice 3)', () => {
 
   it('every flange produces additive plate + cap + two side ribs and a subtractive bolt hole (#102)', () => {
     const project = createDefaultProject('rpi-4b');
-    const dims = computeShellDims(project.board, project.case);
+    const dims = computeShellDims(project.board, project.case, project.hats ?? [], () => undefined);
     const features = endFlangesPreset(dims.outerX, dims.outerY, dims.outerZ);
     const ops = buildMountingFeatureOps(features, project.board, project.case);
     // #102 — ribs split to TWO per flange so the screw bore stays clear:
@@ -87,7 +87,7 @@ describe('end-flange geometry (#80, slice 3)', () => {
 
   it('disabling the rib drops both rib ops (params.ribEnabled = 0) — back to rect+cap only', () => {
     const project = createDefaultProject('rpi-4b');
-    const dims = computeShellDims(project.board, project.case);
+    const dims = computeShellDims(project.board, project.case, project.hats ?? [], () => undefined);
     const features = endFlangesPreset(dims.outerX, dims.outerY, dims.outerZ).map((f) => ({
       ...f,
       params: { ...f.params, ribEnabled: 0 },
@@ -98,7 +98,7 @@ describe('end-flange geometry (#80, slice 3)', () => {
 
   it('disabling all flanges produces zero additive / subtractive ops', () => {
     const project = createDefaultProject('rpi-4b');
-    const dims = computeShellDims(project.board, project.case);
+    const dims = computeShellDims(project.board, project.case, project.hats ?? [], () => undefined);
     const features = endFlangesPreset(dims.outerX, dims.outerY, dims.outerZ).map((f) => ({
       ...f,
       enabled: false,
@@ -110,7 +110,7 @@ describe('end-flange geometry (#80, slice 3)', () => {
 
   it('flange plate underside is flush with the case bottom (z=0) on every wall (#101)', () => {
     const project = createDefaultProject('rpi-4b');
-    const dims = computeShellDims(project.board, project.case);
+    const dims = computeShellDims(project.board, project.case, project.hats ?? [], () => undefined);
     // Test on every side wall; thickness 3 → underside at z=0, top at z=3.
     const walls: ('+x' | '-x' | '+y' | '-y')[] = ['+x', '-x', '+y', '-y'];
     for (const wall of walls) {
@@ -131,7 +131,7 @@ describe('end-flange geometry (#80, slice 3)', () => {
 
   it('rib gussets do not occupy the screw clearance footprint (#102)', () => {
     const project = createDefaultProject('rpi-4b');
-    const dims = computeShellDims(project.board, project.case);
+    const dims = computeShellDims(project.board, project.case, project.hats ?? [], () => undefined);
     const features = endFlangesPreset(dims.outerX, dims.outerY, dims.outerZ);
     const ops = buildMountingFeatureOps(features, project.board, project.case);
     // For each subtractive bolt-hole cylinder, find the world (x,y) center
@@ -161,8 +161,11 @@ describe('end-flange geometry (#80, slice 3)', () => {
         cy += op.offset[1];
         op = op.child;
       }
-      // Find the cylinder so we know the bore radius.
-      let bore = op;
+      // Find the cylinder so we know the bore radius. The outer translate
+      // chain is already unwound above, but defensively unwrap any nested
+      // rotate/translate (the narrowed `op` makes its `.kind` look exhaustive
+      // to TS, so we widen back to BuildOp here).
+      let bore: BuildOp = op;
       while (bore.kind === 'translate' || bore.kind === 'rotate') bore = bore.child;
       const r = bore.kind === 'cylinder' ? bore.radiusLow : 1.7;
 

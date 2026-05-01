@@ -29,7 +29,7 @@ const baseCase: CaseParameters = {
   internalClearance: 0.5,
   zClearance: 10,
   joint: 'flat-lid',
-  ventilation: { enabled: false, pattern: 'none', coverage: 0, faces: [] },
+  ventilation: { enabled: false, pattern: 'none', coverage: 0, surfaces: [] },
   bosses: { enabled: true, insertType: 'self-tap', outerDiameter: 5, holeDiameter: 2.5 },
 };
 
@@ -50,7 +50,7 @@ function port(overrides: Partial<PortPlacement> = {}): PortPlacement {
 
 describe('Marketing gap #17 — smart cutout layout (printability)', () => {
   it('leaves cutouts with adequate top clearance unchanged ("as-is" branch)', () => {
-    const shell = computeShellDims(baseBoard, baseCase);
+    const shell = computeShellDims(baseBoard, baseCase, [], () => undefined);
     // cavityZ ~ 11.6 (zClearance + pcb.z), outerZ = 13.6
     // place port low enough to leave > MIN_BRIDGE_THICKNESS above
     const p = port({ position: { x: 5, y: 0, z: 0 }, size: { x: 14, y: 16, z: 4 } });
@@ -63,7 +63,7 @@ describe('Marketing gap #17 — smart cutout layout (printability)', () => {
   });
 
   it('extends cutouts that fall within MIN_BRIDGE_THICKNESS of the shell top ("extended-to-top" branch)', () => {
-    const shell = computeShellDims(baseBoard, baseCase);
+    const shell = computeShellDims(baseBoard, baseCase, [], () => undefined);
     // pick size such that cutout top is ~1mm below outerZ — under the 1.5mm threshold
     const targetTop = shell.outerZ - 1.0;
     const margin = 0.4;
@@ -106,7 +106,7 @@ describe('Marketing gap #17 — smart cutout layout (printability)', () => {
     const project = createDefaultProject('rpi-4b');
     // pick a port and force it into the danger zone
     const target = project.ports[0]!;
-    const shell = computeShellDims(project.board, project.case);
+    const shell = computeShellDims(project.board, project.case, project.hats ?? [], () => undefined);
     const targetTop = shell.outerZ - 0.8;
     const newSizeZ = targetTop - project.case.floorThickness - project.board.defaultStandoffHeight - target.position.z - target.cutoutMargin;
     const adjusted = { ...target, size: { ...target.size, z: newSizeZ } };

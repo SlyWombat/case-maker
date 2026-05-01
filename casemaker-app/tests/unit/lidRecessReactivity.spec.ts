@@ -11,11 +11,13 @@ describe('lidRecess reactivity (#82)', () => {
   const project = findTemplate('snap-fit-test')!.build();
 
   it('outerZ grows by lidThickness + 1 when lidRecess flips on', () => {
-    const flat = computeShellDims(project.board, project.case);
-    const recessed = computeShellDims(project.board, {
-      ...project.case,
-      lidRecess: true,
-    });
+    const flat = computeShellDims(project.board, project.case, project.hats ?? [], () => undefined);
+    const recessed = computeShellDims(
+      project.board,
+      { ...project.case, lidRecess: true },
+      project.hats ?? [],
+      () => undefined,
+    );
     expect(recessed.outerZ - flat.outerZ).toBeCloseTo(project.case.lidThickness + 1, 3);
   });
 
@@ -29,8 +31,8 @@ describe('lidRecess reactivity (#82)', () => {
     // outerZ. outerZ itself grew by (lidThickness + 1), so the lid in
     // world coords ends up 1 mm higher than it was — but it sits BELOW
     // the new rim by exactly lidThickness.
-    const flatDims = computeShellDims(project.board, project.case);
-    const recessedDims = computeShellDims(project.board, { ...project.case, lidRecess: true });
+    const flatDims = computeShellDims(project.board, project.case, project.hats ?? [], () => undefined);
+    const recessedDims = computeShellDims(project.board, { ...project.case, lidRecess: true }, project.hats ?? [], () => undefined);
     expect(flat.zPosition).toBeCloseTo(flatDims.outerZ, 3);
     expect(recessed.zPosition).toBeCloseTo(recessedDims.outerZ - project.case.lidThickness, 3);
   });

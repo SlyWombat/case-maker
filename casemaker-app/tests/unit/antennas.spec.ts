@@ -25,7 +25,7 @@ const baseCase: CaseParameters = {
   internalClearance: 0.5,
   zClearance: 12,
   joint: 'flat-lid',
-  ventilation: { enabled: false, pattern: 'none', coverage: 0, faces: [] },
+  ventilation: { enabled: false, pattern: 'none', coverage: 0, surfaces: [] },
   bosses: { enabled: true, insertType: 'self-tap', outerDiameter: 5, holeDiameter: 2.5 },
 };
 

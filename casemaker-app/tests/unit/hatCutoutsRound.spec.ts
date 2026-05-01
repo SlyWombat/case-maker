@@ -102,7 +102,7 @@ describe('Issue #18 — DMX shield round XLR cutouts + HAT lift over host compon
         internalClearance: 0.5,
         zClearance: 10,
         joint: 'flat-lid',
-        ventilation: { enabled: false, pattern: 'none', coverage: 0, faces: [] },
+        ventilation: { enabled: false, pattern: 'none', coverage: 0, surfaces: [] },
         bosses: { enabled: true, insertType: 'self-tap', outerDiameter: 5, holeDiameter: 2.5 },
       },
       [
