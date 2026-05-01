@@ -6,7 +6,7 @@ import type {
   Latch,
 } from '@/types';
 import type { DisplayPlacement, DisplayProfile } from '@/types/display';
-import { cube, cylinder, translate, type BuildOp } from './buildPlan';
+import { cube, cylinder, difference, translate, union, type BuildOp } from './buildPlan';
 import { computeShellDims } from './caseShell';
 
 type HatResolver = (id: string) => HatProfile | undefined;
@@ -15,32 +15,83 @@ const NO_RESOLVE: HatResolver = () => undefined;
 type DisplayResolver = (id: string) => DisplayProfile | undefined;
 const NO_RESOLVE_DISPLAY: DisplayResolver = () => undefined;
 
-/** Issue #109 — Pelican-style spring-cam latch geometry (v1).
+/** Issue #109 — Pelican-standard spring-cam latch (v2 redesign).
  *
- *  v1 simplifies the cam mechanism: striker is a horizontal cylindrical
- *  post on the case wall; arm is a rectangular plate with a hooked lower
- *  edge and a hinge knuckle at the top that pairs with a knuckle on the
- *  lid edge. The "cam profile" delivering the over-center pull-down
- *  isn't yet modeled — closing engages the hook, but actual preload force
- *  depends on the user supplying the right gasket compression factor.
+ *  Pelican design (vs. the v1 freestanding-arm placeholder):
  *
- *  Refinements deferred to follow-ups:
- *  - True cam profile (cardioid-like) for measured pull-down force
- *  - Spring-loaded latch tongue (TPU insert, separate part)
- *  - Lock-out detent (latch can't accidentally pop open)
+ *      ┌──── lid plate ────┐
+ *      │                ●──── striker tab + post (additive on lid;
+ *      │                       sticks OUT past case envelope so the
+ *      │                       cam can hook it)
+ *      ├───────────────────
+ *      ║ rim (case wall)   ║
+ *      ║                   ║
+ *      ║                   ╚── ⌒── cam hook at TOP of arm
+ *      ║                       │
+ *      ║                       │   arm body
+ *      ║                       │
+ *      ║   ⊙─⊙─⊙ ←──────── 3 knuckles share one pin axis:
+ *      ║                       outer two = additive on case wall,
+ *      ║                       middle one = on the arm.
+ *      ║   pin (separate
+ *      ║   top-level part,
+ *      ║   print-in-place)
+ *      ║                       arm pivots ABOUT the pin axis.
+ *      ║                       Closed: arm flat against wall, cam
+ *      ║                       wraps over lid striker, lid pulled tight.
+ *      ║                       Open:   arm rotates outward, cam
+ *      ║                       releases lid striker.
+ *
+ *  v2 still ships a SIMPLE rectangular cam hook (no over-center
+ *  cardioid profile) — the engagement is "captured" but not
+ *  preloaded. Adding the over-center pull-down is a follow-up;
+ *  for now the gasket compression depends on the user pressing the
+ *  lid down before flipping the latch.
+ *
+ *  Constraint: Pelican-standard latches require lidRecess=false. The
+ *  lid plate must sit ON TOP of the rim so the striker tab has clear
+ *  air to project outward into. With lidRecess=true, the rim
+ *  surrounds the lid plate at its own Z and there's no path for the
+ *  striker. The compiler skips latch generation (and logs) when
+ *  lidRecess is true so a misconfigured project still loads — UI is
+ *  expected to surface the constraint.
  */
 
-const STRIKER_RADIUS = 1.5;
-const ARM_THICKNESS = 3;
-const HOOK_DEPTH = 4;
-const ARM_OFFSET_BELOW_RIM = 8;
+// -- Geometry constants ---------------------------------------------------
+const KNUCKLE_OUTER_R = 4;            // outer radius of every knuckle
+const PIN_R = 1.5;                    // pin diameter = 3 mm
+const PIN_CLEAR = 0.4;                // hole-to-pin radial clearance
+const KNUCKLE_AXIAL_GAP = 0.3;        // gap between case-knuckle and arm-knuckle (along pin axis)
+const KNUCKLE_OFFSET = 4;             // pin axis distance OUT from outer wall surface
+const PIVOT_BELOW_RIM = 22;           // pin axis Z = rim top - this
+const ARM_KNUCKLE_FRACTION = 0.4;     // arm knuckle takes middle 40% of latch.width
+const ARM_PLATE_THICKNESS = 3;        // arm body slab thickness (wall-normal direction)
+const HOOK_WALL_OFFSET = 1.0;         // gap between arm inner face and case outer wall
+const STRIKER_R = 1.5;                // striker post on lid edge
+const STRIKER_TAB_THICKNESS = 3;      // wall-normal extent of the lid-side striker tab
+const STRIKER_TAB_HEIGHT = 5;         // vertical extent of the striker tab above lid plate top
+const STRIKER_OUT_PAST_ENVELOPE = 4;  // striker post protrudes this far past case envelope
+const HOOK_THICKNESS = ARM_PLATE_THICKNESS;  // cam hook thickness
+const HOOK_VERTICAL = 4;              // vertical extent of the cam hook lip
+const EMBED = 0.5;                    // volumetric overlap so manifold fuses sub-pieces
 
 export interface LatchOps {
-  /** Striker geometry, fused with the case shell. */
+  /** Striker geometry on the LID (additive, in lid-local coords — caller
+   *  unions with lidOp before the lid is translated to its world Z). */
+  lidAdditive: BuildOp[];
+  /** Hinge knuckles fused with the case shell (world coords, additive). */
   caseAdditive: BuildOp[];
-  /** Cam arm parts — each is its own top-level BuildNode (printed as a free part). */
+  /** Pin bores (subtractive on case knuckles; world coords). */
+  caseSubtract: BuildOp[];
+  /** Cam-arm parts (each is its own top-level BuildNode — printed as a free part). */
   armNodes: { id: string; op: BuildOp }[];
+  /** Print-in-place pins (each is its own top-level BuildNode; world coords). */
+  pinNodes: { id: string; op: BuildOp }[];
 }
+
+const EMPTY: LatchOps = {
+  lidAdditive: [], caseAdditive: [], caseSubtract: [], armNodes: [], pinNodes: [],
+};
 
 export function buildLatchOps(
   latches: Latch[] | undefined,
@@ -51,24 +102,51 @@ export function buildLatchOps(
   display: DisplayPlacement | null | undefined = null,
   resolveDisplay: DisplayResolver = NO_RESOLVE_DISPLAY,
 ): LatchOps {
-  const empty: LatchOps = { caseAdditive: [], armNodes: [] };
-  if (!latches || latches.length === 0) return empty;
+  if (!latches || latches.length === 0) return EMPTY;
+  // Pelican-standard requires lidRecess=false. If the project is misconfigured,
+  // skip the latches (don't crash). The placement validator should warn.
+  if (params.lidRecess) return EMPTY;
   const dims = computeShellDims(board, params, hats, resolveHat, display, resolveDisplay);
-  const caseAdditive: BuildOp[] = [];
-  const armNodes: { id: string; op: BuildOp }[] = [];
+  const out: LatchOps = {
+    lidAdditive: [], caseAdditive: [], caseSubtract: [], armNodes: [], pinNodes: [],
+  };
   for (const latch of latches) {
     if (!latch.enabled) continue;
     const built = buildOneLatch(latch, dims, params);
     if (!built) continue;
-    caseAdditive.push(built.striker);
-    armNodes.push({ id: `latch-arm-${latch.id}`, op: built.arm });
+    out.caseAdditive.push(...built.caseAdditive);
+    out.caseSubtract.push(...built.caseSubtract);
+    out.lidAdditive.push(...built.lidAdditive);
+    out.armNodes.push({ id: `latch-arm-${latch.id}`, op: built.arm });
+    out.pinNodes.push({ id: `latch-pin-${latch.id}`, op: built.pin });
   }
-  return { caseAdditive, armNodes };
+  return out;
 }
 
 interface OneLatch {
-  striker: BuildOp;
+  caseAdditive: BuildOp[];
+  caseSubtract: BuildOp[];
+  lidAdditive: BuildOp[];
   arm: BuildOp;
+  pin: BuildOp;
+}
+
+interface WallFrame {
+  /** World-coord position of the OUTER wall surface on the wall-normal axis. */
+  wallOuter: number;
+  /** Outward-pointing sign on the wall-normal axis (+1 or -1). */
+  outwardSign: 1 | -1;
+  /** Which axis is the wall normal. */
+  wallAxis: 'x' | 'y';
+}
+
+function frameForWall(wall: Latch['wall'], dims: { outerX: number; outerY: number }): WallFrame {
+  switch (wall) {
+    case '-x': return { wallOuter: 0,            outwardSign: -1, wallAxis: 'x' };
+    case '+x': return { wallOuter: dims.outerX,  outwardSign: +1, wallAxis: 'x' };
+    case '-y': return { wallOuter: 0,            outwardSign: -1, wallAxis: 'y' };
+    case '+y': return { wallOuter: dims.outerY,  outwardSign: +1, wallAxis: 'y' };
+  }
 }
 
 function buildOneLatch(
@@ -76,158 +154,203 @@ function buildOneLatch(
   dims: { outerX: number; outerY: number; outerZ: number },
   params: CaseParameters,
 ): OneLatch | null {
-  // Striker: horizontal cylinder protruding from the OUTSIDE of the wall.
-  // Y-axis cylinder for ±x walls; X-axis cylinder for ±y walls. Centered
-  // at uPosition along the wall, ARM_OFFSET_BELOW_RIM below the rim top.
-  const rimTopZ = params.lidRecess ? dims.outerZ - params.lidThickness : dims.outerZ;
-  const strikerZ = rimTopZ - ARM_OFFSET_BELOW_RIM;
-  const strikerLen = latch.width;
-  let strikerOp: BuildOp;
-  let armOriginX = 0;
-  let armOriginY = 0;
-  switch (latch.wall) {
-    case '+y': {
-      // outer +y face at world y = dims.outerY; striker protrudes in +y.
-      const cyl = cylinder(strikerLen, STRIKER_RADIUS, 16);
-      // Cylinder default axis = +Z; rotate to +X for an X-axis cylinder
-      // running along the wall tangent (parallel to wall length = X).
-      // We want the striker axis ALONG the wall (X here), centered at
-      // (uPosition, outerY + radius, strikerZ). The cylinder is built
-      // along Z; rotate around Y by π/2 to get along X.
-      strikerOp = translate(
-        [latch.uPosition - strikerLen / 2, dims.outerY, strikerZ],
-        rotateAxisYPiHalf(cyl),
-      );
-      armOriginX = latch.uPosition;
-      armOriginY = dims.outerY;
-      break;
-    }
-    case '-y': {
-      const cyl = cylinder(strikerLen, STRIKER_RADIUS, 16);
-      strikerOp = translate(
-        [latch.uPosition - strikerLen / 2, 0, strikerZ],
-        rotateAxisYPiHalf(cyl),
-      );
-      armOriginX = latch.uPosition;
-      armOriginY = 0;
-      break;
-    }
-    case '+x': {
-      const cyl = cylinder(strikerLen, STRIKER_RADIUS, 16);
-      // Cylinder along Y (rotate around X by π/2)
-      strikerOp = translate(
-        [dims.outerX, latch.uPosition - strikerLen / 2, strikerZ],
-        rotateAxisXNegPiHalf(cyl),
-      );
-      armOriginX = dims.outerX;
-      armOriginY = latch.uPosition;
-      break;
-    }
-    case '-x': {
-      const cyl = cylinder(strikerLen, STRIKER_RADIUS, 16);
-      strikerOp = translate(
-        [0, latch.uPosition - strikerLen / 2, strikerZ],
-        rotateAxisXNegPiHalf(cyl),
-      );
-      armOriginX = 0;
-      armOriginY = latch.uPosition;
-      break;
-    }
-  }
+  // lidRecess=false guaranteed by caller; rim top sits at outerZ.
+  const rimTopZ = dims.outerZ;
+  const lidPlateBottomZ = rimTopZ;                    // lid sits ON the rim
+  const lidPlateTopZ = lidPlateBottomZ + params.lidThickness;
+  const pivotZ = rimTopZ - PIVOT_BELOW_RIM;
+  const tolerance = latch.tolerance ?? 0.2;
 
-  // Cam arm: a rectangular plate sitting outside the wall. Top of arm
-  // sits at rim Z; arm extends DOWN by latch.height. Bottom of arm
-  // wraps under by HOOK_DEPTH to engage the striker. v1: arm is a
-  // simple cube; the hook is a smaller cube at the bottom protruding
-  // INWARD toward the wall.
-  // Issue #113 — `latch.tolerance` shifts the arm OUTWARD from the wall,
-  // widening the engagement gap so the hook clears the striker post by
-  // (tolerance) mm during rotation. Default 0.2 matches the implicit
-  // pre-#113 1.5 mm gap (1.3 + 0.2). Higher value = looser engagement.
-  const armOuterDistance = 1.3 + (latch.tolerance ?? 0.2);
-  // Issue #121 — plate + hook MUST overlap volumetrically. The original
-  // code had plate at z=[0, height] (cube extends +z from origin) but the
-  // hook positioned at z=[-height-thickness, -height] — opposite sides of
-  // the origin, no overlap, manifold returned 2 components.
-  // Fix: shift the plate DOWN so its z range matches the comments
-  // (z=[-height, 0], origin = TOP of arm = hinge pivot point), and extend
-  // the hook UP by EMBED so plate+hook share volume.
-  const EMBED = 0.5;
-  const armPlate = translate(
-    [0, 0, -latch.height],
-    cube([latch.width, ARM_THICKNESS, latch.height], false),
+  const f = frameForWall(latch.wall, dims);
+  // World-coord helpers: position vectors that respect the wall axis. For
+  // ±x walls the wall-NORMAL axis is X (and the wall-TANGENT is Y); for
+  // ±y walls those swap.
+  const u0 = latch.uPosition;             // along the wall tangent
+  const wallOuter = f.wallOuter;          // wall-normal coord of outer wall surface
+
+  // -- Case knuckles (additive on shell, with pin bores subtracted) -------
+  const totalKnuckleSpan = latch.width;   // axial span (along wall tangent) for the 3-knuckle stack
+  const armKnuckleLen = ARM_KNUCKLE_FRACTION * totalKnuckleSpan - 2 * KNUCKLE_AXIAL_GAP;
+  const caseKnuckleLen = (totalKnuckleSpan - armKnuckleLen - 2 * KNUCKLE_AXIAL_GAP) / 2;
+  if (armKnuckleLen <= 0.5 || caseKnuckleLen <= 0.5) return null;
+  const armKnuckleU0 = u0 - armKnuckleLen / 2;
+  const caseKnuckleAU0 = u0 - latch.width / 2;
+  const caseKnuckleBU0 = u0 + armKnuckleLen / 2 + KNUCKLE_AXIAL_GAP;
+  // Pin axis position along the wall-normal axis: outside wall by KNUCKLE_OFFSET.
+  const pinAxisN = wallOuter + f.outwardSign * KNUCKLE_OFFSET;
+  // Each case knuckle = a cylinder along the wall tangent fused with the
+  // wall material. EMBED extends the inboard face INTO the wall so manifold
+  // fuses knuckle + wall (coplanar contact alone wouldn't, per #121).
+  const caseKnuckleA = makeKnuckleAlongTangent(
+    f, caseKnuckleAU0, caseKnuckleLen, pinAxisN, pivotZ, KNUCKLE_OUTER_R, EMBED,
   );
-  const hookCube = cube([latch.width, HOOK_DEPTH + ARM_THICKNESS, ARM_THICKNESS + EMBED], false);
-  // Compose arm + hook in arm-local coords (origin = top of arm, inner-face XY corner).
-  // Local: x along wall, y outward, z down.
-  // Arm plate: x [0, width], y [0, ARM_THICKNESS], z [-height, 0]
-  // Hook plate: x [0, width], y [-HOOK_DEPTH, ARM_THICKNESS],
-  //   z [-height-ARM_THICKNESS, -height+EMBED]  ← overlaps plate by EMBED
-  const armLocal = {
-    plate: armPlate,
-    hook: translate([0, -HOOK_DEPTH, -latch.height - ARM_THICKNESS], hookCube),
+  const caseKnuckleB = makeKnuckleAlongTangent(
+    f, caseKnuckleBU0, caseKnuckleLen, pinAxisN, pivotZ, KNUCKLE_OUTER_R, EMBED,
+  );
+  // Pin bore through case knuckles: cylinder of PIN_R + clearance, length
+  // covering the full knuckle span. World coord: along wall tangent.
+  const pinBore = makeBoreAlongTangent(
+    f, u0 - latch.width / 2 - 0.5, latch.width + 1.0, pinAxisN, pivotZ, PIN_R + tolerance + PIN_CLEAR,
+  );
+
+  // -- Pin (separate part, runs through every knuckle) --------------------
+  const pinLen = latch.width + 1.0;  // a touch longer than the bore so it doesn't fall out
+  const pin = makeBoreAlongTangent(
+    f, u0 - latch.width / 2 - 0.5, pinLen, pinAxisN, pivotZ, PIN_R,
+  );
+
+  // -- Lid-side striker geometry (computed first so the arm hook can be
+  // -- positioned relative to the striker). Built later in lid-local coords.
+  const tabInnerN = wallOuter - f.outwardSign * EMBED;
+  const tabOuterN = wallOuter + f.outwardSign * STRIKER_TAB_THICKNESS;
+  const strikerAxisN = tabOuterN;
+  const strikerZ = lidPlateTopZ + STRIKER_TAB_HEIGHT / 2;
+
+  // -- Arm knuckle + body + cam hook --------------------------------------
+  // Arm knuckle: cylinder along wall tangent in the middle gap.
+  const armKnuckle = makeKnuckleAlongTangent(
+    f, armKnuckleU0, armKnuckleLen, pinAxisN, pivotZ, KNUCKLE_OUTER_R, 0,
+  );
+  // Arm body: rectangular slab extending from the knuckle UPWARD to just
+  // above the rim, on the OUTSIDE of the case (offset by HOOK_WALL_OFFSET
+  // from outer wall surface). At the top, a cam hook curls inward over
+  // the lid striker.
+  // Body Z range: [pivotZ - KNUCKLE_OUTER_R + EMBED, hookTopZ] — the body
+  // extends UP to the cam hook's TOP so the hook (a horizontal slab off
+  // the body's inner face) shares the upper Z slice with the body
+  // volumetrically. Bottom edge starts INSIDE the knuckle for fusion.
+  const bodyBotZ = pivotZ - KNUCKLE_OUTER_R + EMBED;
+  // Catch face = hook bottom = just above striker top (preload via tolerance).
+  const hookBotZ = strikerZ + STRIKER_R + tolerance;
+  const hookTopZ = hookBotZ + HOOK_VERTICAL;
+  const bodyTopZ = hookTopZ;
+  // Arm body sits on the OUTSIDE of the case; its inner face is at
+  // wallOuter + HOOK_WALL_OFFSET + tolerance (engagement gap), outer face
+  // at inner + ARM_PLATE_THICKNESS.
+  const armBodyInnerN = wallOuter + f.outwardSign * (HOOK_WALL_OFFSET + tolerance);
+  const armBodyOuterN = armBodyInnerN + f.outwardSign * ARM_PLATE_THICKNESS;
+  const armBody = makeBoxBetween(
+    f,
+    u0 - latch.width / 2, u0 + latch.width / 2,
+    armBodyInnerN, armBodyOuterN,
+    bodyBotZ, bodyTopZ,
+  );
+  // Cam hook at the TOP of the arm: a horizontal extension that turns
+  // INWARD from the arm body and hangs OVER the striker post. The hook's
+  // BOTTOM face is the catch face — it sits just above the striker's top,
+  // pulling the lid down via the striker when the arm is in the closed
+  // position.
+  // Hook spans wall-normal range from arm body INNER face (with EMBED
+  // overlap for volumetric union) INWARD past the striker by HOOK_OVERHANG
+  // so the catch face reliably grabs the striker.
+  const HOOK_OVERHANG = STRIKER_R + 1.0;  // hook reaches past striker INWARD edge by 1 mm
+  const hookInnerN = strikerAxisN - f.outwardSign * HOOK_OVERHANG;
+  // Hook's outer end overlaps the arm body by EMBED so manifold fuses
+  // body+hook (otherwise coplanar contact at the body inner face leaves
+  // the hook as a loose component).
+  const hookOuterN = armBodyInnerN + f.outwardSign * EMBED;
+  const hook = makeBoxBetween(
+    f,
+    u0 - latch.width / 2, u0 + latch.width / 2,
+    hookInnerN, hookOuterN,
+    hookBotZ, hookTopZ,
+  );
+  const arm = union([armKnuckle, armBody, hook]);
+
+  // -- Striker on the LID (additive in lid-local coords) ------------------
+  // Tab geometry parameters were computed above (tabInnerN, tabOuterN,
+  // strikerAxisN, strikerZ). Tab is a slab extending UP from the lid plate
+  // top by STRIKER_TAB_HEIGHT, embedded into the lid plate by EMBED for
+  // manifold fusion. Striker post: half-embedded in the tab outboard face,
+  // half protruding outward for the cam hook to wrap.
+  const tab = makeBoxBetween(
+    f,
+    u0 - latch.width / 2, u0 + latch.width / 2,
+    tabInnerN, tabOuterN,
+    lidPlateTopZ - EMBED, lidPlateTopZ + STRIKER_TAB_HEIGHT,
+  );
+  const strikerLen = latch.width;
+  const striker = makeKnuckleAlongTangent(
+    f, u0 - strikerLen / 2, strikerLen, strikerAxisN, strikerZ, STRIKER_R, 0,
+  );
+  // Tab + striker in world coords; caller shifts to lid-local.
+  const lidPart = union([tab, striker]);
+
+  return {
+    caseAdditive: [caseKnuckleA, caseKnuckleB],
+    caseSubtract: [pinBore],
+    lidAdditive: [lidPart],
+    arm,
+    pin,
   };
-  // Stack both cubes into one buildOp via union — keeps the arm a single
-  // mesh in the export.
-  // Use simple union (not necessary if manifold treats them well, but
-  // explicit is safer).
-  // Note: cube() origin is the corner; we don't center.
-  // We don't want to import union here — just emit two cubes wrapped in
-  // a single mesh by leaning on the existing buildPlan union helper.
-  const armBody: BuildOp = {
-    kind: 'union',
-    children: [armLocal.plate, armLocal.hook],
-  };
-  // Place arm in WORLD coords. The arm's "inner face" (y=0 in local)
-  // sits armOuterDistance OUT FROM the wall outer face. Arm's top is at
-  // rimTopZ (so it can pivot down from the lid edge).
-  let placedArm: BuildOp;
-  switch (latch.wall) {
-    case '+y':
-      // Wall outer at y = dims.outerY. Arm inner face at y = outerY + armOuterDistance.
-      placedArm = translate(
-        [armOriginX - latch.width / 2, dims.outerY + armOuterDistance, rimTopZ],
-        armBody,
-      );
-      break;
-    case '-y':
-      // Wall outer at y = 0. Arm inner face at y = -armOuterDistance.
-      // armBody local +y is "outward" — for -y wall, outward is -y, so
-      // we mirror via rotating 180° about Z. Cheap workaround: translate
-      // such that the arm sits on the -y side; the plate happens to be
-      // y-symmetric except for the hook. Hook hooks INWARD which for
-      // -y means +y. Easiest: translate the local frame so arm's local
-      // +y aligns with world -y by negative-Y translation of the corner
-      // before adding plate thickness offset.
-      placedArm = translate(
-        [armOriginX - latch.width / 2, -armOuterDistance - ARM_THICKNESS, rimTopZ],
-        armBody,
-      );
-      break;
-    case '+x':
-      placedArm = translate(
-        [dims.outerX + armOuterDistance, armOriginY - latch.width / 2, rimTopZ],
-        rotateZPiHalf(armBody),
-      );
-      break;
-    case '-x':
-      placedArm = translate(
-        [-armOuterDistance - ARM_THICKNESS, armOriginY - latch.width / 2, rimTopZ],
-        rotateZPiHalf(armBody),
-      );
-      break;
+}
+
+// -- helpers --------------------------------------------------------------
+
+/** Cylinder along the wall tangent, axis at (n=axisN, z=axisZ), spanning
+ *  [u0, u0+len] along the tangent. `embed` extends the cylinder INWARD
+ *  toward the wall by axially-symmetric extra radius — used by case
+ *  knuckles to overlap wall material volumetrically. */
+function makeKnuckleAlongTangent(
+  f: WallFrame,
+  u0: number,
+  len: number,
+  axisN: number,
+  axisZ: number,
+  outerR: number,
+  embed: number,
+): BuildOp {
+  // Build cylinder along its default +Z axis, then rotate so its axis aligns
+  // with the wall tangent (Y for ±x walls, X for ±y walls). `embed` shifts
+  // the cylinder INWARD by that distance so the inboard edge overlaps wall
+  // material volumetrically (otherwise coplanar contact leaves the knuckle
+  // as a loose component — #121 pattern).
+  const r = outerR;
+  const effectiveAxisN = axisN - f.outwardSign * embed;
+  const cyl = cylinder(len, r, 24);
+  if (f.wallAxis === 'x') {
+    // Tangent = Y. Rotate around X by -90 to map +Z→+Y. Then translate so
+    // the cylinder's circular center is at (effectiveAxisN, u0, axisZ).
+    return translate(
+      [effectiveAxisN, u0, axisZ],
+      { kind: 'rotate', degrees: [-90, 0, 0], child: cyl },
+    );
   }
-
-  return { striker: strikerOp, arm: placedArm };
+  // wallAxis === 'y': tangent = X. Rotate around Y by +90 to map +Z→+X.
+  return translate(
+    [u0, effectiveAxisN, axisZ],
+    { kind: 'rotate', degrees: [0, 90, 0], child: cyl },
+  );
 }
 
-// Inline rotation helpers — keeps callers concise without exporting them.
-function rotateAxisYPiHalf(op: BuildOp): BuildOp {
-  return { kind: 'rotate', degrees: [0, 90, 0], child: op };
+function makeBoreAlongTangent(
+  f: WallFrame, u0: number, len: number, axisN: number, axisZ: number, r: number,
+): BuildOp {
+  return makeKnuckleAlongTangent(f, u0, len, axisN, axisZ, r, 0);
 }
-function rotateAxisXNegPiHalf(op: BuildOp): BuildOp {
-  return { kind: 'rotate', degrees: [-90, 0, 0], child: op };
+
+/** Rectangular box (cube) spanning [u0,u1] along the wall tangent,
+ *  [n0,n1] along the wall normal, [z0,z1] along Z. Handles either sign
+ *  ordering of n0/n1. */
+function makeBoxBetween(
+  f: WallFrame,
+  u0: number, u1: number,
+  n0: number, n1: number,
+  z0: number, z1: number,
+): BuildOp {
+  const uMin = Math.min(u0, u1);
+  const uMax = Math.max(u0, u1);
+  const nMin = Math.min(n0, n1);
+  const nMax = Math.max(n0, n1);
+  const zMin = Math.min(z0, z1);
+  const zMax = Math.max(z0, z1);
+  if (f.wallAxis === 'x') {
+    // n = X axis, u = Y axis.
+    return translate([nMin, uMin, zMin], cube([nMax - nMin, uMax - uMin, zMax - zMin]));
+  }
+  return translate([uMin, nMin, zMin], cube([uMax - uMin, nMax - nMin, zMax - zMin]));
 }
-function rotateZPiHalf(op: BuildOp): BuildOp {
-  return { kind: 'rotate', degrees: [0, 0, 90], child: op };
-}
+
+// difference is imported above for completeness but currently unused at
+// the top level — the pin bore is handled via caseSubtract on the shell.
+void difference;

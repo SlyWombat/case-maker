@@ -140,6 +140,7 @@ export function compileProject(project: Project): BuildPlan {
     ...antennaOps.subtractive,
     ...snapOps.shellSubtract,
     ...hingeOps.subtractive,
+    ...latchOps.caseSubtract,
     ...buildCustomCutouts(caseParams.customCutouts, board, caseParams, hats ?? [], resolveHat, display, resolveDisplay),
   ];
 
@@ -173,6 +174,15 @@ export function compileProject(project: Project): BuildPlan {
   }
   if (hingeOps.lidAdditive.length > 0) {
     lidOp = union([lidOp, ...hingeOps.lidAdditive]);
+  }
+  // Pelican latch striker tab + post (#109 v2). Built in WORLD coords;
+  // shift to lid-local before union so the eventual translate to world
+  // by lidDims.zPosition lands it correctly.
+  if (latchOps.lidAdditive.length > 0) {
+    const lidLatchPartsLocal = latchOps.lidAdditive.map((op) =>
+      translate([0, 0, -lidDims.zPosition], op),
+    );
+    lidOp = union([lidOp, ...lidLatchPartsLocal]);
   }
   // Issue #107 — gasket TONGUE on the lid underside. The tongue op is in
   // world coords; shift to lid-local before union so the eventual
@@ -209,10 +219,13 @@ export function compileProject(project: Project): BuildPlan {
   if (gasketBody) {
     nodes.push({ id: 'gasket', op: gasketBody });
   }
-  // Issue #109 — Pelican-style latch arms each become their own top-level
-  // node so they print as free parts.
+  // Issue #109 — Pelican-style latch arms + print-in-place pins each
+  // become their own top-level node so they print as free parts.
   for (const arm of latchOps.armNodes) {
     nodes.push(arm);
+  }
+  for (const pin of latchOps.pinNodes) {
+    nodes.push(pin);
   }
   // Issue #111 — flex bumpers (when enabled) print in TPU as separate
   // slip-on parts.

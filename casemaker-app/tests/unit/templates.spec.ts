@@ -56,7 +56,10 @@ describe('Marketing gap #15 — project templates', () => {
     const tpl = findTemplate('protective-case')!;
     const project = tpl.build();
     expect(project.case.seal?.enabled).toBe(true);
-    expect(project.case.lidRecess).toBe(true);
+    // Pelican-standard: lid sits ON TOP of the rim (not recessed), so the
+    // latch striker tab can project past the case envelope and the cam arm
+    // can grab it. Seal still works (gasket between lid underside + rim top).
+    expect(project.case.lidRecess).toBe(false);
     expect(project.case.hinge?.enabled).toBe(true);
     expect(project.case.hinge?.style).toBe('piano-segmented');
     expect(project.case.latches?.length).toBe(2);

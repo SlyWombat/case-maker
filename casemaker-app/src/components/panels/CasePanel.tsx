@@ -716,11 +716,12 @@ function SealSection({ params, patch }: SealSectionProps) {
   const enabled = !!seal?.enabled;
   const onToggle = (next: boolean): void => {
     if (next) {
+      // Don't force lidRecess here — Pelican-standard latches REQUIRE a
+      // non-recessed lid (lid sits on rim, gasket between lid underside
+      // and rim top). The seal compiler handles both modes; the user
+      // picks lidRecess based on which closure style they want.
       patch({
         seal: seal ? { ...seal, enabled: true } : defaultSeal(),
-        // Force recessed lid (flat lid can't seal). User can revert
-        // afterward but they'll lose the seal.
-        lidRecess: true,
       });
     } else if (seal) {
       patch({ seal: { ...seal, enabled: false } });

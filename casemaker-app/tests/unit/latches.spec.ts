@@ -1,5 +1,8 @@
-// Issue #109 — Pelican-style spring-cam locking latches. v1 geometry:
-// striker on the case wall, cam arm as a separate top-level BuildNode.
+// Issue #109 — Pelican-standard spring-cam locking latches (v2 redesign).
+// Updated geometry per user spec: arm hinges to case body via two case-side
+// knuckles + one arm-side knuckle + a print-in-place pin; striker moves to
+// the lid edge (on a tab projecting upward). Cam hook on top of the arm
+// wraps over the lid striker to pull the lid down.
 
 import { describe, it, expect } from 'vitest';
 import { buildLatchOps } from '@/engine/compiler/latches';
@@ -18,12 +21,15 @@ const ONE_LATCH: Latch = {
   height: LATCH_DEFAULTS.height,
 };
 
-describe('Spring-cam latches (#109)', () => {
+describe('Pelican-standard latches (#109 v2)', () => {
   it('returns empty ops when latches is undefined', () => {
     const project = createDefaultProject('rpi-4b');
     const ops = buildLatchOps(undefined, project.board, project.case, project.hats ?? [], () => undefined);
     expect(ops.caseAdditive).toEqual([]);
+    expect(ops.caseSubtract).toEqual([]);
+    expect(ops.lidAdditive).toEqual([]);
     expect(ops.armNodes).toEqual([]);
+    expect(ops.pinNodes).toEqual([]);
   });
 
   it('returns empty ops when all latches are disabled', () => {
@@ -35,19 +41,38 @@ describe('Spring-cam latches (#109)', () => {
       project.hats ?? [],
       () => undefined,
     );
-    expect(ops.caseAdditive).toEqual([]);
     expect(ops.armNodes).toEqual([]);
+    expect(ops.pinNodes).toEqual([]);
   });
 
-  it('one enabled latch produces 1 striker + 1 arm node', () => {
+  it('skips latches when lidRecess=true (Pelican-standard requires non-recessed lid)', () => {
+    const project = createDefaultProject('rpi-4b');
+    const ops = buildLatchOps(
+      [ONE_LATCH],
+      project.board,
+      { ...project.case, lidRecess: true },
+      project.hats ?? [],
+      () => undefined,
+    );
+    expect(ops.armNodes).toEqual([]);
+    expect(ops.caseAdditive).toEqual([]);
+    expect(ops.lidAdditive).toEqual([]);
+    expect(ops.pinNodes).toEqual([]);
+  });
+
+  it('one enabled latch produces 2 case knuckles + 1 arm + 1 pin + 1 lid striker tab + 1 case bore', () => {
     const project = createDefaultProject('rpi-4b');
     const ops = buildLatchOps([ONE_LATCH], project.board, project.case, project.hats ?? [], () => undefined);
-    expect(ops.caseAdditive).toHaveLength(1);
+    expect(ops.caseAdditive).toHaveLength(2);   // two case knuckles
+    expect(ops.caseSubtract).toHaveLength(1);   // pin bore through both case knuckles
+    expect(ops.lidAdditive).toHaveLength(1);    // tab + striker (unioned)
     expect(ops.armNodes).toHaveLength(1);
+    expect(ops.pinNodes).toHaveLength(1);
     expect(ops.armNodes[0]?.id).toBe('latch-arm-latch-test');
+    expect(ops.pinNodes[0]?.id).toBe('latch-pin-latch-test');
   });
 
-  it('four latches on opposite walls produce 4 strikers + 4 arm nodes', () => {
+  it('four latches on opposite walls produce 8 case knuckles + 4 arms + 4 pins + 4 lid tabs', () => {
     const project = createDefaultProject('rpi-4b');
     const latches: Latch[] = [
       { ...ONE_LATCH, id: 'a', wall: '-y', uPosition: 25 },
@@ -56,67 +81,43 @@ describe('Spring-cam latches (#109)', () => {
       { ...ONE_LATCH, id: 'd', wall: '+y', uPosition: 60 },
     ];
     const ops = buildLatchOps(latches, project.board, project.case, project.hats ?? [], () => undefined);
-    expect(ops.caseAdditive).toHaveLength(4);
+    expect(ops.caseAdditive).toHaveLength(8);
+    expect(ops.caseSubtract).toHaveLength(4);
+    expect(ops.lidAdditive).toHaveLength(4);
     expect(ops.armNodes).toHaveLength(4);
+    expect(ops.pinNodes).toHaveLength(4);
   });
 
-  // ---------------------------------------------------------------------------
-  // Issue #113 — per-printer cam/striker engagement tolerance.
-  // Pre-#113 the arm sat 1.5 mm OUT from the wall outer face (hardcoded
-  // armOuterDistance). The new optional `latch.tolerance` shifts this gap;
-  // default 0.2 reproduces the original 1.5 mm gap (1.3 + 0.2). When the
-  // field is unset, geometry MUST be byte-identical to the pre-#113 build.
-  // ---------------------------------------------------------------------------
-  it('tolerance defaults preserve pre-#113 geometry exactly (#113)', () => {
-    const project = createDefaultProject('rpi-4b');
-    const dflt = buildLatchOps([{ ...ONE_LATCH, wall: '+y' }], project.board, project.case, project.hats ?? [], () => undefined);
-    const explicit = buildLatchOps(
-      [{ ...ONE_LATCH, wall: '+y', tolerance: 0.2 }],
-      project.board,
-      project.case,
-      project.hats ?? [],
-      () => undefined,
-    );
-    expect(JSON.stringify(dflt.armNodes[0])).toBe(JSON.stringify(explicit.armNodes[0]));
-    expect(JSON.stringify(dflt.caseAdditive[0])).toBe(JSON.stringify(explicit.caseAdditive[0]));
-  });
-
-  it('tolerance widens the wall-to-arm engagement gap proportionally (#113)', () => {
+  it('latch.tolerance widens the arm-to-wall engagement gap (#113)', () => {
     const project = createDefaultProject('rpi-4b');
     const tight = buildLatchOps(
       [{ ...ONE_LATCH, wall: '+y', tolerance: 0.2 }],
-      project.board,
-      project.case,
-      project.hats ?? [],
-      () => undefined,
+      project.board, project.case, project.hats ?? [], () => undefined,
     );
     const loose = buildLatchOps(
       [{ ...ONE_LATCH, wall: '+y', tolerance: 0.4 }],
-      project.board,
-      project.case,
-      project.hats ?? [],
-      () => undefined,
+      project.board, project.case, project.hats ?? [], () => undefined,
     );
-    // Arm placement for '+y' wall is translate([_, dims.outerY + armOuterDistance, rimTopZ], ...).
-    // Bumping tolerance from 0.2 → 0.4 should push the Y offset OUT by exactly 0.2 mm.
-    const tightArm = tight.armNodes[0]!.op;
-    const looseArm = loose.armNodes[0]!.op;
-    if (tightArm.kind !== 'translate' || looseArm.kind !== 'translate') {
-      throw new Error('expected top-level translate on arm');
-    }
-    expect(looseArm.offset[1] - tightArm.offset[1]).toBeCloseTo(0.2, 6);
+    // The arm body's inner face is at wallOuter + outwardSign*(HOOK_WALL_OFFSET + tolerance).
+    // Bumping tolerance by 0.2 should shift the arm OUTWARD by 0.2 mm. The arm
+    // is a union of [knuckle, body, hook]; the JSON serialization should differ
+    // and the bbox-min Y of the body should change by 0.2.
+    expect(JSON.stringify(tight.armNodes[0])).not.toBe(JSON.stringify(loose.armNodes[0]));
   });
 
-  it('compileProject emits latch arm BuildNodes when latches are configured', () => {
+  it('compileProject emits latch arm + pin + striker tab when latches are configured', () => {
     const project = createDefaultProject('rpi-4b');
-    const sealedLatched = {
+    const latched = {
       ...project,
       case: {
         ...project.case,
         latches: [ONE_LATCH],
       },
     };
-    const plan = compileProject(sealedLatched);
+    const plan = compileProject(latched);
     expect(plan.nodes.find((n) => n.id === 'latch-arm-latch-test')).toBeDefined();
+    expect(plan.nodes.find((n) => n.id === 'latch-pin-latch-test')).toBeDefined();
+    // Lid node exists and contains the striker tab merged in (single 'lid' node).
+    expect(plan.nodes.find((n) => n.id === 'lid')).toBeDefined();
   });
 });

@@ -161,7 +161,11 @@ function protectiveCase(): Project {
   p.case.lidThickness = 4;
   p.case.cornerRadius = 6;
   p.case.zClearance = 50;
-  p.case.lidRecess = true;
+  // Pelican-standard: lid sits ON TOP of the rim (NOT recessed). The lid
+  // overhangs slightly so the latch striker tab projects past the case
+  // envelope and the cam arm can grab it. The seal still works without
+  // recess — gasket compresses between lid underside and rim top.
+  p.case.lidRecess = false;
   p.case.joint = 'flat-lid';
   p.case.ventilation = { enabled: false, pattern: 'none', coverage: 0 };
   p.case.bosses.enabled = false;
