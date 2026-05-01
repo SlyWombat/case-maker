@@ -3,6 +3,7 @@ import { useJobStore } from '@/store/jobStore';
 import { useSettingsStore, type ExportFormat } from '@/store/settingsStore';
 import { partsForIds, partsByCategory, type PartCategory, type ProjectPart } from '@/engine/exporters/parts';
 import { exportSinglePart, triggerExport } from '@/engine/exportTrigger';
+import { PartThumbnail } from './PartThumbnail';
 
 interface ExportModalProps {
   onClose: () => void;
@@ -158,25 +159,13 @@ export function ExportModal({ onClose }: ExportModalProps) {
                     }}
                     data-testid={`export-row-${p.id}`}
                   >
-                    {/* Thumbnail placeholder — full thumbnail render is a follow-up.
-                        For now show a small colored square keyed by category. */}
-                    <div
-                      aria-hidden
-                      style={{
-                        width: 48,
-                        height: 48,
-                        background:
-                          p.material === 'flex' ? '#3a2a10' : '#1f2530',
-                        border: '1px solid #2a2f36',
-                        borderRadius: 3,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: 18,
-                      }}
-                    >
-                      {p.category === 'case' ? '📦' : p.category === 'gasket' ? '⭕' : p.category === 'fastener' ? '🔧' : '🛡'}
-                    </div>
+                    {/* Live-rendered isometric thumbnail of the part. Falls back to
+                        an empty colored square if WebGL is unavailable. */}
+                    <PartThumbnail
+                      partId={p.id}
+                      size={56}
+                      color={p.material === 'flex' ? '#c79252' : '#9aaeb8'}
+                    />
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 13 }}>{p.displayName}</div>
                       <div style={{ fontSize: 11, color: '#9ca3af' }}>

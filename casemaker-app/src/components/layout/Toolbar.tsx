@@ -14,10 +14,10 @@ import {
   saveProjectViaPicker,
   type ProjectFileHandle,
 } from '@/store/persistence';
-import { triggerExport } from '@/engine/exportTrigger';
 import { DocsModal } from '@/components/docs/DocsModal';
 import { SettingsMenu } from '@/components/layout/SettingsMenu';
 import { PartsMenu } from '@/components/layout/PartsMenu';
+import { ExportModal } from '@/components/panels/ExportModal';
 
 const FORMAT_LABEL: Record<string, string> = {
   'stl-binary': 'STL (binary)',
@@ -42,7 +42,7 @@ export function Toolbar() {
   const [error, setError] = useState<string | null>(null);
   const [docsOpen, setDocsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [exporting, setExporting] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   // Issue #70 — remember the last file handle so subsequent saves overwrite
   // in place. Reset whenever the user picks "Save as…" or loads a new file.
   const fileHandleRef = useRef<ProjectFileHandle>(null);
@@ -126,16 +126,11 @@ export function Toolbar() {
     clearHistory();
   }, [showWelcome]);
 
-  const onExport = useCallback(async () => {
-    setExporting(true);
-    try {
-      await triggerExport(useSettingsStore.getState().exportFormat);
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setExporting(false);
-    }
+  // Open the multi-part export modal — per-part Save buttons + thumbnails
+  // + a Save All footer that lays everything flat for printing. The old
+  // direct-trigger behavior bypassed that workflow.
+  const onExport = useCallback(() => {
+    setExportOpen(true);
   }, []);
 
   return (
@@ -190,15 +185,15 @@ export function Toolbar() {
       </button>
       <button
         onClick={onExport}
-        disabled={exporting || welcomeMode}
+        disabled={welcomeMode}
         data-testid="export-default"
         title={
           welcomeMode
             ? 'Pick a board or template first'
-            : `Export current case as ${FORMAT_LABEL[exportFormat] ?? exportFormat} (change format in ⚙)`
+            : `Open the export modal — per-part thumbnails + Save All (current format: ${FORMAT_LABEL[exportFormat] ?? exportFormat}, change in ⚙)`
         }
       >
-        {exporting ? '⏳ Exporting…' : '⬇ Export'}
+        ⬇ Export…
       </button>
       <input
         ref={fileInput}
@@ -235,6 +230,7 @@ export function Toolbar() {
       </div>
       {error && <span style={{ color: '#ff8888', fontSize: 12 }}>{error}</span>}
       {docsOpen && <DocsModal initialId="user-manual" onClose={() => setDocsOpen(false)} />}
+      {exportOpen && <ExportModal onClose={() => setExportOpen(false)} />}
     </div>
   );
 }
