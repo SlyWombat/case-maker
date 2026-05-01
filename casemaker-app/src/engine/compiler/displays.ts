@@ -7,32 +7,12 @@ type HatResolver = (id: string) => HatProfile | undefined;
 const NO_HATS: HatPlacement[] = [];
 const NO_RESOLVE: HatResolver = () => undefined;
 
-export interface DisplayFootprint {
-  /** Effective PCB X for the case, max(host, display) */
-  effectiveX: number;
-  effectiveY: number;
-  /** Additional Z above the host PCB for the display + standoffs */
-  topAddedZ: number;
-}
-
-export function computeDisplayFootprint(
-  board: BoardProfile,
-  placement: DisplayPlacement | null | undefined,
-  resolveDisplay: (id: string) => DisplayProfile | undefined,
-): DisplayFootprint {
-  if (!placement || !placement.enabled) {
-    return { effectiveX: board.pcb.size.x, effectiveY: board.pcb.size.y, topAddedZ: 0 };
-  }
-  const profile = resolveDisplay(placement.displayId);
-  if (!profile) {
-    return { effectiveX: board.pcb.size.x, effectiveY: board.pcb.size.y, topAddedZ: 0 };
-  }
-  return {
-    effectiveX: Math.max(board.pcb.size.x, profile.pcb.size.x),
-    effectiveY: Math.max(board.pcb.size.y, profile.pcb.size.y),
-    topAddedZ: profile.overallHeight,
-  };
-}
+// Issue #53 — DisplayFootprint + computeDisplayFootprint deleted. They were
+// never wired into the compile pipeline (computeShellDims uses host PCB
+// dims only) and gave a misleading impression that the engine handled
+// display-bigger-than-host correctly. The real-world gap (e.g. Pi 7" Touch
+// on a Pi 4B) is tracked separately as a follow-up issue. Until that's
+// implemented we shouldn't carry unused public API.
 
 /**
  * Build the window cutout in the case top for the display's active area.

@@ -204,7 +204,7 @@ Engine domains with no panel: **Antennas, Fan mounts, Text labels, Mounting feat
 | `boardVisualization` (#34) | cycle order | No test that any consumer changes behavior on cycle. |
 | `fans.ts` side-mounted | only `+z` covered | Side-mounted fan ("just an open hole" v1 limitation) silently shipped untested. |
 | `mountingFeatures.ts` VESA holes | count of features | The actual VESA hole geometry (Z-axis cylinder regardless of face) is never asserted. |
-| `displays.computeDisplayFootprint` | function exercised in isolation | The function is **never called by the compile pipeline**. |
+| ~~`displays.computeDisplayFootprint`~~ | (deleted #53) | Was never wired into the pipeline. Display-bigger-than-host gap tracked separately as #105. |
 | `lidRecess` + HAT | `lidRecess.spec.ts` | All cases use a HAT-less project, missing the `computeShellDims(board, params)` HAT-blind bug from §1.2. |
 | `smartCutoutLayout.ts` | spec file | Test math omits standoff; mirrors the bug rather than catching it. |
 | `extraCavityZ` (#36) | `extraCavityZ.spec.ts:71–82` | Does not assert that cutout **Z positions** are unchanged — the explicit acceptance criterion. |
@@ -276,7 +276,7 @@ These are the implicit contracts the engine relies on; future issues should be s
 8. **Centralize coordinate-frame math in `engine/coords.ts`** — replace the three.js up-vector stub with `pcbTopZ`, `cavityOriginXY`, `faceFrame`, `axisCylinder`. Migrate `mountingFeatures.faceFrame`, `fans.faceFrame`, `textLabels.faceFrame` to one implementation.
 9. **`BuildPlan` should carry all diagnostics** — fold `lastSmartCutoutDecisions` into `BuildPlan`. Have `PlacementBanner` consume `BuildPlan.placementReport` instead of re-running the validator on every render.
 10. **Decide #37's gating story** — either revise the issue to record the deferral or land the export gate.
-11. **Make `computeDisplayFootprint` actually drive `computeShellDims`** — today the function is exercised by tests but never called by the compile pipeline.
+11. ~~**Make `computeDisplayFootprint` actually drive `computeShellDims`**~~ — closed by #53; the function was deleted as dead code. The display-bigger-than-host gap is tracked separately as #105.
 12. **Schema authoring with `.extend` chains** — `projectV{1..5}Schema` should `.extend` rather than re-declare.
 13. **`useProjectStore` slice split** — split into `boardSlice`, `caseSlice`, `hatsSlice`, `featuresSlice`. Add `addAntenna`/`removeAntenna`/`patchAntenna` while doing so.
 14. **`patchCase` should validate against the schema** — currently writes raw values, allowing `joint: 'sliding'` and similar.

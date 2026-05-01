@@ -5,7 +5,7 @@ import {
   displaysCompatibleWith,
 } from '@/library/displays';
 import { builtinDisplayProfileSchema } from '@/library/displaySchema';
-import { computeDisplayFootprint, buildDisplayCutoutOps } from '@/engine/compiler/displays';
+import { buildDisplayCutoutOps } from '@/engine/compiler/displays';
 import { compileProject } from '@/engine/compiler/ProjectCompiler';
 import { useProjectStore, createDefaultProject } from '@/store/projectStore';
 
@@ -33,17 +33,10 @@ describe('display mounting (#8 Phase 9a)', () => {
     expect(arduino.map((d) => d.id)).not.toContain('hyperpixel-4');
   });
 
-  it('Pi 7" Touch is much larger than the Pi 4B → footprint grows', () => {
-    useProjectStore.getState().setDisplay('rpi-7-touch', 'top-window');
-    const project = useProjectStore.getState().project;
-    const footprint = computeDisplayFootprint(
-      project.board,
-      project.display ?? undefined,
-      (id) => getBuiltinDisplay(id),
-    );
-    expect(footprint.effectiveX).toBeGreaterThan(project.board.pcb.size.x);
-    expect(footprint.effectiveY).toBeGreaterThan(project.board.pcb.size.y);
-  });
+  // Issue #53 — computeDisplayFootprint deleted (never wired in). The gap
+  // it tested (display larger than host PCB ⇒ envelope grows) is tracked
+  // as a follow-up; not asserting today's misleading behavior would re-
+  // introduce dead-code-shaped tests.
 
   it('top-window framing produces a single window cutout op', () => {
     useProjectStore.getState().setDisplay('hyperpixel-4', 'top-window');
