@@ -140,7 +140,11 @@ function buildOneLatch(
   // wraps under by HOOK_DEPTH to engage the striker. v1: arm is a
   // simple cube; the hook is a smaller cube at the bottom protruding
   // INWARD toward the wall.
-  const armOuterDistance = 1.5; // mm gap between wall outer face and arm inner face
+  // Issue #113 — `latch.tolerance` shifts the arm OUTWARD from the wall,
+  // widening the engagement gap so the hook clears the striker post by
+  // (tolerance) mm during rotation. Default 0.2 matches the implicit
+  // pre-#113 1.5 mm gap (1.3 + 0.2). Higher value = looser engagement.
+  const armOuterDistance = 1.3 + (latch.tolerance ?? 0.2);
   // Issue #121 — plate + hook MUST overlap volumetrically. The original
   // code had plate at z=[0, height] (cube extends +z from origin) but the
   // hook positioned at z=[-height-thickness, -height] — opposite sides of

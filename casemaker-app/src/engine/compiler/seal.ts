@@ -188,7 +188,9 @@ export function buildSealTongue(
   // Tongue is INSET by tongueClearance from the channel walls so it slides
   // in cleanly. Also INSET inward from the gasket-ring outer edge by half
   // the clearance so it sits centered in the channel cross-section.
-  const tongueClearance = 0.2;
+  // Issue #113 — `seal.gasketClearance` overrides the default 0.2 so the
+  // user can tune for their printer's elephant-foot / overcure behavior.
+  const tongueClearance = params.seal!.gasketClearance ?? 0.2;
   const tongueRingWidth = ring.ringWidth - 2 * tongueClearance;
   if (tongueRingWidth <= 0.5) return null; // gasket too narrow for a tongue
   const outerInset = tongueClearance;

@@ -60,6 +60,53 @@ describe('Spring-cam latches (#109)', () => {
     expect(ops.armNodes).toHaveLength(4);
   });
 
+  // ---------------------------------------------------------------------------
+  // Issue #113 — per-printer cam/striker engagement tolerance.
+  // Pre-#113 the arm sat 1.5 mm OUT from the wall outer face (hardcoded
+  // armOuterDistance). The new optional `latch.tolerance` shifts this gap;
+  // default 0.2 reproduces the original 1.5 mm gap (1.3 + 0.2). When the
+  // field is unset, geometry MUST be byte-identical to the pre-#113 build.
+  // ---------------------------------------------------------------------------
+  it('tolerance defaults preserve pre-#113 geometry exactly (#113)', () => {
+    const project = createDefaultProject('rpi-4b');
+    const dflt = buildLatchOps([{ ...ONE_LATCH, wall: '+y' }], project.board, project.case, project.hats ?? [], () => undefined);
+    const explicit = buildLatchOps(
+      [{ ...ONE_LATCH, wall: '+y', tolerance: 0.2 }],
+      project.board,
+      project.case,
+      project.hats ?? [],
+      () => undefined,
+    );
+    expect(JSON.stringify(dflt.armNodes[0])).toBe(JSON.stringify(explicit.armNodes[0]));
+    expect(JSON.stringify(dflt.caseAdditive[0])).toBe(JSON.stringify(explicit.caseAdditive[0]));
+  });
+
+  it('tolerance widens the wall-to-arm engagement gap proportionally (#113)', () => {
+    const project = createDefaultProject('rpi-4b');
+    const tight = buildLatchOps(
+      [{ ...ONE_LATCH, wall: '+y', tolerance: 0.2 }],
+      project.board,
+      project.case,
+      project.hats ?? [],
+      () => undefined,
+    );
+    const loose = buildLatchOps(
+      [{ ...ONE_LATCH, wall: '+y', tolerance: 0.4 }],
+      project.board,
+      project.case,
+      project.hats ?? [],
+      () => undefined,
+    );
+    // Arm placement for '+y' wall is translate([_, dims.outerY + armOuterDistance, rimTopZ], ...).
+    // Bumping tolerance from 0.2 → 0.4 should push the Y offset OUT by exactly 0.2 mm.
+    const tightArm = tight.armNodes[0]!.op;
+    const looseArm = loose.armNodes[0]!.op;
+    if (tightArm.kind !== 'translate' || looseArm.kind !== 'translate') {
+      throw new Error('expected top-level translate on arm');
+    }
+    expect(looseArm.offset[1] - tightArm.offset[1]).toBeCloseTo(0.2, 6);
+  });
+
   it('compileProject emits latch arm BuildNodes when latches are configured', () => {
     const project = createDefaultProject('rpi-4b');
     const sealedLatched = {

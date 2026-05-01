@@ -121,6 +121,49 @@ describe('Waterproof gasket (#107)', () => {
     expect(unsealed.nodes.find((n) => n.id === 'gasket')).toBeUndefined();
   });
 
+  // -------------------------------------------------------------------------
+  // Issue #113 — per-printer gasket clearance tolerance.
+  // The pre-#113 implicit clearance was 0.2 mm. The new optional field
+  // `seal.gasketClearance` lets the user dial it per-printer; when unset
+  // the geometry MUST be byte-identical to the pre-#113 build.
+  // -------------------------------------------------------------------------
+  it('gasketClearance defaults preserve pre-#113 geometry exactly (#113)', () => {
+    const project = createDefaultProject('rpi-4b');
+    const baseParams: CaseParameters = { ...project.case, wallThickness: 5, seal: SEAL };
+    const explicitParams: CaseParameters = {
+      ...project.case,
+      wallThickness: 5,
+      seal: { ...SEAL, gasketClearance: 0.2 },
+    };
+    const opDefault = buildSealTongue(project.board, baseParams, project.hats ?? [], () => undefined);
+    const opExplicit = buildSealTongue(project.board, explicitParams, project.hats ?? [], () => undefined);
+    expect(JSON.stringify(opDefault)).toBe(JSON.stringify(opExplicit));
+  });
+
+  it('gasketClearance shifts tongue inset proportionally (#113)', () => {
+    const project = createDefaultProject('rpi-4b');
+    const tightParams: CaseParameters = {
+      ...project.case,
+      wallThickness: 5,
+      seal: { ...SEAL, gasketClearance: 0.2 },
+    };
+    const looseParams: CaseParameters = {
+      ...project.case,
+      wallThickness: 5,
+      seal: { ...SEAL, gasketClearance: 0.4 },
+    };
+    const tight = buildSealTongue(project.board, tightParams, project.hats ?? [], () => undefined);
+    const loose = buildSealTongue(project.board, looseParams, project.hats ?? [], () => undefined);
+    if (!tight || !loose) throw new Error('expected non-null tongue ops');
+    // Top-level op is translate([cornerX + tongueClearance, cornerY + tongueClearance, ...], ...).
+    // Bumping tolerance from 0.2 → 0.4 should add 0.2 mm to both X and Y offsets.
+    if (tight.kind !== 'translate' || loose.kind !== 'translate') {
+      throw new Error('expected top-level translate');
+    }
+    expect(loose.offset[0] - tight.offset[0]).toBeCloseTo(0.2, 6);
+    expect(loose.offset[1] - tight.offset[1]).toBeCloseTo(0.2, 6);
+  });
+
   it('computeSealLoopPath returns the centerline z below the rim top by channelDepth/2', () => {
     const project = createDefaultProject('rpi-4b');
     const params: CaseParameters = { ...project.case, wallThickness: 5, seal: SEAL, lidRecess: true };

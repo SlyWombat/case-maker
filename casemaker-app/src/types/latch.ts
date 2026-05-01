@@ -25,6 +25,10 @@ export interface Latch {
   width: Mm;
   /** Arm length (vertical). */
   height: Mm;
+  /** Issue #113 — gap between cam-arm hook and striker post. Higher value
+   *  = looser engagement (easier to open, less preload). Optional; defaults
+   *  to 0.2 mm at the compiler boundary. Tune per printer. */
+  tolerance?: Mm;
 }
 
 export type LatchPreset = 'pelican-mini' | 'pelican-standard' | 'nanuk-style';

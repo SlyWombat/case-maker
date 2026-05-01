@@ -790,6 +790,22 @@ function SealSection({ params, patch }: SealSectionProps) {
             onChange={(v) => updateSeal({ compressionFactor: v })}
             testId="seal-compression"
           />
+          <LabelledField
+            label="Gasket clearance"
+            unit="mm"
+            hint="Issue #113 — per-printer tolerance applied to the lid tongue inset and channel slop. Default 0.2 mm matches pre-#113 behavior. Bump if your printer over-extrudes; reduce for tighter sealing on a well-tuned printer."
+          >
+            <input
+              type="number"
+              step={0.05}
+              min={0}
+              max={0.5}
+              value={seal.gasketClearance ?? 0.2}
+              onChange={(e) => updateSeal({ gasketClearance: Number(e.target.value) })}
+              className="numeric-input"
+              data-testid="seal-gasket-clearance"
+            />
+          </LabelledField>
           <div className="joint-row">
             <span className="joint-label" id="seal-mat-label">Material</span>
             <div className="joint-buttons" role="radiogroup" aria-labelledby="seal-mat-label">
@@ -901,6 +917,19 @@ function LatchesSection({ params, patch }: LatchesSectionProps) {
             data-testid={`latch-${i}-throw`}
             aria-label={`Latch ${i} throw`}
             title="Cam throw distance (mm) — pull-down at over-center"
+          />
+          <input
+            type="number"
+            step={0.05}
+            min={0}
+            max={0.5}
+            value={latch.tolerance ?? 0.2}
+            onChange={(e) => updateLatch(i, { tolerance: Number(e.target.value) })}
+            className="numeric-input"
+            style={{ width: 60 }}
+            data-testid={`latch-${i}-tolerance`}
+            aria-label={`Latch ${i} tolerance`}
+            title="Issue #113 — engagement clearance (mm) between cam-arm hook and striker. Default 0.2 = pre-#113 behavior. Higher = looser engagement, easier to open."
           />
           <button type="button" onClick={() => removeLatch(i)} data-testid={`latch-${i}-remove`} aria-label={`Remove latch ${i}`}>×</button>
         </div>
