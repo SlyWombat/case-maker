@@ -28,46 +28,73 @@ export function PartThumbnail({ partId, size, color = '#9ca3af' }: PartThumbnail
     let mat: THREE.MeshStandardMaterial | null = null;
     try {
       geo = new THREE.BufferGeometry();
-      geo.setAttribute('position', new THREE.BufferAttribute(node.buffer.positions, 3));
-      geo.setIndex(new THREE.BufferAttribute(node.buffer.indices, 1));
+      // Clone the typed arrays — the underlying buffer might be shared with
+      // the live mesh in the viewport (which is still using it for render).
+      geo.setAttribute('position', new THREE.BufferAttribute(node.buffer.positions.slice(), 3));
+      geo.setIndex(new THREE.BufferAttribute(node.buffer.indices.slice(), 1));
+      // Center the geometry at the origin so the camera + lighting setup
+      // can be a fixed pose (the part's actual world position is irrelevant
+      // for a thumbnail). Compute bounding box for centering AND extent.
+      geo.computeBoundingBox();
+      const bbox = geo.boundingBox;
+      if (!bbox) return;
+      const center = new THREE.Vector3();
+      bbox.getCenter(center);
+      const sizeVec = new THREE.Vector3();
+      bbox.getSize(sizeVec);
+      const maxExtent = Math.max(sizeVec.x, sizeVec.y, sizeVec.z);
+      if (maxExtent === 0) return;
+      // Translate the position attribute in-place so the part centroid sits
+      // at the origin.
+      const positions = geo.getAttribute('position') as THREE.BufferAttribute;
+      for (let i = 0; i < positions.count; i++) {
+        positions.setXYZ(
+          i,
+          positions.getX(i) - center.x,
+          positions.getY(i) - center.y,
+          positions.getZ(i) - center.z,
+        );
+      }
+      positions.needsUpdate = true;
       geo.computeVertexNormals();
       geo.computeBoundingSphere();
       const sphere = geo.boundingSphere;
       if (!sphere || sphere.radius === 0) return;
+
       const canvas = document.createElement('canvas');
-      // Render at 2× for retina-sharp downscale.
-      canvas.width = size * 2;
+      canvas.width = size * 2; // 2× for retina-sharp downscale
       canvas.height = size * 2;
       renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: true });
-      renderer.setClearColor(0x000000, 0);
+      renderer.setClearColor(0x14181c, 1); // matches modal background
       renderer.setSize(size * 2, size * 2, false);
       const scene = new THREE.Scene();
-      mat = new THREE.MeshStandardMaterial({ color, roughness: 0.65, metalness: 0.05 });
+      mat = new THREE.MeshStandardMaterial({ color, roughness: 0.6, metalness: 0.08 });
       const mesh = new THREE.Mesh(geo, mat);
       scene.add(mesh);
-      scene.add(new THREE.AmbientLight(0xffffff, 0.45));
-      const key = new THREE.DirectionalLight(0xffffff, 0.85);
-      key.position.set(3, -2, 4);
+      // Lights placed RELATIVE to the bounding sphere — proportional to
+      // the part's size — so a 5 mm pin and a 200 mm shell light the same.
+      scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+      const r = sphere.radius;
+      const key = new THREE.DirectionalLight(0xffffff, 0.95);
+      key.position.set(r * 3, -r * 2, r * 4);
       scene.add(key);
-      const fill = new THREE.DirectionalLight(0xffffff, 0.25);
-      fill.position.set(-2, 3, -1);
+      const fill = new THREE.DirectionalLight(0xb6c7d4, 0.35);
+      fill.position.set(-r * 2, r * 3, -r * 1);
       scene.add(fill);
-      // Camera framed isometric-ish so the part reads as 3D. Z is up in
-      // the project's world coords; pull the camera back along (1,-1,0.6)
-      // and aim at the part's bounding sphere center.
-      const fov = 28;
-      const dist = sphere.radius / Math.sin((fov / 2) * Math.PI / 180) * 1.25;
-      const camera = new THREE.PerspectiveCamera(fov, 1, Math.max(0.1, sphere.radius * 0.05), sphere.radius * 20);
-      const dir = new THREE.Vector3(1, -1, 0.6).normalize();
-      camera.position.copy(sphere.center).addScaledVector(dir, dist);
+      // Camera framed isometric. Z is up in project world coords.
+      const fov = 32;
+      const dist = (sphere.radius / Math.sin((fov / 2) * Math.PI / 180)) * 1.18;
+      const camera = new THREE.PerspectiveCamera(fov, 1, Math.max(0.01, sphere.radius * 0.02), sphere.radius * 50);
+      camera.position.set(dist * 0.78, -dist * 0.78, dist * 0.5);
       camera.up.set(0, 0, 1);
-      camera.lookAt(sphere.center);
+      camera.lookAt(0, 0, 0);
       renderer.render(scene, camera);
       if (cancelled) return;
       setSrc(canvas.toDataURL('image/png'));
-    } catch {
+    } catch (err) {
       // WebGL not available or render failed — leave src null and the
       // placeholder square shows.
+      console.warn(`PartThumbnail render failed for ${partId}`, err);
       setSrc(null);
     }
     return () => {

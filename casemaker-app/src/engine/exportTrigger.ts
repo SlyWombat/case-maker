@@ -9,17 +9,46 @@ import type { MeshNode } from '@/types';
 
 export type { ExportFormat };
 
-function downloadArrayBuffer(buf: ArrayBuffer, filename: string, mime: string): void {
+async function downloadArrayBuffer(buf: ArrayBuffer, filename: string, mime: string): Promise<void> {
   const blob = new Blob([buf], { type: mime });
-  triggerDownload(blob, filename);
+  await saveBlob(blob, filename);
 }
 
-function downloadText(text: string, filename: string, mime: string): void {
+async function downloadText(text: string, filename: string, mime: string): Promise<void> {
   const blob = new Blob([text], { type: mime });
-  triggerDownload(blob, filename);
+  await saveBlob(blob, filename);
 }
 
-function triggerDownload(blob: Blob, filename: string): void {
+/** Save a blob using the File System Access API's showSaveFilePicker
+ *  (Chrome/Edge — opens the native "Save As" dialog so the user picks
+ *  filename + folder), with a graceful fallback to anchor-tag download
+ *  for browsers that don't support it (Firefox/Safari → file lands in
+ *  the default Downloads folder, no picker). */
+async function saveBlob(blob: Blob, filename: string): Promise<void> {
+  type SaveFilePicker = (opts: {
+    suggestedName?: string;
+    types?: { description?: string; accept: Record<string, string[]> }[];
+  }) => Promise<FileSystemFileHandle>;
+  const w = window as Window & { showSaveFilePicker?: SaveFilePicker };
+  if (typeof w.showSaveFilePicker === 'function') {
+    try {
+      const ext = filename.includes('.') ? filename.slice(filename.lastIndexOf('.')) : '';
+      const mime = blob.type || 'application/octet-stream';
+      const handle = await w.showSaveFilePicker({
+        suggestedName: filename,
+        types: ext ? [{ description: ext.slice(1).toUpperCase() + ' file', accept: { [mime]: [ext] } }] : undefined,
+      });
+      const writable = await handle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      return;
+    } catch (err) {
+      // User cancelled the picker — silently bail.
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      // Anything else: fall through to anchor download as a last resort.
+      console.warn('showSaveFilePicker failed; falling back to anchor download', err);
+    }
+  }
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -99,18 +128,18 @@ export async function exportSinglePart(
   if (format === 'stl-binary') {
     const buf = await exportStlBinary([mesh]);
     const filename = `${baseName}.stl`;
-    downloadArrayBuffer(buf, filename, 'model/stl');
+    await downloadArrayBuffer(buf, filename, 'model/stl');
     return { filename, bytes: buf.byteLength };
   }
   if (format === 'stl-ascii') {
     const text = await exportStlAscii([mesh]);
     const filename = `${baseName}.ascii.stl`;
-    downloadText(text, filename, 'model/stl');
+    await downloadText(text, filename, 'model/stl');
     return { filename, bytes: new Blob([text]).size };
   }
   const buf = await exportThreeMf([mesh]);
   const filename = `${baseName}.3mf`;
-  downloadArrayBuffer(buf, filename, 'model/3mf');
+  await downloadArrayBuffer(buf, filename, 'model/3mf');
   return { filename, bytes: buf.byteLength };
 }
 
@@ -177,27 +206,27 @@ export async function triggerExport(format: ExportFormat): Promise<void> {
   if (format === 'stl-binary') {
     if (groups.main.length > 0) {
       const buf = await exportStlBinary(groups.main);
-      downloadArrayBuffer(buf, `${safeName}.stl`, 'model/stl');
+      await downloadArrayBuffer(buf, `${safeName}.stl`, 'model/stl');
     }
     if (groups.gasket) {
       // Issue #108 — separate STL for the TPU gasket. Different material;
       // not bundled with the case body to avoid mixed-material slicer
       // confusion. Sidecar text file describes recommended slicer settings.
       const buf = await exportStlBinary([groups.gasket]);
-      downloadArrayBuffer(buf, `${safeName}-gasket.stl`, 'model/stl');
+      await downloadArrayBuffer(buf, `${safeName}-gasket.stl`, 'model/stl');
       const hints = gasketSlicerHints(project.case.seal?.gasketMaterial);
-      downloadText(hints, `${safeName}-gasket-print-instructions.txt`, 'text/plain');
+      await downloadText(hints, `${safeName}-gasket-print-instructions.txt`, 'text/plain');
     }
   } else if (format === 'stl-ascii') {
     if (groups.main.length > 0) {
       const text = await exportStlAscii(groups.main);
-      downloadText(text, `${safeName}.ascii.stl`, 'model/stl');
+      await downloadText(text, `${safeName}.ascii.stl`, 'model/stl');
     }
     if (groups.gasket) {
       const text = await exportStlAscii([groups.gasket]);
-      downloadText(text, `${safeName}-gasket.ascii.stl`, 'model/stl');
+      await downloadText(text, `${safeName}-gasket.ascii.stl`, 'model/stl');
       const hints = gasketSlicerHints(project.case.seal?.gasketMaterial);
-      downloadText(hints, `${safeName}-gasket-print-instructions.txt`, 'text/plain');
+      await downloadText(hints, `${safeName}-gasket-print-instructions.txt`, 'text/plain');
     }
   } else {
     // 3MF: bundle everything in one file. Slicers that read 3MF can split
@@ -205,6 +234,6 @@ export async function triggerExport(format: ExportFormat): Promise<void> {
     // its own metadata.
     const all = [...groups.main, ...(groups.gasket ? [groups.gasket] : [])];
     const buf = await exportThreeMf(all);
-    downloadArrayBuffer(buf, `${safeName}.3mf`, 'model/3mf');
+    await downloadArrayBuffer(buf, `${safeName}.3mf`, 'model/3mf');
   }
 }
