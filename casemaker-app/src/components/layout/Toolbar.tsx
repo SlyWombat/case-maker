@@ -29,6 +29,14 @@ export function Toolbar() {
   const project = useProjectStore((s) => s.project);
   const setProject = useProjectStore((s) => s.setProject);
   const showWelcome = useProjectStore((s) => s.showWelcome);
+  // While the welcome overlay is up, the store still holds the LAST project
+  // (or the createDefaultProject placeholder) — Save / Save as / Export
+  // would silently operate on that stale state, which is what the user hits
+  // when they click "Export" after returning to the welcome screen and see
+  // the previous project's STL come down. Disable those entry points until
+  // a board / template is picked. Load stays enabled — it's another valid
+  // way out of welcome mode.
+  const welcomeMode = useProjectStore((s) => s.welcomeMode);
   const exportFormat = useSettingsStore((s) => s.exportFormat);
   const fileInput = useRef<HTMLInputElement | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -148,10 +156,13 @@ export function Toolbar() {
       <button
         onClick={onSave}
         data-testid="save-project"
+        disabled={welcomeMode}
         title={
-          fsaAvailable
-            ? 'Save project (.caseproj.json) — overwrites the open file after first Save As'
-            : 'Save project — downloads .caseproj.json to your Downloads folder'
+          welcomeMode
+            ? 'Pick a board or template first'
+            : fsaAvailable
+              ? 'Save project (.caseproj.json) — overwrites the open file after first Save As'
+              : 'Save project — downloads .caseproj.json to your Downloads folder'
         }
       >
         💾 Save
@@ -160,7 +171,12 @@ export function Toolbar() {
         <button
           onClick={onSaveAs}
           data-testid="save-project-as"
-          title="Save the project to a new .caseproj.json file (pick filename + folder)"
+          disabled={welcomeMode}
+          title={
+            welcomeMode
+              ? 'Pick a board or template first'
+              : 'Save the project to a new .caseproj.json file (pick filename + folder)'
+          }
         >
           💾 Save as…
         </button>
@@ -174,9 +190,13 @@ export function Toolbar() {
       </button>
       <button
         onClick={onExport}
-        disabled={exporting}
+        disabled={exporting || welcomeMode}
         data-testid="export-default"
-        title={`Export current case as ${FORMAT_LABEL[exportFormat] ?? exportFormat} (change format in ⚙)`}
+        title={
+          welcomeMode
+            ? 'Pick a board or template first'
+            : `Export current case as ${FORMAT_LABEL[exportFormat] ?? exportFormat} (change format in ⚙)`
+        }
       >
         {exporting ? '⏳ Exporting…' : '⬇ Export'}
       </button>
