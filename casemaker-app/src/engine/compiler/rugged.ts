@@ -19,6 +19,10 @@ import {
   LATCH_KNUCKLE_OFFSET,
   LATCH_PIN_R,
   LATCH_PIN_HOLE_CLEAR,
+  LATCH_PIN_CAP_R,
+  LATCH_PIN_CAP_LEN,
+  LATCH_PIN_CAP_CLEAR_RADIAL,
+  LATCH_PIN_CAP_CLEAR_AXIAL,
 } from './latchProtection';
 
 type HatResolver = (id: string) => HatProfile | undefined;
@@ -302,7 +306,14 @@ function buildWallRibs(
         let rib = buildSmoothLatchRib(latch.wall, tCenter, LATCH_RIB_W, slices, EMBED, dims);
         if (!zIsLidLocal && isCorner) {
           const holeR = LATCH_PIN_R + LATCH_PIN_HOLE_CLEAR;
-          rib = difference([rib, buildPinHoleCutter(latch.wall, tCenter, holeR, knuckleCenterZ, dims)]);
+          const capR = LATCH_PIN_CAP_R + LATCH_PIN_CAP_CLEAR_RADIAL;
+          const capDepth = LATCH_PIN_CAP_LEN + LATCH_PIN_CAP_CLEAR_AXIAL;
+          const sCorner = cornerSign(latch, dims);
+          rib = difference([
+            rib,
+            buildPinHoleCutter(latch.wall, tCenter, holeR, knuckleCenterZ, dims),
+            buildCapCounterSink(latch.wall, tCenter, capR, capDepth, knuckleCenterZ, sCorner, dims),
+          ]);
         }
         out.push(rib);
       }
@@ -432,6 +443,47 @@ function buildPinHoleCutter(
     return translate([pinAxisN, ribTCenter - cutLen / 2, pinZ], oriented);
   }
   return translate([ribTCenter - cutLen / 2, pinAxisN, pinZ], oriented);
+}
+
+/** Counter-sink cylinder for the pin cap: wider than the through-hole,
+ *  recessed inward from the rib's CORNER-FACING outer face by capDepth.
+ *  When the pin is fully inserted the cap bottoms out against the inner
+ *  end of this counter-sink, leaving the cap's outer face flush with the
+ *  rib's outer face (with LATCH_PIN_CAP_CLEAR_AXIAL of axial slop so the
+ *  pin actually slides). */
+function buildCapCounterSink(
+  wall: '+x' | '-x' | '+y' | '-y',
+  ribTCenter: number,
+  capR: number,
+  capDepth: number,
+  pinZ: number,
+  sCorner: -1 | 1,
+  dims: { outerX: number; outerY: number; outerZ: number },
+): BuildOp {
+  const axis: 'x' | 'y' = wall === '+x' || wall === '-x' ? 'x' : 'y';
+  const sign: 1 | -1 = wall === '+x' || wall === '+y' ? +1 : -1;
+  const wallOuter =
+    wall === '-x' || wall === '-y' ? 0 :
+    wall === '+x' ? dims.outerX : dims.outerY;
+  const pinAxisN = wallOuter + sign * LATCH_KNUCKLE_OFFSET;
+  // Counter-sink starts at the rib's outer face (corner side) with a
+  // small overshoot for clean boolean, and extends INWARD by capDepth.
+  const halfRibW = LATCH_RIB_W / 2;
+  const overshoot = 0.5;
+  const totalLen = capDepth + overshoot;
+  // Tangent base of the cylinder (where the cylinder body starts and
+  // extends in the +tangent direction by totalLen).
+  const baseT = sCorner === +1
+    ? ribTCenter + halfRibW - capDepth     // corner is at +tangent; counter-sink goes from inside-rib OUT past outer face
+    : ribTCenter - halfRibW - overshoot;   // corner is at -tangent; counter-sink goes from past-outer-face INWARD
+  const cyl = cylinder(totalLen, capR, 24);
+  const oriented = axis === 'x'
+    ? rotate([-90, 0, 0], cyl)
+    : rotate([0, 90, 0], cyl);
+  if (axis === 'x') {
+    return translate([pinAxisN, baseT, pinZ], oriented);
+  }
+  return translate([baseT, pinAxisN, pinZ], oriented);
 }
 
 /** Tapered vertical rib: hexagonal cross-section in the (wall-normal,

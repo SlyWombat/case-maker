@@ -144,6 +144,17 @@ export function CasePanel() {
         testId="lid-thickness"
       />
       <Slider
+        label="Lid cavity height"
+        unit="mm"
+        hint="Pelican-style shell lid: > 0 turns the lid into a hollow box with side walls of `lidThickness` extending UP from the rim plus a closed top, giving you internal space for foam padding. 0 = flat plate lid (legacy). Adds this value to the assembled case height. Latch strikers ride on the lid's outer side wall in shell mode."
+        value={params.lidCavityHeight ?? 0}
+        min={0}
+        max={80}
+        step={1}
+        onChange={(v) => patch({ lidCavityHeight: v })}
+        testId="lid-cavity-height"
+      />
+      <Slider
         label="Corner radius"
         unit="mm"
         hint="Outer XY corner radius. 0 = sharp corners; values up to ~10 mm produce nicely-rounded edges."

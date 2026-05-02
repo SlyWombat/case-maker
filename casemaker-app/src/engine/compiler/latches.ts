@@ -8,7 +8,7 @@ import type {
 import type { DisplayPlacement, DisplayProfile } from '@/types/display';
 import { cube, cylinder, difference, translate, union, type BuildOp } from './buildPlan';
 import { computeShellDims } from './caseShell';
-import { pinSpanU } from './latchProtection';
+import { pinSpanU, pinCapSpanU, LATCH_PIN_CAP_R } from './latchProtection';
 
 type HatResolver = (id: string) => HatProfile | undefined;
 const NO_HATS: HatPlacement[] = [];
@@ -193,14 +193,24 @@ function buildOneLatch(
   );
 
   // -- Pin (separate part, runs through every knuckle) --------------------
-  // Pin extends ALL THE WAY THROUGH the corner-facing protective rib so the
-  // user can poke it out with a paperclip from outside the case. The
-  // protective rib has a matching hole that's slightly larger than PIN_R.
-  // pinSpanU() returns the asymmetric u range based on the corner side.
+  // Pin = cylindrical SHAFT + wider CAP at the corner-facing end. The
+  // shaft passes through case knuckles + the corner-facing protective
+  // rib's through-hole. The cap sits in a counter-sink on the rib's
+  // outer face and lands FLUSH with that face when fully inserted —
+  // gives the user a thumbnail / paperclip grip without a protruding stub.
   const pinSpan = pinSpanU(latch, dims);
-  const pin = makeBoreAlongTangent(
+  const pinShaft = makeBoreAlongTangent(
     f, pinSpan.uMin, pinSpan.uMax - pinSpan.uMin, pinAxisN, pivotZ, PIN_R,
   );
+  const capSpan = pinCapSpanU(latch, dims);
+  const pin = capSpan
+    ? union([
+        pinShaft,
+        makeBoreAlongTangent(
+          f, capSpan.uMin, capSpan.uMax - capSpan.uMin, pinAxisN, pivotZ, LATCH_PIN_CAP_R,
+        ),
+      ])
+    : pinShaft;
 
   // -- Lid-side striker geometry (computed first so the arm hook can be
   // -- positioned relative to the striker). Built later in lid-local coords.
