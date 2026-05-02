@@ -1,30 +1,56 @@
-import { useEffect, useState } from 'react';
-import { useViewportStore } from '@/store/viewportStore';
+import { useEffect, useState, type JSX } from 'react';
+import { useViewportStore, type SidebarSectionId } from '@/store/viewportStore';
 import { SelectionPanel } from '@/components/viewport/SelectionPanel';
+import { CasePanel } from '@/components/panels/CasePanel';
+import { ExportPanel } from '@/components/panels/ExportPanel';
+import { PortsPanel } from '@/components/panels/PortsPanel';
+import { BoardEditorPanel } from '@/components/panels/BoardEditorPanel';
+import { AssetsPanel } from '@/components/panels/AssetsPanel';
+import { HatsPanel } from '@/components/panels/HatsPanel';
+import { FeaturesPanel } from '@/components/panels/FeaturesPanel';
+
+const SECTION_TITLES: Record<SidebarSectionId, string> = {
+  board: 'Board',
+  case: 'Case parameters',
+  ports: 'Port cutouts',
+  hats: 'HATs',
+  features: 'Features',
+  assets: 'External assets',
+  export: 'Export',
+};
+
+function renderSection(id: SidebarSectionId): JSX.Element {
+  switch (id) {
+    case 'board':    return <BoardEditorPanel />;
+    case 'case':     return <CasePanel />;
+    case 'ports':    return <PortsPanel />;
+    case 'hats':     return <HatsPanel />;
+    case 'features': return <FeaturesPanel />;
+    case 'assets':   return <AssetsPanel />;
+    case 'export':   return <ExportPanel />;
+  }
+}
 
 /**
- * Issue #93 (Phase 4a) — right-rail context panel. Hosts per-thing detail
- * editors (host / HAT today; ports / catches / features land in 4b-e).
+ * Right-rail context panel. Hosts (in priority order):
+ *   1. Geometry selection editor (SelectionPanel) when something is
+ *      selected in the 3D viewport.
+ *   2. The active sidebar section's panel — opened by clicking a section
+ *      button in the left rail.
+ *   3. Empty-state placeholder.
  *
- * Layout:
- * - ≥ 1366 px viewport: fixed 360 px rail to the right of the canvas, always
- *   visible. Left rail (320 px) keeps the always-visible domain pickers.
- * - < 1366 px: rail becomes an off-canvas drawer that auto-opens when
- *   `viewportStore.selection` becomes non-null. A small "▸" tab on the
- *   viewport's right edge lets the user open it manually.
- *
- * Empty state: friendly placeholder text guiding the user to select
- * something. The SelectionPanel itself renders nothing when selection is
- * null, so the placeholder is here.
+ * Selection and active section are MUTUALLY EXCLUSIVE in viewportStore;
+ * setting one clears the other so the right rail only ever shows ONE thing.
  */
 export function ContextPanel() {
   const selection = useViewportStore((s) => s.selection);
+  const activeSection = useViewportStore((s) => s.activeSidebarSection);
+  const setSection = useViewportStore((s) => s.setActiveSidebarSection);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [isCompact, setIsCompact] = useState(() =>
     typeof window !== 'undefined' ? window.innerWidth < 1366 : false,
   );
 
-  // Track viewport width so we can switch between rail and drawer modes.
   useEffect(() => {
     function onResize() {
       setIsCompact(window.innerWidth < 1366);
@@ -33,11 +59,11 @@ export function ContextPanel() {
     return () => window.removeEventListener('resize', onResize);
   }, []);
 
-  // Auto-open the drawer when something becomes selected (compact only —
-  // on a wide viewport the rail is always visible).
+  // Auto-open the drawer when EITHER a geometry selection OR a sidebar
+  // section becomes active (compact viewports only).
   useEffect(() => {
-    if (isCompact && selection) setDrawerOpen(true);
-  }, [selection, isCompact]);
+    if (isCompact && (selection || activeSection)) setDrawerOpen(true);
+  }, [selection, activeSection, isCompact]);
 
   const isOpen = !isCompact || drawerOpen;
   const className = [
@@ -79,12 +105,31 @@ export function ContextPanel() {
         )}
         {selection ? (
           <SelectionPanel />
+        ) : activeSection ? (
+          <div data-testid={`context-section-${activeSection}`} style={{ padding: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <h3 style={{ margin: 0, fontSize: 15, color: '#d1d5db' }}>
+                {SECTION_TITLES[activeSection]}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setSection(null)}
+                title="Close section editor"
+                aria-label="Close section editor"
+                style={{ background: 'transparent', border: 0, color: '#9ca3af', fontSize: 18, cursor: 'pointer' }}
+              >
+                ×
+              </button>
+            </div>
+            {renderSection(activeSection)}
+          </div>
         ) : (
           <div className="context-panel__empty">
             <h3>Selection</h3>
             <p>
-              Click the host board, a HAT, or a feature in the viewport to edit
-              its properties here.
+              Click a section in the left rail to edit it here, or click the
+              host board, a HAT, or a feature in the viewport to edit its
+              properties.
             </p>
             <p className="context-panel__empty-hint">
               Tip: with the Select tool active, hover the 3D scene to see what

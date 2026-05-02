@@ -33,6 +33,19 @@ export type ViewportSelection =
   | { kind: 'component'; componentId: string }   // Phase 4e (#97)
   | null;
 
+/** Sidebar section ID — set when the user clicks a section header in
+ *  the left rail. Drives the right-rail content via ContextPanel.
+ *  Mutually exclusive with the geometry `selection` above (setting one
+ *  clears the other) so the right rail only ever shows ONE thing. */
+export type SidebarSectionId =
+  | 'board'
+  | 'case'
+  | 'ports'
+  | 'hats'
+  | 'features'
+  | 'assets'
+  | 'export';
+
 // Issue #91 — 4-way view-mode picker that drives lid lift + per-mesh
 // rendering:
 //   complete  : lid sits assembled (no exploded gap; recessed lid drops in)
@@ -93,6 +106,10 @@ export interface ViewportState {
   cameraMode: ViewportCameraMode;
   /** Issue #83 — host PCB / HAT in-viewport selection. */
   selection: ViewportSelection;
+  /** Sidebar section currently expanded into the right rail (left-nav
+   *  click moves the section's editor to the ContextPanel). Mutually
+   *  exclusive with `selection`. */
+  activeSidebarSection: SidebarSectionId | null;
   /** Issue #91 — 4-way view-mode picker. */
   viewMode: ViewportViewMode;
   /** Issue #120 — per-part visibility. Set entries are HIDDEN; absence =
@@ -109,6 +126,7 @@ export interface ViewportState {
   setActiveTool: (t: ViewportTool) => void;
   setCameraMode: (m: ViewportCameraMode) => void;
   setSelection: (s: ViewportSelection) => void;
+  setActiveSidebarSection: (s: SidebarSectionId | null) => void;
   setViewMode: (m: ViewportViewMode) => void;
   /** Issue #120 — toggle a part's visibility by node id. */
   togglePartVisible: (partId: string) => void;
@@ -131,6 +149,7 @@ export const useViewportStore = create<ViewportState>()((set, get) => ({
   // stale selection that points at a HAT placement that may no longer
   // exist.
   selection: null,
+  activeSidebarSection: null,
   hiddenParts: new Set<string>(),
   setShowLid: (v) => {
     set({ showLid: v });
@@ -158,7 +177,8 @@ export const useViewportStore = create<ViewportState>()((set, get) => ({
     set({ cameraMode: m });
     savePersisted({ ...get(), cameraMode: m });
   },
-  setSelection: (s) => set({ selection: s }),
+  setSelection: (s) => set({ selection: s, activeSidebarSection: s ? null : get().activeSidebarSection }),
+  setActiveSidebarSection: (s) => set({ activeSidebarSection: s, selection: s ? null : get().selection }),
   setViewMode: (m) => {
     // Issue #91 — keep showLid in sync with the view mode for legacy
     // consumers that still gate on showLid (export layouts etc.). The

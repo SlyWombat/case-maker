@@ -1,55 +1,62 @@
-import { CasePanel } from '@/components/panels/CasePanel';
-import { ExportPanel } from '@/components/panels/ExportPanel';
-import { PortsPanel } from '@/components/panels/PortsPanel';
-import { BoardEditorPanel } from '@/components/panels/BoardEditorPanel';
-import { AssetsPanel } from '@/components/panels/AssetsPanel';
-import { HatsPanel } from '@/components/panels/HatsPanel';
-import { FeaturesPanel } from '@/components/panels/FeaturesPanel';
 import { SidebarFooter } from './SidebarFooter';
-import { CollapsibleSidebarSection } from './CollapsibleSidebarSection';
 import { useProjectStore } from '@/store/projectStore';
+import { useViewportStore, type SidebarSectionId } from '@/store/viewportStore';
+
+const SECTIONS: { id: SidebarSectionId; label: string; icon: string; hint: string }[] = [
+  { id: 'board',    label: 'Board',           icon: '🟦', hint: 'Host PCB profile, mounting holes, components' },
+  { id: 'case',     label: 'Case parameters', icon: '📦', hint: 'Walls, lid, joint, seal, latches, hinge, rugged exterior' },
+  { id: 'ports',    label: 'Port cutouts',    icon: '🔌', hint: 'USB, HDMI, audio, custom port openings' },
+  { id: 'hats',     label: 'HATs',            icon: '🎩', hint: 'HAT placements stacked above the host board' },
+  { id: 'features', label: 'Features',        icon: '⚙️',  hint: 'Snap catches, mounting features, fans, antennas, displays, text labels' },
+  { id: 'assets',   label: 'External assets', icon: '📎', hint: 'STL imports, custom cutouts' },
+  { id: 'export',   label: 'Export',          icon: '⬇️',  hint: 'Per-part Save + Save All' },
+];
 
 export function Sidebar() {
   const welcomeMode = useProjectStore((s) => s.welcomeMode);
+  const activeSection = useViewportStore((s) => s.activeSidebarSection);
+  const setSection = useViewportStore((s) => s.setActiveSidebarSection);
   if (welcomeMode) {
-    // Issue #69 — hide all per-board panels until the user picks a board /
-    // template via the WelcomeOverlay. Settings now live in the title-bar
-    // gear menu (issue #74); board + templates live in the title-bar
-    // pull-down (issue #75), so the sidebar is empty in welcome mode.
     return <aside className="sidebar" />;
   }
-  // All sections start COLLAPSED — click the header to expand. State per
-  // section persists to localStorage so the user keeps their chosen open
-  // panels across reloads. Inline styles on `.sidebar` add a CSS rule
-  // suppressing each wrapped panel's own h3 (the section header is the
-  // title now, so a second h3 inside the body would double up).
+  // Sidebar is now an INDEX of sections. Clicking a section opens its
+  // editor in the right rail (ContextPanel). Mutually exclusive with
+  // viewport geometry selection — clicking either switches the right
+  // rail to host that thing.
   return (
-    <aside className="sidebar">
-      <style>{`
-        .sidebar-section__body > .panel > h3 { display: none; }
-        .sidebar-section__body > .panel { margin-top: 0; padding-top: 4px; }
-      `}</style>
-      <CollapsibleSidebarSection title="Board" storageKey="board">
-        <BoardEditorPanel />
-      </CollapsibleSidebarSection>
-      <CollapsibleSidebarSection title="Case parameters" storageKey="case">
-        <CasePanel />
-      </CollapsibleSidebarSection>
-      <CollapsibleSidebarSection title="Port cutouts" storageKey="ports">
-        <PortsPanel />
-      </CollapsibleSidebarSection>
-      <CollapsibleSidebarSection title="HATs" storageKey="hats">
-        <HatsPanel />
-      </CollapsibleSidebarSection>
-      <CollapsibleSidebarSection title="Features" storageKey="features">
-        <FeaturesPanel />
-      </CollapsibleSidebarSection>
-      <CollapsibleSidebarSection title="External assets" storageKey="assets">
-        <AssetsPanel />
-      </CollapsibleSidebarSection>
-      <CollapsibleSidebarSection title="Export" storageKey="export" defaultOpen>
-        <ExportPanel />
-      </CollapsibleSidebarSection>
+    <aside className="sidebar" style={{ padding: 8 }}>
+      {SECTIONS.map((s) => {
+        const isActive = activeSection === s.id;
+        return (
+          <button
+            key={s.id}
+            type="button"
+            onClick={() => setSection(isActive ? null : s.id)}
+            data-testid={`sidebar-button-${s.id}`}
+            aria-pressed={isActive}
+            title={s.hint}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              width: '100%',
+              padding: '10px 12px',
+              marginBottom: 4,
+              background: isActive ? '#243042' : '#1a1f25',
+              border: `1px solid ${isActive ? '#3a5a7a' : '#2a2f36'}`,
+              borderRadius: 4,
+              color: isActive ? '#cfe' : '#d1d5db',
+              fontSize: 13,
+              fontWeight: isActive ? 600 : 500,
+              textAlign: 'left',
+              cursor: 'pointer',
+            }}
+          >
+            <span aria-hidden style={{ fontSize: 16 }}>{s.icon}</span>
+            <span>{s.label}</span>
+          </button>
+        );
+      })}
       <SidebarFooter />
     </aside>
   );
